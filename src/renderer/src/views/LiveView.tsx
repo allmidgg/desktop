@@ -38,7 +38,7 @@ export function LiveView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
       <Panel className="p-8">
         <Spinner label={snapshot.error ?? "Connecting to the League client..."} />
         <p className="mt-3 text-xs text-ink-500">
-          Start the League client — jade.gg picks up the connection on its own.
+          Start the League client — AllMid picks up the connection on its own.
         </p>
       </Panel>
     );

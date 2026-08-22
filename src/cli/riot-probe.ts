@@ -1,5 +1,5 @@
 /**
- * jade.gg riot-probe -- zoekt uit of de publieke Riot API wél vertelt met welke
+ * AllMid riot-probe -- zoekt uit of de publieke Riot API wél vertelt met welke
  * runes en masteries er in een Classic-game gespeeld is.
  *
  * De lokale client doet dat niet: `perk0` t/m `perk5` zijn daar altijd 0. Als de
@@ -85,7 +85,7 @@ ${c.red}League-client staat uit.${c.reset} Geef dan je Riot-ID mee:
     );
   }
 
-  console.log(`\n${c.bold}jade.gg riot-probe${c.reset}`);
+  console.log(`\n${c.bold}AllMid riot-probe${c.reset}`);
   console.log(`${c.dim}account ${me.gameName}#${me.tagLine} | platform ${platform} | regio ${riot.region}${c.reset}\n`);
 
   // 1. Kent de publieke API onze Classic-queue?

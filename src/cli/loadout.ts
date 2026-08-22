@@ -1,5 +1,5 @@
 /**
- * jade.gg loadout -- toont je Classic mastery- en rune-pagina's.
+ * AllMid loadout -- toont je Classic mastery- en rune-pagina's.
  *
  * Alleen lezen. Het schrijven zit in de app achter een expliciete bevestiging.
  */

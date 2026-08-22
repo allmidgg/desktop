@@ -1,7 +1,7 @@
 /**
- * jade.gg upload -- stuurt de lokaal verzamelde games naar de gedeelde server.
+ * AllMid upload -- stuurt de lokaal verzamelde games naar de gedeelde server.
  *
- *   JADE_SERVER=https://jouwserver:8080 JADE_KEY=geheim npm run upload
+ *   ALLMID_SERVER=https://jouwserver:8080 ALLMID_KEY=geheim npm run upload
  */
 import { join } from "node:path";
 import { MatchStore, defaultStorePath } from "../core/services/matchStore";
@@ -10,8 +10,8 @@ import { MatchUploader, defaultUploadStatePath } from "../core/services/uploader
 const c = { reset: "\x1b[0m", dim: "\x1b[2m", bold: "\x1b[1m", green: "\x1b[32m", red: "\x1b[31m" };
 
 async function main(): Promise<void> {
-  const server = process.env.JADE_SERVER ?? process.argv[2];
-  const key = process.env.JADE_KEY ?? process.argv[3] ?? "";
+  const server = process.env.ALLMID_SERVER ?? process.argv[2];
+  const key = process.env.ALLMID_KEY ?? process.argv[3] ?? "";
   if (!server) {
     console.error(`\n${c.red}Geen serveradres.${c.reset}\n  npm run upload -- http://localhost:8080 sleutel\n`);
     process.exitCode = 1;
@@ -24,7 +24,7 @@ async function main(): Promise<void> {
   const uploader = new MatchUploader(server, key, store);
   await uploader.loadState(defaultUploadStatePath(process.cwd()));
 
-  console.log(`\n${c.bold}jade.gg upload${c.reset}`);
+  console.log(`\n${c.bold}AllMid upload${c.reset}`);
   console.log(`${c.dim}${store.size} games lokaal -> ${server}${c.reset}\n`);
 
   const result = await uploader.sync((done, total) => {

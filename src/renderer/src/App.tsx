@@ -46,7 +46,7 @@ function ChampSelectWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.
       <header className="drag flex h-10 shrink-0 items-center justify-between border-b border-white/6 pr-1 pl-4">
         <div className="flex items-center gap-3">
           <span className="text-[13px] font-semibold tracking-tight">
-            jade<span className="text-jade-400">.gg</span>
+            All<span className="text-jade-400">Mid</span>
           </span>
           <span className="text-[10px] tracking-[0.16em] text-ink-700 uppercase">
             Champion Select
@@ -132,7 +132,7 @@ function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
     <header className="drag relative z-10 flex h-11 shrink-0 items-center justify-between border-b border-white/6 pr-1 pl-5">
       <div className="flex items-center gap-3">
         <span className="text-[15px] font-semibold tracking-tight">
-          jade<span className="text-jade-400">.gg</span>
+          All<span className="text-jade-400">Mid</span>
         </span>
         <span className="text-[11px] tracking-[0.16em] text-ink-700 uppercase">League Classic</span>
       </div>

@@ -1,5 +1,5 @@
 /**
- * jade.gg stats -- leest de verzamelde matches en rekent er statistiek op uit.
+ * AllMid stats -- leest de verzamelde matches en rekent er statistiek op uit.
  * Crawlt niets; puur wat er al op schijf staat.
  *
  *   npm run stats              tierlijsten per positie

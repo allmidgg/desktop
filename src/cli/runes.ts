@@ -1,5 +1,5 @@
 /**
- * jade.gg runes -- stelt de beste rune-pagina voor die je nu kunt maken.
+ * AllMid runes -- stelt de beste rune-pagina voor die je nu kunt maken.
  *
  *   npm run runes -- Ashe            voorstel voor Ashe
  *   npm run runes -- Ashe support    andere rolweging afdwingen

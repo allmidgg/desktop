@@ -248,7 +248,7 @@ export class LolClassicService implements GameService {
     this.stopping = false;
     // De sleutel komt uit de omgeving en niet uit een instellingenbestand: hij
     // hoort bij hoe de server gestart wordt, niet bij de verzamelde data.
-    this.apiKey = process.env.JADE_KEY ?? "";
+    this.apiKey = process.env.ALLMID_KEY ?? "";
 
     const path = defaultStorePath(ctx.dataRoot);
     this.storePath = path;
@@ -273,7 +273,7 @@ export class LolClassicService implements GameService {
     };
 
     ctx.log("info", `Loaded ${store.size} games from ${path}`);
-    if (!this.apiKey) ctx.log("warn", "No JADE_KEY set: anyone can upload matches");
+    if (!this.apiKey) ctx.log("warn", "No ALLMID_KEY set: anyone can upload matches");
   }
 
   async stop(): Promise<void> {
@@ -438,7 +438,7 @@ export class LolClassicService implements GameService {
    */
   private denied(req: ServiceRequest): ServiceResponse | null {
     if (!this.apiKey) return null;
-    return secretMatches(this.apiKey, req.headers["x-jade-key"])
+    return secretMatches(this.apiKey, req.headers["x-allmid-key"])
       ? null
       : json(401, { error: "Invalid or missing API key" });
   }
@@ -616,7 +616,7 @@ export class LolClassicService implements GameService {
    * niets kent. Hij wordt bewust nooit ingelezen -- `load()` blijft uit, dus zijn
    * Map is leeg -- waardoor hij niets wegfiltert en alles wegschrijft wat wij hem
    * geven. Daarmee krijgt deze weg vanzelf hetzelfde formaat, dezelfde
-   * herkansingen, dezelfde fsync en dezelfde JADE_FSYNC-knop als de gewone weg,
+   * herkansingen, dezelfde fsync en dezelfde ALLMID_FSYNC-knop als de gewone weg,
    * en blijft er maar één stuk code dat weet hóé er geschreven wordt.
    *
    * Wat hij kost is een leeg object per aanroep: de paar games die hij indexeert

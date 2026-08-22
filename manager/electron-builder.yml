@@ -1,32 +1,32 @@
 # Verpakopzet voor de Server Manager.
 #
 # De repo bevat twee Electron-apps met één package.json ertussen. Dat bestand is
-# van jade.gg -- "main" wijst naar out/main/index.js en de naam is jade-gg -- dus
+# van AllMid -- "main" wijst naar out/main/index.js en de naam is allmid -- dus
 # alles wat de Manager anders nodig heeft staat hier, en niet daar. Zo kan de ene
 # app verpakt worden zonder dat de andere iets merkt.
 #
 # Draaien met: npm run manager:package (na npm run manager:build).
 
-appId: gg.jade.server-manager
-productName: jade.gg Server Manager
-copyright: jade.gg
+appId: gg.allmid.server-manager
+productName: AllMid Server Manager
+copyright: AllMid
 
 directories:
   # Naast manager/out, zodat de bouwsels van beide apps gescheiden blijven en
   # `dist/` uit .gitignore ze allebei al afvangt.
   output: manager/dist
 
-# electron-builder leest de ingang uit package.json, en die van jade.gg. Deze
+# electron-builder leest de ingang uit package.json, en die van AllMid. Deze
 # override wordt in de meegeleverde package.json geschreven en raakt het bestand
 # op schijf niet aan. De naam gaat mee omdat Electron daar de map voor
 # gebruikersdata uit afleidt: mocht app.setPath() in main ooit sneuvelen, dan
-# landt de Manager alsnog niet in de opslag van jade.gg.
+# landt de Manager alsnog niet in de opslag van AllMid.
 extraMetadata:
   main: manager/out/main/index.js
-  name: jade-gg-server-manager
+  name: allmid-server-manager
 
 # Alleen het bouwsel van de Manager. Zonder deze lijst pakt electron-builder de
-# hele repo in: de bronnen, de root-out/ van jade.gg, en -- erger -- data/ en
+# hele repo in: de bronnen, de root-out/ van AllMid, en -- erger -- data/ en
 # server-data/ met matches erin. Die horen niet in een installer.
 #
 # manager/out/main/index.js verwacht ../preload en ../renderer naast zich
@@ -63,7 +63,7 @@ nsis:
 
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: jade.gg Server Manager
+  shortcutName: AllMid Server Manager
   artifactName: ${productName} Setup ${version}.${ext}
 
 portable:

@@ -10,7 +10,7 @@
  * de client, zodat er maar één opslagvorm bestaat om te begrijpen en te
  * inspecteren. Draait op elke machine waar Node staat.
  *
- *   JADE_KEY=geheim node --experimental-strip-types server/index.ts
+ *   ALLMID_KEY=geheim node --experimental-strip-types server/index.ts
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
@@ -18,8 +18,8 @@ import { MatchStore, defaultStorePath, type StoredMatch } from "../src/core/serv
 import { JadeStats } from "../src/core/services/stats";
 
 const PORT = Number(process.env.PORT ?? 8080);
-const API_KEY = process.env.JADE_KEY ?? "";
-const DATA_ROOT = process.env.JADE_DATA ?? process.cwd();
+const API_KEY = process.env.ALLMID_KEY ?? "";
+const DATA_ROOT = process.env.ALLMID_DATA ?? process.cwd();
 
 /** Grenzen die voorkomen dat één verzoek de server plat legt. */
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
@@ -130,7 +130,7 @@ function buildStatsPayload(): string {
 
 const server = createServer((req, res) => {
   void handle(req, res).catch((err) => {
-    console.error("[jade] verzoek mislukt:", (err as Error).message);
+    console.error("[allmid] verzoek mislukt:", (err as Error).message);
     if (!res.headersSent) send(res, 400, { error: (err as Error).message });
   });
 });
@@ -146,7 +146,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   if (rateLimited(ip)) return send(res, 429, { error: "te veel verzoeken" });
 
   // Alles behalve health vereist de sleutel.
-  if (API_KEY && req.headers["x-jade-key"] !== API_KEY) {
+  if (API_KEY && req.headers["x-allmid-key"] !== API_KEY) {
     return send(res, 401, { error: "ongeldige sleutel" });
   }
 
@@ -174,7 +174,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     else if (added > 0) statsCache = null;
 
     console.log(
-      `[jade] ${ip}: ${incoming.length} aangeboden, ${valid.length} geldig, ${added} nieuw ` +
+      `[allmid] ${ip}: ${incoming.length} aangeboden, ${valid.length} geldig, ${added} nieuw ` +
         `(totaal ${store.size})`,
     );
     return send(res, 200, {
@@ -189,13 +189,13 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 }
 
 async function main(): Promise<void> {
-  console.log(`[jade] database laden uit ${join(DATA_ROOT, "data")}...`);
+  console.log(`[allmid] database laden uit ${join(DATA_ROOT, "data")}...`);
   await store.load();
   rebuildStats();
-  console.log(`[jade] ${store.size} games, ${store.knownPuuids.length} spelers`);
-  if (!API_KEY) console.warn("[jade] LET OP: geen JADE_KEY gezet, iedereen mag uploaden");
+  console.log(`[allmid] ${store.size} games, ${store.knownPuuids.length} spelers`);
+  if (!API_KEY) console.warn("[allmid] LET OP: geen ALLMID_KEY gezet, iedereen mag uploaden");
 
-  server.listen(PORT, () => console.log(`[jade] luistert op poort ${PORT}`));
+  server.listen(PORT, () => console.log(`[allmid] luistert op poort ${PORT}`));
 }
 
 void main();

@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 /**
  * Buildopzet voor de Server Manager.
  *
- * Deze app woont in dezelfde repo als jade.gg maar is er verder los van. Alles
+ * Deze app woont in dezelfde repo als AllMid maar is er verder los van. Alles
  * gaat daarom naar manager/out: een build van de een overschrijft die van de
  * ander nooit, en beide kunnen naast elkaar draaien.
  *
@@ -20,7 +20,7 @@ const here = (...parts: string[]): string => resolve(managerRoot, ...parts);
 
 /**
  * electron-vite start Electron standaard met het "main"-veld uit package.json,
- * en dat wijst naar jade.gg. Zonder deze regel opent `npm run manager:dev` dus de
+ * en dat wijst naar AllMid. Zonder deze regel opent `npm run manager:dev` dus de
  * verkeerde app. Zo hoeft er niets aan het gedeelde package.json te veranderen.
  */
 process.env.ELECTRON_ENTRY ??= here("out", "main", "index.js");

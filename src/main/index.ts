@@ -210,12 +210,12 @@ const CONNECTION_ERRORS = /ECONNREFUSED|ECONNRESET|EPIPE|ENOTFOUND|socket hang u
 function handleFatal(scope: string, error: unknown): void {
   const message = (error as Error)?.message ?? String(error);
   if (CONNECTION_ERRORS.test(message)) {
-    console.warn(`[jade] ${scope} (verbinding weg):`, message);
+    console.warn(`[allmid] ${scope} (verbinding weg):`, message);
     return;
   }
   // Alles wat hier wél terechtkomt is een echte fout; die verbergen we niet.
-  console.error(`[jade] ${scope}:`, error);
-  dialog.showErrorBox("jade.gg", `Er ging iets mis (${scope}):
+  console.error(`[allmid] ${scope}:`, error);
+  dialog.showErrorBox("AllMid", `Er ging iets mis (${scope}):
 
 ${message}`);
 }

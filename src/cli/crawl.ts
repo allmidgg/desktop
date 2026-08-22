@@ -1,5 +1,5 @@
 /**
- * jade.gg crawl -- vult de lokale matchdatabase.
+ * AllMid crawl -- vult de lokale matchdatabase.
  *
  *   npm run crawl             blijft doorlopen tot je Ctrl+C geeft
  *   npm run crawl -- 200      stopt na 200 spelers
@@ -28,7 +28,7 @@ async function main(): Promise<void> {
   const store = new MatchStore(defaultStorePath(process.cwd()));
   await store.load();
 
-  console.log(`\n${c.bold}jade.gg crawler${c.reset}`);
+  console.log(`\n${c.bold}AllMid crawler${c.reset}`);
   console.log(`${c.dim}database: ${store.size} games, ${store.knownPuuids.length} spelers bekend${c.reset}`);
   console.log(
     maxPlayers === Number.POSITIVE_INFINITY

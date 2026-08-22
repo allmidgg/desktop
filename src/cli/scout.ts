@@ -1,5 +1,5 @@
 /**
- * jade.gg scout -- terminalversie van de champ select-scout.
+ * AllMid scout -- terminalversie van de champ select-scout.
  *
  * Zonder argumenten: analyseert de tien spelers uit je laatste League Classic-game.
  * Met een Riot-ID (`npm run scout -- Faker#KR1`): analyseert die ene speler.
@@ -60,7 +60,7 @@ async function scoutSinglePlayer(client: LcuClient, catalog: JadeCatalog, riotId
 
 async function scoutLastGame(client: LcuClient, catalog: JadeCatalog): Promise<void> {
   const me = await fetchCurrentSummoner(client);
-  console.log(`\n${c.bold}jade.gg${c.reset} ${c.dim}// ingelogd als ${me.gameName}#${me.tagLine}${c.reset}`);
+  console.log(`\n${c.bold}AllMid${c.reset} ${c.dim}// ingelogd als ${me.gameName}#${me.tagLine}${c.reset}`);
 
   const [recent] = await fetchJadeGames(client, me.puuid, 1);
   if (!recent) {

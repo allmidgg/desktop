@@ -125,7 +125,7 @@ const browsers = new Map<string, Promise<MatchBrowser>>();
 
 /**
  * Electron leidt de map voor gebruikersdata af uit de naam in package.json, en
- * die is van jade.gg. Zonder deze twee regels delen de twee apps hun
+ * die is van AllMid. Zonder deze twee regels delen de twee apps hun
  * instellingen en hun opslag.
  */
 app.setName("Server Manager");

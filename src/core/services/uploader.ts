@@ -126,7 +126,7 @@ export class MatchUploader {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          ...(this.apiKey ? { "x-jade-key": this.apiKey } : {}),
+          ...(this.apiKey ? { "x-allmid-key": this.apiKey } : {}),
         },
         body: payload,
       });

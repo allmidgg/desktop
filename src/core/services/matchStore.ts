@@ -217,7 +217,7 @@ async function* readLines(path: string): AsyncGenerator<string, void, void> {
  * beschermt -- `add()` zou weer 'ja' zeggen over bytes die nog nergens staan.
  *
  * "off" blijft over voor een wegwerp-import waarbij de aanroeper zelf weet dat hij
- * bij een crash gewoon opnieuw begint. Te zetten met JADE_FSYNC=0.
+ * bij een crash gewoon opnieuw begint. Te zetten met ALLMID_FSYNC=0.
  */
 export type SyncMode = "append" | "off";
 
@@ -227,7 +227,7 @@ export interface MatchStoreOptions {
 }
 
 function envSyncMode(): SyncMode {
-  const raw = process.env.JADE_FSYNC?.trim().toLowerCase();
+  const raw = process.env.ALLMID_FSYNC?.trim().toLowerCase();
   return raw === "0" || raw === "off" || raw === "false" ? "off" : "append";
 }
 

@@ -1,4 +1,4 @@
-# jade.gg
+# AllMid
 
 Stats, champion select scouting and build data for **League of Legends Classic** —
 the mode no existing tool supports.
@@ -14,7 +14,7 @@ falls through every filter. Riot's public API does not expose the mode at all �
 verified this: every Classic match returns `403 Forbidden`, and every Classic queue filter
 returns zero results.
 
-So jade.gg reads the League client directly, the same way Blitz and Porofessor do, and
+So AllMid reads the League client directly, the same way Blitz and Porofessor do, and
 builds its own dataset from what it finds.
 
 ![Champion select](docs/screenshots/champion-select.png)
@@ -67,7 +67,7 @@ Fair question to ask of any executable that talks to your game client. The hones
 - No memory reading. No injection. No DLLs. No hooking the game process.
 - No scripting, no automation of gameplay, nothing that touches the game itself.
 - No account credentials. It never sees or asks for your password — the client
-  authenticates itself and jade.gg talks to it locally over `127.0.0.1`.
+  authenticates itself and AllMid talks to it locally over `127.0.0.1`.
 
 **Why you can check this yourself**
 
@@ -94,7 +94,7 @@ Requires Node 20 or newer and a Windows machine.
 
 ```bash
 npm install
-npm run build          # the jade.gg client
+npm run build          # the AllMid client
 npm run manager:build  # the server manager
 npm run manager:package
 ```
@@ -105,7 +105,7 @@ The installers land in `manager/dist/`.
 
 ## The apps
 
-### jade.gg client
+### AllMid client
 
 | Screen | What it shows |
 | --- | --- |

@@ -4,7 +4,7 @@ Eén desktop-app die meerdere game-servers host. Nu draait er één service —
 **League of Legends Classic**, die matchdata van clients verzamelt — maar de opzet
 is gemaakt om er games bij te krijgen zonder dat er aan de host iets verandert.
 
-De app staat naast jade.gg in dezelfde repo en deelt de dependencies, maar bouwt
+De app staat naast AllMid in dezelfde repo en deelt de dependencies, maar bouwt
 naar zijn eigen `manager/out` en start met zijn eigen main-proces.
 
 ## De vorm: host + services
@@ -112,7 +112,7 @@ manager/src/main/                  Electron main-proces: venster, IPC, host
 manager/src/main/services/         het contract plus de services zelf
 manager/src/preload/               de afgebakende brug naar de UI
 manager/src/renderer/              de interface (React + Tailwind)
-manager/out/                       buildresultaat, los van dat van jade.gg
+manager/out/                       buildresultaat, los van dat van AllMid
 ```
 
 ## Ontwikkelen
@@ -124,9 +124,9 @@ npm run manager:build    # naar manager/out
 
 Twee dingen om te weten bij het draaien:
 
-- `package.json` blijft van jade.gg: het `main`-veld wijst naar `out/main/index.js`.
+- `package.json` blijft van AllMid: het `main`-veld wijst naar `out/main/index.js`.
   De manager-config zet daarom `ELECTRON_ENTRY` zodat electron-vite de juiste app
   opstart. Wie de manager buiten deze scripts om start, moet dat pad zelf meegeven.
 - Electron leidt de map voor gebruikersdata af uit de naam in `package.json`, en
   die is voor beide apps gelijk. Het main-proces zet daarom zijn eigen naam en
-  `userData`-pad, anders delen de manager en jade.gg hun instellingen.
+  `userData`-pad, anders delen de manager en AllMid hun instellingen.

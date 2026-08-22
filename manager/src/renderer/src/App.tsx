@@ -162,7 +162,7 @@ function TitleBar(): JSX.Element {
           <path d="M7.5 7.5h.01M7.5 16.5h.01" className="text-jade-400" strokeLinecap="round" />
         </svg>
         <span className="text-[14px] font-semibold tracking-tight">
-          server<span className="text-jade-400">.manager</span>
+          All<span className="text-jade-400">Mid</span>
         </span>
         <span className="text-[10px] tracking-[0.16em] text-ink-700 uppercase">Game Host</span>
       </div>

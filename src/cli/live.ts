@@ -1,5 +1,5 @@
 /**
- * jade.gg live -- kijkt mee tijdens een lopende game.
+ * AllMid live -- kijkt mee tijdens een lopende game.
  *
  * Twee doelen. Eerst: uitzoeken wat de Live Client API precies prijsgeeft voor
  * League Classic -- geeft hij van alle tien de spelers hun runes, of alleen van
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
   let champion = "";
   let waiting = false;
 
-  console.log(`\n${c.bold}jade.gg live${c.reset}`);
+  console.log(`\n${c.bold}AllMid live${c.reset}`);
   console.log(`${c.dim}wacht op een game... (Ctrl+C om te stoppen)${c.reset}`);
 
   for (;;) {
