@@ -71,7 +71,9 @@ if (-not (Test-Path $Target)) {
 
 # /MIR spiegelt: wat op de bron weg is, gaat op het doel ook weg. Dat is precies
 # wat je wilt bij een site, anders blijven oude bestanden eeuwig staan.
-$uitsluiten = @('_var-*.html', '_shot.html', '.nojekyll', 'CNAME', 'build.mjs')
+# fetch-icons.mjs en refresh.mjs zijn bouwgereedschap, net als build.mjs: ze
+# horen in de repo en niet op de webserver.
+$uitsluiten = @('_var-*.html', '_shot.html', '.nojekyll', 'CNAME', 'build.mjs', 'fetch-icons.mjs', 'refresh.mjs')
 
 $roboArgs = @(
     $bron, $Target,

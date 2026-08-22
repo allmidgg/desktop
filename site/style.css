@@ -1,0 +1,797 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   AllMid — allmid.gg
+
+   Eén donker thema, bewust. Dit is een pagina voor een overlay bij een spel.
+
+   De leidende regel na drie afgekeurde ontwerprichtingen: champion-art staat
+   op VOLLE KLEUR in zijn eigen zone, en tekst staat op schone donkere grond.
+   Art wegdimmen achter een kop levert modder op — dat is precies wat er mis
+   was aan de vorige versie.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --ground:   #070810;
+  --surface:  #11141f;
+  --raised:   #161a27;
+  --raised-2: #1c2130;
+  --line:     #232838;
+  --line-lit: #2f3648;
+
+  --ink:   #e9edf7;
+  --muted: #9aa4bd;
+  --dim:   #6d768f;
+
+  /* Goud is de identiteit. De winratekleuren staan daar bewust los van: groen
+     en rood betekenen iets, goud betekent niets. Haal je die door elkaar, dan
+     lees je in een tabel niet meer of een kleur een waarde of een merk is. */
+  --gold:     #e7c76e;
+  --gold-lit: #f4e0a6;
+  --gold-dim: #9a7f38;
+
+  --wr-hi:  #3ad9a4;
+  --wr-ok:  #8fc98a;
+  --wr-lo:  #ffb454;
+  --wr-bad: #ff5f72;
+
+  --radius:   14px;
+  --radius-s: 9px;
+  --shadow:   0 18px 50px -18px rgba(0, 0, 0, 0.85);
+
+  --display: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --body:    "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:    "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace;
+
+  --gutter:  clamp(1.25rem, 5vw, 4.5rem);
+  --max:     1320px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+html { background: var(--ground); }
+body {
+  margin: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.06rem);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1, h2, h3 {
+  font-family: var(--display);
+  font-weight: 800;
+  font-stretch: 112%;
+  line-height: 1.03;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
+  margin: 0;
+}
+
+a { color: inherit; }
+img { max-width: 100%; display: block; }
+table { border-collapse: collapse; width: 100%; }
+
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 2px; }
+
+.wrap { width: 100%; max-width: var(--max); margin-inline: auto; padding-inline: var(--gutter); }
+.mono { font-family: var(--mono); }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 0 0 1.1rem;
+}
+
+.block-label {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: 0 0 0.85rem;
+}
+.block-label span { color: var(--line-lit); text-transform: none; letter-spacing: 0.04em; }
+
+/* ── Kop ───────────────────────────────────────────────────────────────── */
+header {
+  position: sticky; top: 0; z-index: 60;
+  background: rgba(6, 8, 12, 0.9);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.25s ease;
+}
+header.stuck { border-bottom-color: var(--line); }
+header .wrap { display: flex; align-items: center; gap: 2rem; min-height: 66px; }
+
+.brand {
+  display: flex; align-items: center; gap: 0.6rem;
+  font-family: var(--display); font-weight: 800; font-stretch: 112%;
+  font-size: 1.18rem; letter-spacing: -0.02em; text-decoration: none; margin-right: auto;
+}
+.brand .mark { width: 22px; height: 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; flex: none; }
+.brand .mark i { background: var(--line-lit); border-radius: 1px; }
+.brand .mark i:nth-child(2), .brand .mark i:nth-child(4), .brand .mark i:nth-child(9) { background: var(--gold); }
+.brand-name { white-space: nowrap; }
+.brand em { font-style: normal; color: var(--gold); }
+
+nav.links { display: flex; gap: 1.6rem; }
+nav.links a { text-decoration: none; color: var(--muted); font-size: 0.9rem; font-weight: 500; transition: color 0.18s ease; }
+nav.links a:hover { color: var(--ink); }
+@media (max-width: 900px) { nav.links { display: none; } }
+
+/* ── Knoppen ───────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  padding: 0.78rem 1.35rem; border-radius: 6px;
+  font-family: var(--body); font-weight: 600; font-size: 0.94rem;
+  text-decoration: none; border: 1px solid transparent; cursor: pointer; white-space: nowrap;
+  transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-primary { background: var(--gold); color: #1a1405; }
+.btn-primary:hover { background: var(--gold-lit); }
+.btn-ghost { border-color: var(--line-lit); color: var(--ink); }
+.btn-ghost:hover { border-color: var(--muted); background: var(--surface); }
+.btn-sm { padding: 0.52rem 1rem; font-size: 0.86rem; }
+.btn svg { width: 17px; height: 17px; flex: none; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center; }
+
+/* ── De knop aanwijzen vanuit de kop ──────────────────────────────────────
+   Klikken op Download rechtsboven springt naar de eerste knop. Zonder markering
+   land je daar en weet je niet waar je naar moet kijken; vandaar dat hij even
+   oplicht met een pijl erboven. Alles verdwijnt vanzelf.
+   ───────────────────────────────────────────────────────────────────────── */
+@keyframes wijs-aan {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(231, 199, 110, 0); }
+  50%      { box-shadow: 0 0 0 7px rgba(231, 199, 110, 0.28); }
+}
+@keyframes wijs-pijl {
+  0%, 100% { transform: translate(-50%, 0); }
+  50%      { transform: translate(-50%, 7px); }
+}
+
+.btn.aangewezen { animation: wijs-aan 1s ease-in-out 3; position: relative; }
+.btn.aangewezen::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 10px solid var(--gold);
+  animation: wijs-pijl 1s ease-in-out 3;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn.aangewezen { animation: none; box-shadow: 0 0 0 4px rgba(231, 199, 110, 0.3); }
+  .btn.aangewezen::after { animation: none; }
+}
+
+/* ── Hero ──────────────────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  padding-block: clamp(3rem, 6vw, 5.5rem) clamp(2rem, 4vw, 3rem);
+}
+
+/* Splash-art achter de hero, opgelicht in plaats van gedimd.
+   Het omhulsel bepaalt de begrenzing; het mozaiek mag daarbinnen zo groot zijn
+   als het wil. De sluier hangt aan datzelfde omhulsel, zodat er geen strook meer
+   kan ontstaan met wel art en geen sluier -- dat was precies wat er misging: de
+   sluier eindigde 257 px boven de onderkant van de hero. */
+.hero-bg {
+  position: absolute; inset: 0; z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.mosaic {
+  position: absolute; inset: -40px -3% -40px -3%;
+  display: grid; grid-template-columns: repeat(9, 1fr); grid-auto-rows: 158px; gap: 6px;
+  transform: rotate(-3deg) scale(1.12); transform-origin: 50% 0;
+}
+.mosaic img {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 5px;
+  filter: saturate(1.1) contrast(1.02) brightness(1.22);
+}
+
+/* De sluier is gevormd: twee radiale vlekken staan precies onder de kop en
+   onder de verkenner, zodat daar contrast is en de rest helder blijft. */
+.hero-bg::after {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(7, 8, 16, 0.55) 0%, rgba(7, 8, 16, 0.72) 34%, rgba(7, 8, 16, 0.86) 62%, rgba(7, 8, 16, 0.91) 88%),
+    radial-gradient(90% 70% at 22% 34%, rgba(7, 8, 16, 0.86) 0%, rgba(7, 8, 16, 0.5) 46%, transparent 74%),
+    radial-gradient(70% 60% at 78% 30%, rgba(7, 8, 16, 0.78) 0%, rgba(7, 8, 16, 0.35) 52%, transparent 80%);
+}
+
+/* Dezelfde splash-art loopt achter de hele pagina door, niet alleen achter de
+   hero -- anders houdt het beeld halverwege het eerste scherm gewoon op.
+   Vastgezet aan het scherm in plaats van aan het document: een pagina van acht
+   schermen hoog zou anders honderden tegels nodig hebben, en nu glijden de
+   panelen over een stilstaand beeld. De sluier is hier veel dieper dan bij de
+   hero: het is achtergrond, geen onderwerp. */
+.paginadek {
+  position: fixed; inset: 0; z-index: -3;
+  overflow: hidden; pointer-events: none;
+}
+.mosaic-pagina {
+  inset: -10% -6%;
+  grid-template-columns: repeat(8, 1fr);
+  grid-auto-rows: 22vh;
+  transform: rotate(-3deg) scale(1.05);
+  transform-origin: 50% 40%;
+}
+/* Een vaste laag staat helemaal stil terwijl je scrolt; dat leest als
+   vastgeplakt in plaats van doorlopend. Tien procent drift over de hele pagina
+   is genoeg om het beeld bij de pagina te laten horen zonder dat het opvalt.
+   scroll() heeft nog niet iedere browser, en zonder blijft het gewoon stilstaan
+   -- dat is de bestaande toestand, dus er gaat nergens iets stuk. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .mosaic-pagina {
+      animation: dekdrift linear both;
+      animation-timeline: scroll(root block);
+    }
+  }
+}
+@keyframes dekdrift {
+  from { transform: rotate(-3deg) scale(1.05) translateY(2%); }
+  to { transform: rotate(-3deg) scale(1.05) translateY(-9%); }
+}
+
+.paginadek::after {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(7, 8, 16, 0.9) 0%, rgba(7, 8, 16, 0.93) 100%),
+    radial-gradient(115% 75% at 50% 45%, transparent 0%, rgba(7, 8, 16, 0.42) 62%, rgba(7, 8, 16, 0.72) 100%);
+}
+
+@media (max-width: 1040px) {
+  .mosaic { grid-auto-rows: 120px; }
+  .mosaic-pagina { grid-template-columns: repeat(5, 1fr); grid-auto-rows: 18vh; }
+}
+
+/* Het modelabel naast het merk. */
+.badge {
+  font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--gold); border: 1px solid var(--gold-dim); background: rgba(231, 199, 110, 0.08);
+  padding: 0.24rem 0.46rem; border-radius: 4px; flex: none; line-height: 1;
+}
+.hero .wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  gap: clamp(2rem, 4vw, 3.5rem);
+  align-items: center;
+}
+@media (max-width: 1040px) { .hero .wrap { grid-template-columns: 1fr; } }
+
+.hero h1 { font-size: clamp(2.5rem, 5.4vw, 4.15rem); margin-bottom: 1.35rem; }
+.hero h1 em { font-style: normal; color: var(--gold); }
+.hero .lede { font-size: clamp(1.02rem, 0.98rem + 0.35vw, 1.16rem); color: var(--muted); max-width: 46ch; margin: 0 0 1.9rem; }
+.hero .lede strong { color: var(--ink); font-weight: 600; }
+.cta-note { font-family: var(--mono); font-size: 0.73rem; color: var(--dim); margin: 1.05rem 0 0; }
+
+/* Dekking: het verkoopverhaal in één regel. */
+.explorer-col { display: grid; gap: 1rem; align-content: start; }
+
+.coverage {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem;
+}
+.coverage .cov-label {
+  flex: none;
+  margin-right: 0.15rem;
+  font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--dim); width: 100%; margin: 0 0 0.7rem;
+}
+.coverage span {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.84rem; font-weight: 600;
+  padding: 0.34rem 0.7rem; border-radius: 5px;
+  border: 1px solid var(--line); color: var(--dim);
+}
+.coverage span::before { content: "\00d7"; color: var(--wr-bad); font-weight: 700; }
+.coverage span.yes { color: var(--ink); border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.08); }
+.coverage span.yes::before { content: "\2713"; color: var(--gold); }
+
+/* ── Verkenner: portretten op volle kleur ──────────────────────────────── */
+.explorer {
+  border: 1px solid var(--line-lit); border-radius: var(--radius); background: var(--surface);
+  overflow: hidden; box-shadow: var(--shadow);
+}
+.explorer-head {
+  background: var(--raised);
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.85rem 1rem; border-bottom: 1px solid var(--line);
+}
+.explorer-head h2 { font-size: 0.95rem; font-weight: 700; font-stretch: 105%; letter-spacing: -0.01em; }
+.explorer-head .count { margin-left: auto; font-family: var(--mono); font-size: 0.68rem; color: var(--dim); }
+
+.explorer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap: 4px; padding: 0.8rem;
+}
+.portrait {
+  position: relative; padding: 0; border: 1px solid transparent; border-radius: 5px;
+  background: none; cursor: pointer; overflow: hidden; line-height: 0;
+  transition: border-color 0.14s ease, transform 0.14s ease;
+}
+.portrait img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; }
+.portrait:hover { transform: translateY(-2px); border-color: var(--line-lit); }
+.portrait[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.portrait-name {
+  position: absolute; inset: auto 0 0 0;
+  font-family: var(--mono); font-size: 0.52rem; line-height: 1.5;
+  background: rgba(6, 8, 12, 0.86); color: var(--ink);
+  opacity: 0; transition: opacity 0.14s ease;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px;
+}
+.portrait:hover .portrait-name, .portrait:focus-visible .portrait-name { opacity: 1; }
+
+/* ── Detailpaneel ──────────────────────────────────────────────────────── */
+/* Het detailpaneel en de builds eronder horen een geheel te zijn: het gaat over
+   dezelfde champion. Ze stonden als twee losse kaders onder elkaar met een naad
+   ertussen. Nu een omhulsel dat de rand draagt, met de twee delen erbinnen. */
+.champpaneel {
+  position: relative;
+  border: 1px solid var(--line-lit);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  background: var(--surface);
+}
+
+/* De bovenrand verdween steeds na een seconde.
+   Gemeten: het paneel staat op .375 van een schermpixel. Een rand van 1px wordt
+   dan over twee pixelrijen verdeeld, elk voor een deel, en var(--line-lit) op 37%
+   over bijna-zwart is niets. Dat hij er eerst even wel is komt door de reveal:
+   zolang die animeert heeft het paneel een eigen composietlaag en wordt de rand
+   op hele pixels gerasterd. Zodra de animatie klaar is vervalt die laag.
+
+   Twee eerdere pogingen werkten daarom niet. Een tweede lijn van 1px eronder valt
+   op precies dezelfde gebroken positie en verdwijnt mee; feller maken schuift het
+   probleem alleen op. De laag vasthouden met translateZ(0) zou het wel oplossen,
+   maar dan wordt het hele paneel geresampled en gaat de tekst eronder wazig
+   staan -- een erger probleem dan het probleem.
+
+   Twee pixels hoog kan niet wegvallen: waar de breuk ook ligt, er is altijd één
+   volledig gedekte pixelrij. Als verloop leest het als een oplichtende bovenrand
+   in plaats van een dikke streep. */
+.champpaneel::before {
+  content: "";
+  position: absolute; inset: 0 0 auto 0; height: 2px; z-index: 2;
+  background: linear-gradient(180deg, rgba(241, 228, 198, 0.17), rgba(241, 228, 198, 0));
+  pointer-events: none;
+}
+
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.1fr) minmax(0, 1.05fr);
+  gap: 1px; background: var(--line);
+}
+@media (max-width: 1040px) { .detail { grid-template-columns: 1fr; } }
+
+.detail-art { position: relative; background: var(--raised); min-height: 232px; }
+.detail-art > img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+.detail-id {
+  position: absolute; inset: auto 0 0 0; z-index: 1;
+  display: flex; align-items: center; gap: 0.75rem; padding: 1rem;
+  background: linear-gradient(180deg, transparent, rgba(6, 8, 12, 0.94) 62%);
+}
+.detail-id img { width: 46px; height: 46px; border-radius: 5px; border: 1px solid var(--line-lit); flex: none; }
+.detail-id h3 { font-size: 1.25rem; }
+.detail-id p { margin: 0.15rem 0 0; font-size: 0.7rem; color: var(--muted); }
+
+.detail-lanes, .detail-matchups { background: var(--surface); padding: 1.3rem 1.2rem 1.2rem; }
+.detail-matchups { display: grid; gap: 1.1rem; align-content: start; }
+.mu-kop { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem 0.8rem; }
+.mu-kop .block-label { margin: 0; }
+.mu-schakel { margin-left: 0; }
+.mu-schakel button { padding: 0.26rem 0.5rem; font-size: 0.62rem; }
+.mu-note { margin: 0; font-size: 0.7rem; line-height: 1.45; color: var(--dim); }
+
+/* border-collapse zodat de rand om de meest gespeelde lane een rechthoek is en
+   geen losse stukjes per cel. De binnenmarge staat op alle regels, ook zonder
+   rand, anders zou de gemarkeerde regel een halve letter verspringen. */
+.lane-table { border-collapse: collapse; width: calc(100% + 0.9rem); margin-inline: -0.45rem; }
+.lane-table th, .lane-table td { padding: 0.32rem 0; font-size: 0.83rem; }
+.lane-table th:first-child, .lane-table td:first-child { padding-left: 0.45rem; }
+.lane-table th:last-child, .lane-table td:last-child { padding-right: 0.45rem; }
+
+/* De lane-namen zijn knoppen: hij kiest waar de matchups en de build over gaan. */
+.lane-knop {
+  font: inherit; color: inherit; background: none; border: 0; padding: 0;
+  font-weight: 600; cursor: pointer;
+}
+.lane-knop:hover { color: var(--gold-lit); }
+.lane-knop:focus-visible { outline: 2px solid var(--gold-dim); outline-offset: 2px; border-radius: 3px; }
+.lane-knop.is-stil { cursor: default; color: var(--dim); font-weight: 500; }
+
+.lane-tag {
+  font-family: var(--mono); font-size: 0.52rem; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--gold-dim); white-space: nowrap;
+}
+
+/* De lane waar deze champion het vaakst staat. Bij Soraka is dat support met
+   9.880 van haar 15.747 games; de andere vier lanes samen halen dat niet. */
+.lane-table tr.is-vaakst > * { border-block: 1px solid rgba(231, 199, 110, 0.32); }
+.lane-table tr.is-vaakst > :first-child { border-left: 1px solid rgba(231, 199, 110, 0.32); }
+.lane-table tr.is-vaakst > :last-child { border-right: 1px solid rgba(231, 199, 110, 0.32); }
+
+/* De lane die nu gekozen is. Bij het openen is dat dezelfde regel. */
+.lane-table tbody tr[aria-selected="true"] > * { background: rgba(231, 199, 110, 0.07); }
+.lane-table tbody tr:not([aria-selected="true"]) .lane-knop:not(.is-stil) { color: var(--muted); }
+.lane-table thead th {
+  font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--dim); font-weight: 400; text-align: right; padding-bottom: 0.5rem;
+}
+.lane-table thead th:first-child { text-align: left; }
+.lane-table tbody th { text-align: left; font-weight: 600; color: var(--ink); }
+.c-rank, .c-wr, .c-games { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.c-rank { color: var(--gold); font-size: 0.74rem; }
+.c-games { color: var(--dim); font-size: 0.74rem; }
+.c-wr { font-weight: 700; }
+.c-wr small, .t-wr small, .m-wr small { font-size: 0.68em; opacity: 0.62; margin-left: 1px; }
+.c-bar { width: 34%; padding-inline: 0.6rem; }
+.c-bar span, .t-bar span { display: block; height: 4px; border-radius: 2px; background: var(--wr-hi); opacity: 0.75; }
+.c-empty { color: var(--dim); font-size: 0.8rem; font-style: italic; }
+
+.matchups { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+.matchups li { display: grid; grid-template-columns: 26px 1fr auto auto; align-items: center; gap: 0.55rem; font-size: 0.82rem; }
+.matchups img { width: 26px; height: 26px; border-radius: 4px; }
+.m-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-games { font-family: var(--mono); font-size: 0.66rem; color: var(--dim); }
+.m-wr { font-family: var(--mono); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.wr-hi { color: var(--wr-hi); } .wr-ok { color: var(--wr-ok); }
+.wr-lo { color: var(--wr-lo); } .wr-bad { color: var(--wr-bad); }
+
+/* ── Builds onder het detailpaneel ─────────────────────────────────────── */
+.builds {
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding: 1.2rem 1.3rem 1.1rem;
+}
+.builds-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.6rem 1.2rem;
+  margin-bottom: 1rem;
+}
+
+/* De laneschakelaar binnen het buildblok. Kleiner dan de tabs bij de tier-lijst,
+   want dit is een keuze binnen een paneel en niet de kop van een sectie. */
+.build-lanes { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
+.build-lanes button {
+  display: inline-flex; align-items: baseline; gap: 0.35rem;
+  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.08em;
+  text-transform: uppercase; cursor: pointer;
+  padding: 0.32rem 0.6rem; border-radius: 5px;
+  background: var(--raised); border: 1px solid var(--line); color: var(--muted);
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.build-lanes button span { font-size: 0.92em; color: var(--dim); }
+.build-lanes button:hover { color: var(--ink); border-color: var(--line-lit); }
+.build-lanes button[aria-selected="true"] {
+  color: var(--gold); border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.08);
+}
+.build-lanes button[aria-selected="true"] span { color: var(--gold-dim); }
+.builds-head .block-label { margin: 0; }
+.builds-head .block-label b { color: var(--gold); font-weight: 500; }
+
+.builds-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1.2rem, 3vw, 2.4rem);
+}
+@media (max-width: 900px) { .builds-cols { grid-template-columns: 1fr; } }
+
+.col-label {
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--dim); margin: 0 0 0.6rem;
+}
+
+.itemlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.34rem; }
+.itemlist li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+}
+.itemlist img { width: 30px; height: 30px; border-radius: 4px; border: 1px solid var(--line); }
+.i-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.i-pick { font-family: var(--mono); font-size: 0.72rem; color: var(--dim); font-variant-numeric: tabular-nums; }
+.i-wr { font-family: var(--mono); font-weight: 700; font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; }
+.i-pick small, .i-wr small { font-size: 0.7em; opacity: 0.6; }
+
+/* Twee spells naast elkaar in de breedte van een enkel itemicoon. */
+.s-pair { display: flex; gap: 2px; }
+.s-pair img { width: 14px; height: 14px; border-radius: 3px; }
+
+.builds-note {
+  margin: 1.1rem 0 0; padding-top: 0.9rem; border-top: 1px solid var(--line);
+  font-size: 0.8rem; color: var(--dim); line-height: 1.6; max-width: 88ch;
+}
+.builds-note strong { color: var(--muted); font-weight: 600; }
+
+/* ── Masthead: de herkomst van de cijfers, in één regel ────────────────── */
+.masthead { border-block: 1px solid var(--line); background: var(--surface); }
+.masthead .wrap {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 2.2rem;
+  padding-block: 0.8rem;
+  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--dim);
+}
+.masthead b { color: var(--muted); font-weight: 400; }
+.masthead .v { color: var(--ink); }
+
+/* ── Cijferband ────────────────────────────────────────────────────────── */
+.figures { border-bottom: 1px solid var(--line); }
+.figures .wrap { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--line); padding-inline: 0; }
+.figures .cell { background: var(--ground); padding: clamp(1.3rem, 2.6vw, 2rem) 1rem; text-align: center; }
+.figures .n {
+  font-family: var(--mono); font-weight: 700; letter-spacing: -0.02em;
+  font-size: clamp(1.3rem, 1rem + 1.4vw, 2.05rem);
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.figures .n .unit { color: var(--gold); }
+.figures .k { font-family: var(--mono); font-size: 0.63rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--dim); margin-top: 0.5rem; }
+@media (max-width: 860px) { .figures .wrap { grid-template-columns: repeat(2, 1fr); } }
+
+/* ── Roster: 63 portretten, volle breedte, volle kleur ─────────────────── */
+.roster { padding-block: clamp(2.5rem, 5vw, 4rem); overflow: hidden; }
+.roster .rl { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 1rem; margin: 0 0 1.1rem; }
+.roster .rl b { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); font-weight: 500; }
+.roster .rl span { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--dim); }
+.roster-row { display: flex; gap: 4px; margin-bottom: 4px; }
+.roster-row img {
+  width: calc((100vw - 4px * 31) / 32); min-width: 34px; height: auto; aspect-ratio: 1;
+  border-radius: 4px; object-fit: cover; flex: 1 1 auto;
+}
+@media (max-width: 900px) { .roster-row { flex-wrap: wrap; } .roster-row img { width: 40px; flex: none; } }
+
+/* ── Secties ───────────────────────────────────────────────────────────── */
+.band { padding-block: clamp(3.5rem, 7vw, 6.5rem); }
+.band + .band, .roster + .band { border-top: 1px solid var(--line); }
+.section-head { max-width: 62ch; margin-bottom: clamp(2rem, 4vw, 3.2rem); }
+.section-head h2 { font-size: clamp(1.8rem, 1.25rem + 2vw, 2.9rem); margin-bottom: 0.9rem; }
+.section-head p { color: var(--muted); margin: 0; }
+
+/* ── Tier-lijsten ──────────────────────────────────────────────────────── */
+.lane-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.6rem; }
+.lane-tabs button {
+  font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.09em; text-transform: uppercase;
+  padding: 0.5rem 0.95rem; border-radius: 5px; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); color: var(--muted);
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.lane-tabs button:hover { color: var(--ink); border-color: var(--line-lit); }
+.lane-tabs button[aria-selected="true"] { color: var(--gold); border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.08); }
+
+.table-scroll { overflow-x: auto; border: 1px solid var(--line-lit); border-radius: var(--radius-s); background: var(--surface); box-shadow: var(--shadow); }
+.tier-table th, .tier-table td { padding: 0.6rem 0.85rem; text-align: right; white-space: nowrap; }
+.tier-table thead th {
+  background: var(--raised);
+  font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--dim); font-weight: 400; border-bottom: 1px solid var(--line);
+}
+.tier-table tbody tr + tr td { border-top: 1px solid rgba(28, 36, 47, 0.7); }
+.tier-table tbody tr:hover td { background: rgba(231, 199, 110, 0.04); }
+.t-rank { font-family: var(--mono); color: var(--dim); font-size: 0.78rem; width: 1%; }
+.t-champ { text-align: left; }
+.t-champ { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; }
+.t-champ img { width: 30px; height: 30px; border-radius: 5px; flex: none; }
+.t-bar { width: 22%; min-width: 90px; }
+.t-wr { font-family: var(--mono); font-weight: 700; font-variant-numeric: tabular-nums; }
+.t-raw, .t-games, .t-pick { font-family: var(--mono); font-size: 0.78rem; color: var(--dim); font-variant-numeric: tabular-nums; }
+.pane-heading { display: none; }
+.tier-pane { display: none; }
+.tier-pane.is-open { display: block; }
+
+.footnote { margin: 1rem 0 0; font-size: 0.83rem; color: var(--dim); max-width: 78ch; line-height: 1.65; }
+.footnote strong { color: var(--muted); font-weight: 600; }
+.footnote code { font-family: var(--mono); font-size: 0.9em; color: var(--muted); }
+.fn-mark {
+  display: inline-grid; place-items: center; width: 15px; height: 15px; margin-right: 0.35rem;
+  border-radius: 3px; background: rgba(231, 199, 110, 0.14); color: var(--gold);
+  font-family: var(--mono); font-size: 0.62rem; vertical-align: 1px;
+}
+
+/* ── Bevindingen ───────────────────────────────────────────────────────── */
+.finding { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: clamp(1.5rem, 3.5vw, 3rem); align-items: center; }
+.finding + .finding { margin-top: clamp(2.5rem, 5vw, 4rem); }
+.finding:nth-child(even) .finding-art { order: 2; }
+@media (max-width: 900px) { .finding { grid-template-columns: 1fr; } .finding:nth-child(even) .finding-art { order: 0; } }
+.finding-art { border-radius: var(--radius-s); overflow: hidden; border: 1px solid var(--line); background: var(--raised); }
+.finding-art img { width: 100%; height: auto; }
+.f-num { font-size: 0.66rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin: 0 0 0.7rem; }
+.finding-copy h3 { font-size: clamp(1.3rem, 1.05rem + 1vw, 1.75rem); margin-bottom: 0.8rem; }
+.finding-copy p { color: var(--muted); margin: 0; max-width: 50ch; }
+.finding-copy strong { color: var(--ink); font-weight: 700; font-family: var(--mono); }
+
+/* ── Functies ──────────────────────────────────────────────────────────── */
+.feature { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.25fr); gap: clamp(1.75rem, 4vw, 3.5rem); align-items: center; }
+.feature + .feature { margin-top: clamp(3rem, 6vw, 5rem); }
+.feature.flip > .feature-copy { order: 2; }
+@media (max-width: 940px) { .feature { grid-template-columns: 1fr; } .feature.flip > .feature-copy { order: 0; } }
+.feature-copy h3 { font-size: clamp(1.3rem, 1.05rem + 1vw, 1.8rem); margin-bottom: 0.85rem; }
+.feature-copy > p { color: var(--muted); margin: 0 0 1.3rem; max-width: 48ch; }
+
+.ticks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55rem; }
+.ticks li {
+  position: relative;
+  padding-left: 1.6rem;
+  font-size: 0.93rem;
+  color: var(--muted);
+}
+.ticks li::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  background: var(--gold);
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+.ticks li b { color: var(--ink); font-weight: 600; }
+
+/* Vensterlijst om de schermafbeeldingen, zodat ze niet in de pagina wegzakken. */
+.window { border: 1px solid var(--line-lit); border-radius: var(--radius-s); overflow: hidden; background: var(--surface); box-shadow: 0 30px 70px -34px rgba(0, 0, 0, 0.95); }
+.window figcaption {
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.13em; text-transform: uppercase;
+  color: var(--dim); padding: 0.6rem 0.85rem; border-top: 1px solid var(--line); background: var(--ground);
+}
+.window img { width: 100%; height: auto; }
+
+/* ── Keten ─────────────────────────────────────────────────────────────── */
+.chain { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden; }
+@media (max-width: 900px) { .chain { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 540px) { .chain { grid-template-columns: 1fr; } }
+.step { background: var(--surface); padding: clamp(1.4rem, 2.6vw, 1.9rem); }
+.step .num { display: block; font-family: var(--mono); font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em; color: var(--gold); margin-bottom: 0.9rem; }
+.step h4 { font-family: var(--display); font-weight: 700; font-stretch: 108%; font-size: 1.02rem; letter-spacing: -0.015em; margin: 0 0 0.55rem; }
+.step p { margin: 0; font-size: 0.88rem; color: var(--muted); line-height: 1.6; }
+
+/* ── Veiligheid ────────────────────────────────────────────────────────── */
+.trust { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 246px), 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden; }
+.trust .item { background: var(--surface); padding: clamp(1.3rem, 2.6vw, 1.8rem); }
+.trust .item .top { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.11em; text-transform: uppercase; margin: 0 0 0.7rem; }
+.trust .no .top { color: var(--wr-bad); }
+.trust .yes .top { color: var(--gold); }
+.trust .item p { margin: 0; font-size: 0.9rem; color: var(--muted); }
+.trust .item strong { color: var(--ink); font-weight: 600; }
+.audit { margin: 1.5rem 0 0; font-size: 0.9rem; color: var(--muted); max-width: 66ch; }
+.audit code { font-family: var(--mono); font-size: 0.87em; background: var(--raised); border: 1px solid var(--line); padding: 0.1em 0.4em; border-radius: 4px; color: var(--ink); }
+
+/* ── Download: art op volle kleur aan één kant, één harde overgang ─────── */
+.closing { position: relative; overflow: hidden; border-top: 1px solid var(--line); }
+.closing-art { position: absolute; inset: 0 0 0 auto; width: 58%; z-index: 0; }
+.closing-art img { width: 100%; height: 100%; object-fit: cover; }
+.closing-art::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, var(--ground) 4%, rgba(6, 8, 12, 0.72) 48%, rgba(6, 8, 12, 0.35) 100%);
+}
+.closing .wrap { position: relative; z-index: 1; padding-block: clamp(3.5rem, 7vw, 6rem); }
+.closing h2 { font-size: clamp(1.9rem, 1.35rem + 2.2vw, 3.1rem); margin-bottom: 1rem; max-width: 18ch; }
+.closing > .wrap > p { color: var(--muted); max-width: 46ch; margin: 0 0 2rem; }
+@media (max-width: 860px) { .closing-art { width: 100%; opacity: 0.4; } }
+
+footer { border-top: 1px solid var(--line); padding-block: 2.5rem 3rem; font-size: 0.84rem; color: var(--dim); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 1.4rem 2.5rem; align-items: baseline; }
+footer .legal { max-width: 64ch; margin: 0; line-height: 1.6; }
+footer nav { display: flex; gap: 1.4rem; margin-left: auto; }
+footer a { color: var(--muted); text-decoration: none; }
+footer a:hover { color: var(--ink); text-decoration: underline; }
+
+/* ── Beweging ──────────────────────────────────────────────────────────────
+   Zichtbaar is de grondtoestand. Verbergen gebeurt alleen onder .reveal, en
+   die klasse zet het script in de <head> pas als het ook kan onthullen.
+   Zonder JavaScript staat er dus een pagina en geen leeg scherm.
+   ───────────────────────────────────────────────────────────────────────── */
+.reveal .rise { opacity: 0; transform: translateY(16px); }
+.reveal .rise.in { opacity: 1; transform: none; transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .reveal .rise, .reveal .rise.in { opacity: 1; transform: none; transition: none; }
+  .btn:hover, .portrait:hover { transform: none; }
+}
+/* ── Guidepagina per champion ─────────────────────────────────────────── */
+
+.guide { padding-block: clamp(1.5rem, 3vw, 2.5rem) clamp(3rem, 6vw, 5rem); display: grid; gap: 1.6rem; }
+
+.guide-held {
+  position: relative; overflow: hidden;
+  border: 1px solid var(--line-lit); border-radius: var(--radius);
+  box-shadow: var(--shadow); background: var(--raised);
+  min-height: 200px; display: flex; align-items: flex-end;
+}
+.guide-splash {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  object-position: 50% 28%; filter: saturate(1.06) brightness(1.05);
+}
+.guide-held-tekst {
+  position: relative; z-index: 1; width: 100%;
+  display: flex; align-items: center; gap: 0.9rem; padding: 1.2rem;
+  background: linear-gradient(180deg, transparent, rgba(6, 8, 12, 0.94) 58%);
+}
+.guide-held-tekst > img { width: 62px; height: 62px; border-radius: 7px; border: 1px solid var(--line-lit); flex: none; }
+.guide-held-tekst h1 { font-size: clamp(1.7rem, 3.4vw, 2.5rem); margin: 0 0 0.15rem; }
+.guide-held-tekst p { margin: 0; font-size: 0.78rem; color: var(--muted); }
+
+.guide-link { margin-left: auto; flex: none; align-self: center; }
+@media (max-width: 520px) { .guide-link { display: none; } }
+
+.guide-lanes { margin-left: 0; gap: 0.4rem; }
+.guide-lanes button[disabled] { opacity: 0.42; cursor: default; }
+
+.guide-lane {
+  border: 1px solid var(--line-lit); border-radius: var(--radius);
+  background: var(--surface); box-shadow: var(--shadow);
+  padding: clamp(1.1rem, 2.4vw, 1.6rem);
+  display: grid; gap: 1.3rem;
+}
+.guide-lane[hidden] { display: none; }
+.guide-lane-kop { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1rem; }
+.guide-lane-kop h2 { margin: 0; font-size: 1.3rem; }
+.guide-lane-kop p { margin: 0; font-size: 0.76rem; color: var(--muted); }
+
+/* De cijferstrook. Elk getal krijgt het lane-gemiddelde eronder, want los zegt
+   "206 CS" niets -- pas naast de 179 van de gemiddelde toplaner wordt het iets. */
+.cijfers {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden;
+}
+.cijfer { background: var(--raised); padding: 0.7rem 0.8rem; display: grid; gap: 0.12rem; }
+.cijfer-label {
+  font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.11em;
+  text-transform: uppercase; color: var(--dim);
+}
+.cijfer-waarde { font-family: var(--mono); font-size: 1.12rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cijfer-ijk { font-family: var(--mono); font-size: 0.62rem; color: var(--dim); font-variant-numeric: tabular-nums; }
+.tov-hoog { color: var(--wr-hi); }
+.tov-laag { color: var(--wr-lo); }
+.tov-gelijk { color: var(--dim); }
+
+.guide-kolommen {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1.2rem, 2.6vw, 2rem);
+}
+@media (max-width: 1040px) { .guide-kolommen { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 720px) { .guide-kolommen { grid-template-columns: 1fr; } }
+.guide-kolommen .block-label:not(:first-child) { margin-top: 1.4rem; }
+
+/* Drie items die samen in de tas zaten. Geen volgorde -- zie de uitleg onderaan
+   de pagina -- dus ze staan naast elkaar en niet met pijlen ertussen. */
+.corelijst { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.corelijst li {
+  display: grid; grid-template-columns: auto auto auto 1fr;
+  align-items: center; gap: 0.6rem;
+  background: var(--raised); border: 1px solid var(--line);
+  border-radius: var(--radius-s); padding: 0.5rem 0.6rem;
+}
+.core-items { display: flex; gap: 0.25rem; }
+.core-items img { width: 30px; height: 30px; border-radius: 4px; border: 1px solid var(--line-lit); }
+.corelijst .m-games { text-align: right; }
+
+.guide-blok {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); padding: clamp(1.1rem, 2.4vw, 1.6rem);
+}
+.guide-blok h2 { margin: 0 0 0.7rem; font-size: 1.1rem; }
+.guide-blok p { margin: 0 0 0.8rem; font-size: 0.86rem; color: var(--muted); max-width: 74ch; }
+.guide-blok p:last-child { margin-bottom: 0; }
+.guide-blok strong { color: var(--ink); font-weight: 600; }

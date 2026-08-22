@@ -316,7 +316,7 @@ function leesDoor(pad, grens, maxRegels, opRegel) {
 
 /* ── Doorloop 1: alles tellen ────────────────────────────────────────────────*/
 
-const nieuweTally = () => ({ games: 0, wins: 0, kills: 0, deaths: 0, assists: 0 });
+const nieuweTally = () => ({ games: 0, wins: 0, kills: 0, deaths: 0, assists: 0, cs: 0, gold: 0, seconden: 0 });
 const nieuwPaar = () => ({ games: 0, wins: 0 });
 
 function pak(kaart, sleutel, maak) {
@@ -401,6 +401,13 @@ function tellen(pad, grens, maxRegels) {
       tally.kills += speler.kills;
       tally.deaths += speler.deaths;
       tally.assists += speler.assists;
+      tally.cs += speler.cs ?? 0;
+      tally.gold += speler.gold ?? 0;
+      // Speeltijd per lane-vermelding, zodat CS en gold per minuut kunnen. Een
+      // gemiddelde over alle games zou hier niet deugen: een jungler die twintig
+      // minuten speelt en een toplaner die veertig speelt staan niet in dezelfde
+      // noemer.
+      tally.seconden += match.duration ?? 0;
 
       // Slot 6 is het trinket-slot; een item dat dubbel in de tas zit telt een keer.
       const gebouwd = new Set();
@@ -1127,6 +1134,15 @@ function bouwBuilds(t, combinaties, lanes, nu) {
         assists: rond(tally.assists / laneGames, 2),
         ratio: rond(tally.deaths ? (tally.kills + tally.assists) / tally.deaths : tally.kills + tally.assists, 2),
       },
+      // Minions en gold. Per minuut, want een absoluut getal zegt niets als de
+      // ene champion gemiddeld 26 minuten speelt en de andere 34.
+      farm: {
+        cs: rond(tally.cs / laneGames, 1),
+        gold: Math.round(tally.gold / laneGames),
+        minuten: rond(tally.seconden / laneGames / 60, 1),
+        csPerMin: rond(tally.seconden ? tally.cs / (tally.seconden / 60) : 0, 2),
+        goldPerMin: Math.round(tally.seconden ? tally.gold / (tally.seconden / 60) : 0),
+      },
       items: echteItems.slice(0, TOON_ITEMS).map((r) => itemRegel(r.item, r.games, r.wins, laneGames)),
       boots: laarzen.slice(0, TOON_LAARZEN).map((r) => itemRegel(r.item, r.games, r.wins, laneGames)),
       starters: startitems.slice(0, TOON_STARTITEMS).map((r) => itemRegel(r.item, r.games, r.wins, laneGames)),
@@ -1158,6 +1174,36 @@ function bouwBuilds(t, combinaties, lanes, nu) {
     };
   }
 
+  /**
+   * Het gemiddelde van de lane zelf. Zonder ijkpunt zegt "187 CS" niets: pas
+   * naast de 142 van de gemiddelde toplaner wordt het een uitspraak.
+   *
+   * Alleen champions die de lane-drempel halen tellen mee, dezelfde groep die
+   * ook een rang krijgt -- anders drukt een handvol off-meta vermeldingen met
+   * veertig games het gemiddelde.
+   */
+  const laneGemiddelden = {};
+  for (const lane of LANES) {
+    const opt = { games: 0, kills: 0, deaths: 0, assists: 0, cs: 0, gold: 0, seconden: 0 };
+    for (const champion of ROSTER) {
+      const tally = t.champions.get(`${lane}|${champion}`);
+      if (!tally || tally.games < MIN_LANE_GAMES) continue;
+      for (const veld of Object.keys(opt)) opt[veld] += tally[veld];
+    }
+    if (!opt.games) continue;
+    laneGemiddelden[lane] = {
+      games: opt.games,
+      kills: rond(opt.kills / opt.games, 2),
+      deaths: rond(opt.deaths / opt.games, 2),
+      assists: rond(opt.assists / opt.games, 2),
+      cs: rond(opt.cs / opt.games, 1),
+      gold: Math.round(opt.gold / opt.games),
+      minuten: rond(opt.seconden / opt.games / 60, 1),
+      csPerMin: rond(opt.seconden ? opt.cs / (opt.seconden / 60) : 0, 2),
+      goldPerMin: Math.round(opt.seconden ? opt.gold / (opt.seconden / 60) : 0),
+    };
+  }
+
   const itemtabel = {};
   for (const item of [...gebruikteItems].sort((a, b) => a - b)) {
     const catalogusRegel = itemPerBase.get(item);
@@ -1177,6 +1223,7 @@ function bouwBuilds(t, combinaties, lanes, nu) {
     // twee versies en de precisie zou daar alleen ruis zijn.
     generatedAt: nu.replace(/\.\d{3}Z$/, "Z"),
     bron: "data/matches.jsonl",
+    laneGemiddelden,
     startersToelichting:
       "Deze startitems zijn AFGELEID uit wat aan het eind van de game nog in de inventaris zat, niet gemeten als eerste aankoop. De matchdata bevat alleen de eindinventaris: geen aankoopvolgorde, geen tijdlijn, geen timestamps. Een startitem dat verkocht is, zie je hier dus niet terug, en de volgorde waarin er gekocht is valt uit deze data niet af te leiden.",
     method: {

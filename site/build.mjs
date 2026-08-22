@@ -20,7 +20,7 @@
  * interactief, maar zonder JavaScript staat er nog steeds een volledige,
  * leesbare pagina met dezelfde cijfers erin.
  */
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -110,6 +110,8 @@ function laneLijst(full) {
       games: x?.games ?? 0,
       winrate: x?.winrate ?? null,
       rank: x?.qualified ? (x.rank ?? null) : null,
+      rankOf: x?.rankOf ?? null,
+      pickRate: x?.pickRate ?? 0,
       qualified: Boolean(x?.qualified),
       beats: x?.beats ?? [],
       losesTo: x?.losesTo ?? [],
@@ -242,7 +244,7 @@ function naamTabellen() {
 /** Namen en icoonpaden, zodat het script geen paden hoeft samen te stellen. */
 function rosterData() {
   const out = {};
-  for (const c of Object.values(roster)) out[c.baseId] = [c.name, c.icon.path, c.splash.path];
+  for (const c of Object.values(roster)) out[c.baseId] = [c.name, c.icon.path, c.splash.path, slugVan(c.name)];
   return out;
 }
 
@@ -334,6 +336,7 @@ function detailPanel() {
             <h3 id="detail-name">${esc(nameOf(seedId))}</h3>
             <p id="detail-sub" class="mono">${c ? `${n(c.totalGames)} games &middot; ${pct(c.winrate)}% overall` : "&nbsp;"}</p>
           </div>
+          <a class="btn btn-ghost btn-sm guide-link" id="detail-guide" href="champion/${slugVan(nameOf(seedId))}.html">Full build</a>
         </div>
       </div>
 
@@ -667,28 +670,310 @@ const T = {
   laatsteGame: MT.laatsteGame, // meta.json
 };
 
-const html = `<!doctype html>
+
+/* ── Guidepagina per champion ─────────────────────────────────────────────── */
+
+/**
+ * Eén pagina per champion, op champion/<naam>.html.
+ *
+ * Aparte bestanden en geen uitklap op de voorpagina, om één reden: hier hoort een
+ * adres bij dat je kunt delen en dat een zoekmachine kan indexeren. Iemand zoekt
+ * "nasus classic build", en dan wil je dat allmid.gg/champion/nasus bestaat. Een
+ * uitklap heeft geen adres.
+ *
+ * De pagina's staan een map dieper, dus alles wat ze opvragen krijgt ../ mee.
+ */
+const slugVan = (naam) => naam.toLowerCase().replace(/[^a-z0-9]+/g, "");
+const G = (pad) => "../" + pad;
+
+/** Een getal met het lane-gemiddelde eronder, want los zegt "206 CS" niets. */
+function cijfer(label, waarde, ijk, cijfers = 0) {
+  const toon = (x) => (cijfers ? x.toFixed(cijfers) : n(Math.round(x)));
+  let staart = "&nbsp;";
+  if (ijk) {
+    const pct = ((waarde - ijk) / ijk) * 100;
+    const klasse = Math.abs(pct) < 1.5 ? "tov-gelijk" : pct > 0 ? "tov-hoog" : "tov-laag";
+    const teken = pct > 0 ? "+" : "";
+    staart = `lane ${toon(ijk)} <span class="${klasse}">${teken}${pct.toFixed(0)}%</span>`;
+  }
+  return `
+        <div class="cijfer">
+          <span class="cijfer-label">${esc(label)}</span>
+          <span class="cijfer-waarde">${toon(waarde)}</span>
+          <span class="cijfer-ijk">${staart}</span>
+        </div>`;
+}
+
+const gItemRij = (i) => `
+        <li>
+          <img src="${G(itemIcon(i.baseId))}" alt="" width="64" height="64" loading="lazy" />
+          <span class="i-name">${esc(i.naam)}</span>
+          <span class="i-pick">${pct(i.pickRate)}<small>%</small></span>
+          <span class="i-wr ${wrClass(i.winrate)}">${pct(i.winrate)}<small>%</small></span>
+        </li>`;
+
+const gSpelRij = (sp) => `
+        <li>
+          <span class="s-pair">
+            <img src="${G(spellIcon(sp.spells[0]))}" alt="" width="64" height="64" loading="lazy" />
+            <img src="${G(spellIcon(sp.spells[1]))}" alt="" width="64" height="64" loading="lazy" />
+          </span>
+          <span class="i-name">${esc(spellName(sp.spells[0]))} + ${esc(spellName(sp.spells[1]))}</span>
+          <span class="i-pick">${pct(sp.pickRate)}<small>%</small></span>
+          <span class="i-wr ${wrClass(sp.winrate)}">${pct(sp.winrate)}<small>%</small></span>
+        </li>`;
+
+const gMatchupRij = (m, op) => `
+        <li>
+          <img src="${G(iconOf(m.baseId))}" alt="" width="128" height="128" loading="lazy" />
+          <span class="m-name">${esc(m.name ?? nameOf(m.baseId))}</span>
+          <span class="m-games">${n(m.games)}g</span>
+          <span class="m-wr ${op ? "wr-hi" : "wr-bad"}">${pct(m.winrate)}<small>%</small></span>
+        </li>`;
+
+/** Eén lane op de guidepagina: cijfers, core, items, spells en matchups. */
+function guideLane(laneRegel, buildRegel, ijk, isOpen) {
+  const L = LANES.find((x) => x.key === laneRegel.lane);
+  const leeg = `<li class="c-empty">Not enough games.</li>`;
+  const kda = buildRegel?.kda;
+  const farm = buildRegel?.farm;
+
+  const core = (buildRegel?.core ?? []).map(
+    (r) => `
+        <li>
+          <span class="core-items">${r.items
+            .map((id) => `<img src="${G(itemIcon(id))}" alt="${esc(itemName(id))}" title="${esc(itemName(id))}" width="64" height="64" loading="lazy" />`)
+            .join("")}</span>
+          <span class="i-pick">${pct(r.pickRate)}<small>%</small></span>
+          <span class="i-wr ${wrClass(r.winrate)}">${pct(r.winrate)}<small>%</small></span>
+          <span class="m-games">${n(r.games)}g</span>
+        </li>`,
+  );
+
+  return `
+    <section class="guide-lane${isOpen ? " is-open" : ""}" data-lane="${laneRegel.lane}">
+      <div class="guide-lane-kop">
+        <h2>${esc(L?.label ?? laneRegel.lane)}</h2>
+        <p class="mono">
+          ${laneRegel.rank ? `Rank #${laneRegel.rank} of ${laneRegel.rankOf} &middot; ` : ""}
+          <span class="${wrClass(laneRegel.winrate)}">${pct(laneRegel.winrate)}% win</span> &middot;
+          ${pct(laneRegel.pickRate)}% pick &middot; ${n(laneRegel.games)} games
+        </p>
+      </div>
+
+      <div class="cijfers">
+        ${kda ? cijfer("Kills", kda.kills, ijk?.kills, 1) : ""}
+        ${kda ? cijfer("Deaths", kda.deaths, ijk?.deaths, 1) : ""}
+        ${kda ? cijfer("Assists", kda.assists, ijk?.assists, 1) : ""}
+        ${farm ? cijfer("CS", farm.cs, ijk?.cs, 1) : ""}
+        ${farm ? cijfer("Gold", farm.gold, ijk?.gold) : ""}
+        ${farm ? cijfer("Game length", farm.minuten, ijk?.minuten, 1) : ""}
+      </div>
+
+      <div class="guide-kolommen">
+        <div>
+          <p class="block-label">Most held together <span>three items, end of game</span></p>
+          <ul class="corelijst">${core.join("") || leeg}</ul>
+
+          <p class="block-label">Items</p>
+          <ul class="itemlist">${(buildRegel?.items ?? []).map(gItemRij).join("") || leeg}</ul>
+        </div>
+
+        <div>
+          <p class="block-label">Boots</p>
+          <ul class="itemlist">${(buildRegel?.boots ?? []).map(gItemRij).join("") || leeg}</ul>
+
+          <p class="block-label">Starting items</p>
+          <ul class="itemlist">${(buildRegel?.starters ?? []).map(gItemRij).join("") || leeg}</ul>
+
+          <p class="block-label">Summoner spells</p>
+          <ul class="itemlist">${(buildRegel?.spells ?? []).map(gSpelRij).join("") || leeg}</ul>
+        </div>
+
+        <div>
+          <p class="block-label">Wins into</p>
+          <ul class="matchups">${(laneRegel.beats ?? []).map((m) => gMatchupRij(m, true)).join("") ||
+            `<li class="c-empty">${(laneRegel.losesTo ?? []).length ? "No winning matchup in this lane." : "Not enough games."}</li>`}</ul>
+
+          <p class="block-label">Loses to</p>
+          <ul class="matchups">${(laneRegel.losesTo ?? []).map((m) => gMatchupRij(m, false)).join("") ||
+            `<li class="c-empty">${(laneRegel.beats ?? []).length ? "No losing matchup in this lane." : "Not enough games."}</li>`}</ul>
+
+          <p class="mu-note">Opponents holding at least 1% of this lane.</p>
+        </div>
+      </div>
+    </section>`;
+}
+
+
+/** De hele guidepagina van één champion. */
+function guidePagina(c) {
+  const build = builds.champions?.[String(c.baseId)];
+  const buildPerLane = new Map((build?.lanes ?? []).map((l) => [l.lane, l]));
+  const rijen = laneLijst(c).filter((l) => l.games > 0);
+  const open = openLane(c) ?? rijen[0]?.lane;
+  const vaakst = vaakstGespeeld(c);
+
+  const knoppen = rijen
+    .map(
+      (l) => `
+          <button type="button" data-lane="${l.lane}" aria-selected="${l.lane === open}"${l.qualified ? "" : " disabled"}>
+            ${esc(LANES.find((x) => x.key === l.lane)?.label ?? l.lane)}
+            <span>${n(l.games)}</span>
+          </button>`,
+    )
+    .join("");
+
+  const secties = rijen
+    .map((l) => guideLane(l, buildPerLane.get(l.lane), builds.laneGemiddelden?.[l.lane], l.lane === open))
+    .join("");
+
+  const titel = `${c.name} Classic build, counters and lane stats`;
+  const omschrijving =
+    `${c.name} in League of Legends Classic: ${n(c.totalGames)} games, ` +
+    `${pct(c.winrate)}% win rate, most played ${(LANES.find((x) => x.key === vaakst)?.label ?? "").toLowerCase()}. ` +
+    `Items, boots, summoner spells and lane matchups from real Classic games.`;
+
+  return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AllMid</title>
-<meta name="description" content="Tier lists, counters, builds and one-click masteries for League of Legends Classic — built from ${n(T.games)} real Classic games. Free and open source." />
-
-<meta property="og:type" content="website" />
-<meta property="og:title" content="AllMid — stats for League of Legends Classic" />
-<meta property="og:description" content="Every other tracker stops where Classic starts. AllMid collects the data itself: ${n(T.games)} games, ${n(T.players)} players, all 63 champions." />
-<meta property="og:url" content="https://allmid.gg/" />
-<meta property="og:image" content="https://allmid.gg/img/meta.png" />
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="theme-color" content="#06080c" />
-
+<title>${esc(titel)} &middot; AllMid</title>
+<meta name="description" content="${esc(omschrijving)}" />
+<link rel="canonical" href="https://allmid.gg/champion/${slugVan(c.name)}.html" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="${esc(titel)}" />
+<meta property="og:description" content="${esc(omschrijving)}" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+<link rel="stylesheet" href="${G(CSS_PAD)}" />
+</head>
+<body>
 
-<style>
-/* ───────────────────────────────────────────────────────────────────────────
+<header id="top-bar">
+  <div class="wrap">
+    <a class="brand" href="${G("index.html")}">
+      <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
+      <span class="badge">Classic</span>
+    </a>
+    <nav class="links">
+      <a href="${G("index.html#tiers")}">Tier lists</a>
+      <a href="${G("index.html#findings")}">Findings</a>
+      <a href="${G("index.html#data")}">The data</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">Download</a>
+  </div>
+</header>
+
+<main class="wrap guide">
+  <div class="guide-held">
+    <img class="guide-splash" src="${G(splashOf(c.baseId))}" alt="" width="640" height="360" />
+    <div class="guide-held-tekst">
+      <img src="${G(iconOf(c.baseId))}" alt="" width="128" height="128" />
+      <div>
+        <h1>${esc(c.name)}</h1>
+        <p class="mono">${n(c.totalGames)} games &middot; ${pct(c.winrate)}% overall &middot;
+          most played ${esc(LANES.find((x) => x.key === vaakst)?.label ?? "&mdash;")}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="build-lanes guide-lanes" id="guide-lanes" role="tablist" aria-label="Lane">${knoppen}</div>
+
+  ${secties}
+
+  <section class="guide-blok">
+    <h2>Masteries and runes</h2>
+    <p>
+      Not here yet, and it would be dishonest to pretend otherwise. Classic uses the old
+      systems &mdash; three mastery trees with 30 points, and rune pages with marks, seals,
+      glyphs and quintessences &mdash; but a finished match carries no record of them. The match
+      history AllMid reads gives champions, items, summoner spells, kills, deaths, assists, CS
+      and gold, and nothing about how anyone was set up before the game started.
+    </p>
+    <p>
+      There is one route left: reading the other nine players during a live game. That is a
+      different piece of software than the one that produced this page, and it would only ever
+      see games you play yourself. If it gets built, this section is where it lands.
+    </p>
+  </section>
+
+  <section class="guide-blok">
+    <h2>How to read this</h2>
+    <p>
+      Win rates are smoothed towards 50% with a 20-game prior, so a champion with 40 games in a
+      lane cannot outrank one with 8,000 on a lucky streak. The raw figure and the sample size
+      are both shown so you can judge for yourself.
+    </p>
+    <p>
+      Items are what was <strong>still in the inventory when the game ended</strong>, not a build
+      order. Classic match history has no timeline, so there is no honest way to say what anyone
+      bought first, and a starting item that got sold does not appear at all. &ldquo;Most held
+      together&rdquo; is the three-item combination that ended up in the inventory most often, not
+      a sequence.
+    </p>
+    <p>
+      Matchups are the champion standing opposite you in the same lane, and only opponents who
+      hold at least 1% of that lane &mdash; picks you actually run into. Every number on this page
+      comes from ${n(T.games)} Classic games collected from players who chose to share them.
+    </p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="legal">
+      AllMid is an independent, open-source project released under the MIT licence. It is not endorsed by
+      Riot Games and does not reflect the views or opinions of Riot Games or anyone officially involved in
+      producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered
+      trademarks of Riot Games, Inc.
+    </p>
+    <p class="legal">Questions, corrections or takedown requests: <a href="mailto:contact@allmid.gg">contact@allmid.gg</a>.</p>
+    <nav>
+      <a href="${G("index.html")}">Home</a>
+      <a href="https://github.com/allmidgg/desktop">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+// Zonder script staan alle lanes onder elkaar: dat is minder prettig maar wel
+// compleet. Het script verbergt de rest pas als het echt kan wisselen.
+(function () {
+  var strip = document.getElementById("guide-lanes");
+  var secties = [].slice.call(document.querySelectorAll(".guide-lane"));
+  if (!strip || secties.length < 2) return;
+  function toon(lane) {
+    secties.forEach(function (s) { s.hidden = s.dataset.lane !== lane; });
+    [].forEach.call(strip.querySelectorAll("button"), function (b) {
+      b.setAttribute("aria-selected", String(b.dataset.lane === lane));
+    });
+  }
+  strip.addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-lane]");
+    if (b && !b.disabled) toon(b.dataset.lane);
+  });
+  var open = strip.querySelector('button[aria-selected="true"]');
+  toon(open ? open.dataset.lane : secties[0].dataset.lane);
+})();
+</script>
+
+</body>
+</html>
+`;
+}
+
+/**
+ * De opmaak staat apart, niet in de pagina.
+ *
+ * Zolang er een pagina was maakte dat niet uit. Nu er per champion een
+ * guidepagina bij komt zou elk van die 63 bestanden dezelfde 30 KB opnieuw
+ * meedragen, en zou een kleurwijziging op 64 plekken opnieuw uitgeschreven
+ * worden. Een los bestand wordt na de eerste pagina uit de cache gehaald.
+ */
+const css = `/* ───────────────────────────────────────────────────────────────────────────
    AllMid — allmid.gg
 
    Eén donker thema, bewust. Dit is een pagina voor een overlay bij een spel.
@@ -1398,7 +1683,119 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   .reveal .rise, .reveal .rise.in { opacity: 1; transform: none; transition: none; }
   .btn:hover, .portrait:hover { transform: none; }
 }
-</style>
+/* ── Guidepagina per champion ─────────────────────────────────────────── */
+
+.guide { padding-block: clamp(1.5rem, 3vw, 2.5rem) clamp(3rem, 6vw, 5rem); display: grid; gap: 1.6rem; }
+
+.guide-held {
+  position: relative; overflow: hidden;
+  border: 1px solid var(--line-lit); border-radius: var(--radius);
+  box-shadow: var(--shadow); background: var(--raised);
+  min-height: 200px; display: flex; align-items: flex-end;
+}
+.guide-splash {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  object-position: 50% 28%; filter: saturate(1.06) brightness(1.05);
+}
+.guide-held-tekst {
+  position: relative; z-index: 1; width: 100%;
+  display: flex; align-items: center; gap: 0.9rem; padding: 1.2rem;
+  background: linear-gradient(180deg, transparent, rgba(6, 8, 12, 0.94) 58%);
+}
+.guide-held-tekst > img { width: 62px; height: 62px; border-radius: 7px; border: 1px solid var(--line-lit); flex: none; }
+.guide-held-tekst h1 { font-size: clamp(1.7rem, 3.4vw, 2.5rem); margin: 0 0 0.15rem; }
+.guide-held-tekst p { margin: 0; font-size: 0.78rem; color: var(--muted); }
+
+.guide-link { margin-left: auto; flex: none; align-self: center; }
+@media (max-width: 520px) { .guide-link { display: none; } }
+
+.guide-lanes { margin-left: 0; gap: 0.4rem; }
+.guide-lanes button[disabled] { opacity: 0.42; cursor: default; }
+
+.guide-lane {
+  border: 1px solid var(--line-lit); border-radius: var(--radius);
+  background: var(--surface); box-shadow: var(--shadow);
+  padding: clamp(1.1rem, 2.4vw, 1.6rem);
+  display: grid; gap: 1.3rem;
+}
+.guide-lane[hidden] { display: none; }
+.guide-lane-kop { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1rem; }
+.guide-lane-kop h2 { margin: 0; font-size: 1.3rem; }
+.guide-lane-kop p { margin: 0; font-size: 0.76rem; color: var(--muted); }
+
+/* De cijferstrook. Elk getal krijgt het lane-gemiddelde eronder, want los zegt
+   "206 CS" niets -- pas naast de 179 van de gemiddelde toplaner wordt het iets. */
+.cijfers {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden;
+}
+.cijfer { background: var(--raised); padding: 0.7rem 0.8rem; display: grid; gap: 0.12rem; }
+.cijfer-label {
+  font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.11em;
+  text-transform: uppercase; color: var(--dim);
+}
+.cijfer-waarde { font-family: var(--mono); font-size: 1.12rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cijfer-ijk { font-family: var(--mono); font-size: 0.62rem; color: var(--dim); font-variant-numeric: tabular-nums; }
+.tov-hoog { color: var(--wr-hi); }
+.tov-laag { color: var(--wr-lo); }
+.tov-gelijk { color: var(--dim); }
+
+.guide-kolommen {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1.2rem, 2.6vw, 2rem);
+}
+@media (max-width: 1040px) { .guide-kolommen { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 720px) { .guide-kolommen { grid-template-columns: 1fr; } }
+.guide-kolommen .block-label:not(:first-child) { margin-top: 1.4rem; }
+
+/* Drie items die samen in de tas zaten. Geen volgorde -- zie de uitleg onderaan
+   de pagina -- dus ze staan naast elkaar en niet met pijlen ertussen. */
+.corelijst { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.corelijst li {
+  display: grid; grid-template-columns: auto auto auto 1fr;
+  align-items: center; gap: 0.6rem;
+  background: var(--raised); border: 1px solid var(--line);
+  border-radius: var(--radius-s); padding: 0.5rem 0.6rem;
+}
+.core-items { display: flex; gap: 0.25rem; }
+.core-items img { width: 30px; height: 30px; border-radius: 4px; border: 1px solid var(--line-lit); }
+.corelijst .m-games { text-align: right; }
+
+.guide-blok {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); padding: clamp(1.1rem, 2.4vw, 1.6rem);
+}
+.guide-blok h2 { margin: 0 0 0.7rem; font-size: 1.1rem; }
+.guide-blok p { margin: 0 0 0.8rem; font-size: 0.86rem; color: var(--muted); max-width: 74ch; }
+.guide-blok p:last-child { margin-bottom: 0; }
+.guide-blok strong { color: var(--ink); font-weight: 600; }
+`;
+writeFileSync(join(HERE, "style.css"), css, "utf8");
+
+const CSS_PAD = "style.css";
+
+const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AllMid</title>
+<meta name="description" content="Tier lists, counters, builds and one-click masteries for League of Legends Classic — built from ${n(T.games)} real Classic games. Free and open source." />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="AllMid — stats for League of Legends Classic" />
+<meta property="og:description" content="Every other tracker stops where Classic starts. AllMid collects the data itself: ${n(T.games)} games, ${n(T.players)} players, all 63 champions." />
+<meta property="og:url" content="https://allmid.gg/" />
+<meta property="og:image" content="https://allmid.gg/img/meta.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="theme-color" content="#06080c" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+
+<link rel="stylesheet" href="${CSS_PAD}" />
 
 <script>
   // Vóór de eerste tekening: alleen verbergen als we ook kunnen onthullen.
@@ -1948,6 +2345,8 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     el("detail-name").textContent = r[0];
     el("detail-icon").src = r[1];
     el("detail-splash").src = r[2];
+    const guide = el("detail-guide");
+    if (guide) guide.href = "champion/" + r[3] + ".html";
     el("detail-sub").innerHTML =
       c.g ? num(c.g) + " games &middot; " + pct(c.w) + "% overall" : "&nbsp;";
 
@@ -2012,8 +2411,22 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 `;
 
 writeFileSync(join(HERE, "index.html"), html, "utf8");
+
+mkdirSync(join(HERE, "champion"), { recursive: true });
+let guideBytes = 0;
+for (const c of Object.values(roster)) {
+  const full = champions.champions[String(c.baseId)];
+  if (!full) continue;
+  const pagina = guidePagina(full);
+  guideBytes += pagina.length;
+  writeFileSync(join(HERE, "champion", `${slugVan(c.name)}.html`), pagina, "utf8");
+}
 console.log(
   `[build] index.html geschreven -- ${(html.length / 1024).toFixed(0)} KB, ` +
     `${Object.keys(roster).length} champions, ${n(T.games)} games` +
     (champions ? "" : "  (LET OP: zonder champions.json)"),
+);
+console.log(
+  `[build] champion/ geschreven -- ${Object.keys(roster).length} guidepagina's, ` +
+    `${(guideBytes / 1024).toFixed(0)} KB samen, style.css ${(css.length / 1024).toFixed(0)} KB gedeeld`,
 );
