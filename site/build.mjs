@@ -614,13 +614,14 @@ nav.links a:hover { color: var(--ink); }
 .cta-note { font-family: var(--mono); font-size: 0.73rem; color: var(--dim); margin: 1.05rem 0 0; }
 
 /* Dekking: het verkoopverhaal in één regel. */
+.explorer-col { display: grid; gap: 1rem; align-content: start; }
+
 .coverage {
-  grid-column: 1 / -1;
   display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem;
-  margin-top: 0.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
 }
 .coverage .cov-label {
   flex: none;
+  margin-right: 0.15rem;
   font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--dim); width: 100%; margin: 0 0 0.7rem;
 }
@@ -822,8 +823,23 @@ nav.links a:hover { color: var(--ink); }
 .feature-copy > p { color: var(--muted); margin: 0 0 1.3rem; max-width: 48ch; }
 
 .ticks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55rem; }
-.ticks li { display: grid; grid-template-columns: 1rem 1fr; gap: 0.7rem; align-items: start; font-size: 0.93rem; color: var(--muted); }
-.ticks li::before { content: ""; width: 6px; height: 6px; margin-top: 0.55rem; background: var(--gold); border-radius: 1px; transform: rotate(45deg); }
+.ticks li {
+  position: relative;
+  padding-left: 1.6rem;
+  font-size: 0.93rem;
+  color: var(--muted);
+}
+.ticks li::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  background: var(--gold);
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
 .ticks li b { color: var(--ink); font-weight: 600; }
 
 /* Vensterlijst om de schermafbeeldingen, zodat ze niet in de pagina wegzakken. */
@@ -939,23 +955,25 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 
     </div>
 
-    <div class="explorer rise">
+    <div class="explorer-col rise">
+      <div class="coverage">
+        <p class="cov-label">Classic coverage</p>
+        <span>Blitz</span><span>Porofessor</span><span>OP.GG</span><span>METAsrc</span><span class="yes">AllMid</span>
+      </div>
+      <div class="explorer">
       <div class="explorer-head">
         <h2>Champion explorer</h2>
         <span class="count mono">${Object.keys(roster).length} champions &middot; click any portrait</span>
       </div>
-      <div class="explorer-grid" id="explorer-grid">${explorerGrid()}</div>
+        <div class="explorer-grid" id="explorer-grid">${explorerGrid()}</div>
+      </div>
     </div>
 
-    <div class="coverage rise">
-      <p class="cov-label">Classic coverage</p>
-      <span>Blitz</span><span>Porofessor</span><span>OP.GG</span><span>METAsrc</span><span class="yes">AllMid</span>
-    </div>
   </div>
 </section>
 
 <!-- ── Detail ─────────────────────────────────────────────────────────── -->
-<section class="band" style="padding-block:0 clamp(2.5rem,5vw,4rem)">
+<section class="band" style="padding-block:0 clamp(2.5rem,5vw,4rem);margin-top:-0.5rem">
   <div class="wrap rise">${detailPanel()}</div>
 </section>
 
