@@ -10,7 +10,11 @@
  * de client, zodat er maar één opslagvorm bestaat om te begrijpen en te
  * inspecteren. Draait op elke machine waar Node staat.
  *
- *   ALLMID_KEY=geheim node --experimental-strip-types server/index.ts
+ *   ALLMID_KEY=geheim npm run server
+ *
+ * Draaien via kale node met --experimental-strip-types lukt NIET: de imports
+ * hier hebben geen bestandsextensie en de ESM-resolver van node eist die wel.
+ * tsx lost dat op, en dat is wat npm run server gebruikt.
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
@@ -20,6 +24,18 @@ import { JadeStats } from "../src/core/services/stats";
 const PORT = Number(process.env.PORT ?? 8080);
 const API_KEY = process.env.ALLMID_KEY ?? "";
 const DATA_ROOT = process.env.ALLMID_DATA ?? process.cwd();
+
+/**
+ * Op welk adres we luisteren.
+ *
+ * Standaard alleen op localhost. Op de server staat hier een webserver voor
+ * die het verkeer doorstuurt, en dan hoort deze poort niet vanaf het internet
+ * bereikbaar te zijn: anders kan iemand de webserver omzeilen en rechtstreeks
+ * uploaden, buiten de snelheidsbegrenzing en de sleutelcontrole van de proxy om.
+ *
+ * Zet ALLMID_HOST=0.0.0.0 als je hem bewust open wilt zetten.
+ */
+const HOST = process.env.ALLMID_HOST ?? "127.0.0.1";
 
 /** Grenzen die voorkomen dat één verzoek de server plat legt. */
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
@@ -195,7 +211,12 @@ async function main(): Promise<void> {
   console.log(`[allmid] ${store.size} games, ${store.knownPuuids.length} spelers`);
   if (!API_KEY) console.warn("[allmid] LET OP: geen ALLMID_KEY gezet, iedereen mag uploaden");
 
-  server.listen(PORT, () => console.log(`[allmid] luistert op poort ${PORT}`));
+  server.listen(PORT, HOST, () => {
+    console.log(`[allmid] luistert op ${HOST}:${PORT}`);
+    if (HOST === "127.0.0.1") {
+      console.log("[allmid] alleen lokaal bereikbaar; zet er een webserver voor om hem publiek te maken");
+    }
+  });
 }
 
 void main();
