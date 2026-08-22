@@ -1036,18 +1036,35 @@ nav.links a:hover { color: var(--ink); }
    dezelfde champion. Ze stonden als twee losse kaders onder elkaar met een naad
    ertussen. Nu een omhulsel dat de rand draagt, met de twee delen erbinnen. */
 .champpaneel {
+  position: relative;
   border: 1px solid var(--line-lit);
   border-radius: var(--radius);
   overflow: hidden;
-  /* De bovenrand verdween. Gemeten: het paneel staat op .375 van een schermpixel,
-     dus die rand van 1px wordt over twee pixelrijen verdeeld en elk voor een deel
-     getekend -- op een donkere ondergrond blijft daar bijna niets van over. De
-     breuk komt uit de hero erboven, die met vw-eenheden een gebroken hoogte
-     krijgt, en is dus niet weg te nemen zonder de hele opmaak op hele pixels te
-     dwingen. Een tweede lijn er direct onder lost het wel op: die twee kunnen
-     nooit allebei tegelijk wegvallen. */
-  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  box-shadow: var(--shadow);
   background: var(--surface);
+}
+
+/* De bovenrand verdween steeds na een seconde.
+   Gemeten: het paneel staat op .375 van een schermpixel. Een rand van 1px wordt
+   dan over twee pixelrijen verdeeld, elk voor een deel, en var(--line-lit) op 37%
+   over bijna-zwart is niets. Dat hij er eerst even wel is komt door de reveal:
+   zolang die animeert heeft het paneel een eigen composietlaag en wordt de rand
+   op hele pixels gerasterd. Zodra de animatie klaar is vervalt die laag.
+
+   Twee eerdere pogingen werkten daarom niet. Een tweede lijn van 1px eronder valt
+   op precies dezelfde gebroken positie en verdwijnt mee; feller maken schuift het
+   probleem alleen op. De laag vasthouden met translateZ(0) zou het wel oplossen,
+   maar dan wordt het hele paneel geresampled en gaat de tekst eronder wazig
+   staan -- een erger probleem dan het probleem.
+
+   Twee pixels hoog kan niet wegvallen: waar de breuk ook ligt, er is altijd één
+   volledig gedekte pixelrij. Als verloop leest het als een oplichtende bovenrand
+   in plaats van een dikke streep. */
+.champpaneel::before {
+  content: "";
+  position: absolute; inset: 0 0 auto 0; height: 2px; z-index: 2;
+  background: linear-gradient(180deg, rgba(241, 228, 198, 0.17), rgba(241, 228, 198, 0));
+  pointer-events: none;
 }
 
 .detail {
@@ -1680,6 +1697,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
       producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered
       trademarks of Riot Games, Inc.
     </p>
+    <p class="legal">Questions, corrections or takedown requests: <a href="mailto:contact@allmid.gg">contact@allmid.gg</a>.</p>
     <nav>
       <a href="https://github.com/allmidgg/desktop">GitHub</a>
       <a href="https://github.com/allmidgg/desktop/blob/main/LICENSE">Licence</a>
