@@ -390,11 +390,8 @@ function detailBuilds(seedId) {
       </div>
 
       <p class="builds-note">
-        <span class="fn-mark">2</span>
-        These are the items that were <strong>still in the inventory when the game ended</strong>, not a
-        purchase order. Classic match history carries no timeline, so there is no honest way to say what
-        anyone bought first &mdash; and a starting item that got sold does not show up here at all. The
-        percentage is how often the item was held; the second number is the win rate of the games it was held in.
+        Held at the end of the game, not a build order &mdash; Classic match history has no timeline.
+        First number: how often it was held. Second: the win rate of those games.
       </p>
     </div>`;
 }
@@ -770,9 +767,18 @@ nav.links a:hover { color: var(--ink); }
   padding-block: clamp(3rem, 6vw, 5.5rem) clamp(2rem, 4vw, 3rem);
 }
 
-/* Splash-art achter de hero, opgelicht in plaats van gedimd. */
+/* Splash-art achter de hero, opgelicht in plaats van gedimd.
+   Het omhulsel bepaalt de begrenzing; het mozaiek mag daarbinnen zo groot zijn
+   als het wil. De sluier hangt aan datzelfde omhulsel, zodat er geen strook meer
+   kan ontstaan met wel art en geen sluier -- dat was precies wat er misging: de
+   sluier eindigde 257 px boven de onderkant van de hero. */
+.hero-bg {
+  position: absolute; inset: 0; z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
 .mosaic {
-  position: absolute; inset: -40px -3% auto -3%; height: 900px; z-index: -2;
+  position: absolute; inset: -40px -3% -40px -3%;
   display: grid; grid-template-columns: repeat(9, 1fr); grid-auto-rows: 158px; gap: 6px;
   transform: rotate(-3deg) scale(1.12); transform-origin: 50% 0;
 }
@@ -783,8 +789,9 @@ nav.links a:hover { color: var(--ink); }
 
 /* De sluier is gevormd: twee radiale vlekken staan precies onder de kop en
    onder de verkenner, zodat daar contrast is en de rest helder blijft. */
-.mosaic-veil {
-  position: absolute; inset: 0; z-index: -1;
+.hero-bg::after {
+  content: "";
+  position: absolute; inset: 0;
   background:
     linear-gradient(180deg, rgba(7, 8, 16, 0.55) 0%, rgba(7, 8, 16, 0.72) 34%, rgba(7, 8, 16, 0.9) 62%, var(--ground) 88%),
     radial-gradient(90% 70% at 22% 34%, rgba(7, 8, 16, 0.86) 0%, rgba(7, 8, 16, 0.5) 46%, transparent 74%),
@@ -872,11 +879,21 @@ nav.links a:hover { color: var(--ink); }
 .portrait:hover .portrait-name, .portrait:focus-visible .portrait-name { opacity: 1; }
 
 /* ── Detailpaneel ──────────────────────────────────────────────────────── */
+/* Het detailpaneel en de builds eronder horen een geheel te zijn: het gaat over
+   dezelfde champion. Ze stonden als twee losse kaders onder elkaar met een naad
+   ertussen. Nu een omhulsel dat de rand draagt, met de twee delen erbinnen. */
+.champpaneel {
+  border: 1px solid var(--line-lit);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  background: var(--surface);
+}
+
 .detail {
   display: grid;
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.1fr) minmax(0, 1.05fr);
   gap: 1px; background: var(--line);
-  border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
 }
 @media (max-width: 1040px) { .detail { grid-template-columns: 1fr; } }
 
@@ -891,7 +908,7 @@ nav.links a:hover { color: var(--ink); }
 .detail-id h3 { font-size: 1.25rem; }
 .detail-id p { margin: 0.15rem 0 0; font-size: 0.7rem; color: var(--muted); }
 
-.detail-lanes, .detail-matchups { background: var(--surface); padding: 1.1rem 1.2rem; }
+.detail-lanes, .detail-matchups { background: var(--surface); padding: 1.3rem 1.2rem 1.2rem; }
 .detail-matchups { display: grid; gap: 1.1rem; align-content: start; }
 
 .lane-table th, .lane-table td { padding: 0.32rem 0; font-size: 0.83rem; }
@@ -922,12 +939,8 @@ nav.links a:hover { color: var(--ink); }
 
 /* ── Builds onder het detailpaneel ─────────────────────────────────────── */
 .builds {
-  margin-top: 1px;
   background: var(--surface);
-  border: 1px solid var(--line-lit);
-  border-top: none;
-  border-radius: 0 0 var(--radius) var(--radius);
-  box-shadow: var(--shadow);
+  border-top: 1px solid var(--line);
   padding: 1.2rem 1.3rem 1.1rem;
 }
 .builds-head {
@@ -1201,8 +1214,9 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 
 <!-- ── Hero ───────────────────────────────────────────────────────────── -->
 <section class="hero">
-  <div class="mosaic" aria-hidden="true">${mosaicTiles()}</div>
-  <div class="mosaic-veil" aria-hidden="true"></div>
+  <div class="hero-bg" aria-hidden="true">
+    <div class="mosaic">${mosaicTiles()}</div>
+  </div>
   <div class="wrap">
     <div class="rise">
       <p class="eyebrow">Free &middot; Open source &middot; MIT &middot; Windows</p>
@@ -1247,8 +1261,10 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 <!-- ── Detail ─────────────────────────────────────────────────────────── -->
 <section class="band" style="padding-block:0 clamp(2.5rem,5vw,4rem);margin-top:-0.5rem">
   <div class="wrap rise">
-    ${detailPanel()}
-    ${detailBuilds(SEED)}
+    <div class="champpaneel">
+      ${detailPanel()}
+      ${detailBuilds(SEED)}
+    </div>
   </div>
 </section>
 
