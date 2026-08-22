@@ -2741,9 +2741,24 @@ if ($DryRun) {
     Info "  3. /api/ door de ARR-proxy     : GET http://127.0.0.1/api/v1/health met Host: $($SiteHosts[0])"
     Info "  4. geplande taak               : Get-ScheduledTask '$TaskName' moet Running zijn"
     Info '  5. GEEN open proxy             : een rauw verzoek met absolute URI naar'
-    Info '                                   127.0.0.1:80 hoort 403 op te leveren'
-    Info '  6. de nulmeting opnieuw        : diensten, sites, toepassingsgroepen en'
-    Info '                                   dezelfde HTTP-verzoeken, met het verschil erbij'
+    Info "                                   127.0.0.1:80 hoort 403 MET de reden"
+    Info "                                   '$($script:RegelReden)' op te leveren."
+    Info '                                   Een 403 zonder die reden is ONBESLIST, geen'
+    Info '                                   bewijs. 502/504 is een open proxy: dan zet dit'
+    Info '                                   script de ARR-proxy zelf uit en eindigt met'
+    Info '                                   afsluitcode 2.'
+    if ($PfxPath) {
+        Info '  6. https op 443                : GET https://127.0.0.1/ met de juiste Host-kop,'
+        Info '                                   en het aangeboden certificaat moet HET certificaat'
+        Info '                                   uit de meegegeven .pfx zijn'
+    } else {
+        Info '  6. https op 443                : overgeslagen, er is geen -PfxPath meegegeven'
+    }
+    Info '  7. de nulmeting opnieuw        : diensten, sites, toepassingsgroepen en'
+    Info '                                   dezelfde HTTP-verzoeken, met het verschil erbij.'
+    Info '                                   Een binding die vooraf al niet antwoordde (status 0)'
+    Info '                                   wordt ONBESLIST gemeld en niet als geslaagd.'
+    Info '                                   Deze meting draait ook als er onderweg iets misgaat.'
 } else {
     # De taak is net (her)start; de server heeft even nodig om de database in te lezen.
     Start-Sleep -Seconds 5
@@ -3083,14 +3098,50 @@ foreach ($t in $script:Testopdrachten) {
 }
 
 # ── Wat de gebruiker zelf nog moet doen ────────────────────────────────────────
-Kop 'Dit is nog NIET af -- HTTPS moet je zelf doen'
+if ($script:HttpsGedaan) {
+    Kop 'HTTPS staat -- dit moet nog in Cloudflare'
 
-Write-Host @"
+    Write-Host @"
 
-   Wat hierboven is neergezet luistert op poort 80. Cloudflare praat nu dus
-   onversleuteld met deze server. Dat moet nog dicht, en dat kan dit script niet
-   voor je doen: een Cloudflare Origin Certificate maak je aan in jouw
-   Cloudflare-account, en daar heeft dit script geen token voor.
+   Poort 443 luistert nu, met een https-binding per hostnaam en SNI aan. Het
+   certificaat komt uit de .pfx die je met -PfxPath hebt aangewezen. Het pad, het
+   wachtwoord en de vingerafdruk staan nergens in dit script, in deze repo of in het
+   logboek -- alleen het pad is hierboven een keer genoemd, en dat is geen geheim.
+
+   Wat er nog in Cloudflare moet:
+
+   1. Cloudflare op Full (strict)
+      SSL/TLS > Overview > Full (strict). Doe dit nu pas: eerder krijgen bezoekers
+      een 526 omdat er nog niets op 443 luisterde.
+
+   2. Http naar https
+      SSL/TLS > Edge Certificates > Always Use HTTPS. Doe dat DAAR en NIET met een
+      omleidingsregel in IIS: Cloudflare beeindigt de versleuteling toch al, en een
+      IIS-regel op serverniveau zou de andere site op deze machine raken.
+
+   Controleren:
+     Invoke-WebRequest https://allmid.gg/api/v1/health -UseBasicParsing
+
+   Het origin-certificaat wordt alleen door Cloudflare vertrouwd. Ga je met een
+   browser rechtstreeks naar het IP van de server, dan krijg je een waarschuwing.
+   Dat hoort zo.
+
+   Bewaar de .pfx buiten deze repo en buiten $SiteRoot. Dat is geen advies maar een
+   voorwaarde: publish.ps1 spiegelt die map met robocopy /MIR naar de webroot, en dit
+   script weigert daarom een .pfx die daar staat.
+"@ -ForegroundColor Gray
+} else {
+    Kop 'Dit is nog NIET af -- HTTPS staat nog open'
+
+    Write-Host @"
+
+   HTTPS: $($script:HttpsReden).
+
+   Wat hierboven is neergezet luistert alleen op poort 80. Cloudflare praat nu dus
+   onversleuteld met deze server. Dat moet nog dicht. Dit script kan het certificaat
+   niet voor je AANMAKEN -- een Cloudflare Origin Certificate maak je in jouw
+   Cloudflare-account en daar heeft dit script geen token voor -- maar het kan de .pfx
+   wel importeren en de binding zetten zodra jij die .pfx hebt.
 
    Poort 443 was op deze machine nog ongebruikt, dus je zit niemand in de weg.
 
@@ -3099,30 +3150,40 @@ Write-Host @"
         - laat Cloudflare de sleutel genereren (RSA 2048)
         - hostnamen : allmid.gg  en  *.allmid.gg
         - geldigheid: 15 jaar
-      Bewaar het certificaat en de private sleutel. De sleutel krijg je EEN keer
-      te zien.
+      Bewaar het certificaat en de private sleutel. De sleutel krijg je EEN keer te
+      zien. Plak hem NERGENS anders. Is dat toch gebeurd, trek het certificaat dan in
+      (Revoke) en maak een nieuw aan; een sleutel die ergens geplakt is, is weg.
 
    2. Omzetten naar .pfx, want IIS importeert niets anders
-        openssl pkcs12 -export -inkey origin.key -in origin.pem -out allmid.pfx
+        openssl pkcs12 -export -inkey origin.key -in origin.pem -out allmid-origin.pfx
 
-   3. Importeren
-      IIS Manager > (servernaam) > Server Certificates > Import... > allmid.pfx
+      Zet dat bestand op een plek BUITEN deze repo en buiten $SiteRoot,
+      bijvoorbeeld C:\certs\. Dit script weigert een .pfx die in de repo of in de
+      site-map staat: publish.ps1 spiegelt die map met robocopy /MIR naar de webroot,
+      en dan staat je private sleutel op internet.
 
-   4. Binding erop
-      IIS Manager > Sites > $SiteName > Bindings... > Add...
-        type https, poort 443, hostnaam allmid.gg,
-        >>> "Require Server Name Indication" AANVINKEN <<<
-      Herhaal voor www.allmid.gg.
+   3. Dit script opnieuw draaien, nu met het pad erbij
+        .\bootstrap.ps1 -PfxPath 'C:\certs\allmid-origin.pfx'
 
-      Dat vinkje is hier niet optioneel. Zonder SNI claimt de binding poort 443
-      voor alle hostnamen, en dan zit je de andere site op deze machine in de weg
-      zodra die ook https wil. Met SNI staan ze naast elkaar.
+      Er wordt dan interactief om het wachtwoord gevraagd. Moet het onbeheerd, geef
+      dan -PfxPassword mee als SecureString -- nooit als platte tekst, want dat komt
+      in je opdrachtgeschiedenis en in de procestabel terecht.
 
-   5. Cloudflare op Full (strict)
-      SSL/TLS > Overview > Full (strict). Pas NA stap 4, anders krijgen bezoekers
+      Het script controleert dan dat het bestand bestaat, een geldige .pfx met private
+      sleutel is en niet op een plek staat die gepubliceerd wordt; importeert hem in
+      Cert:\LocalMachine\My; hangt er in EEN schrijfactie https-bindingen op 443 aan
+      voor $($SiteHosts -join ' en ') met SNI; en controleert daarna dat 443 antwoordt
+      met precies dat certificaat.
+
+      SNI is hier niet optioneel. Zonder SNI claimt de binding poort 443 voor alle
+      hostnamen, en dan zit je de andere site op deze machine in de weg zodra die ook
+      https wil. Met SNI staan ze naast elkaar.
+
+   4. Cloudflare op Full (strict)
+      SSL/TLS > Overview > Full (strict). Pas NA stap 3, anders krijgen bezoekers
       een 526.
 
-   6. Http naar https
+   5. Http naar https
       Doe dat in Cloudflare (SSL/TLS > Edge Certificates > Always Use HTTPS) en
       NIET met een omleidingsregel in IIS. Cloudflare beeindigt de versleuteling
       toch al, en een IIS-regel op serverniveau zou de andere site raken.
@@ -3143,11 +3204,14 @@ Write-Host @"
      vertrouwen als het verzoek van een Cloudflare-adres komt. Dat is serverwerk en
      valt buiten dit script.
 "@ -ForegroundColor Gray
+}
 
 Write-Host ''
 if ($script:Gelukt) {
     if ($DryRun) {
         Write-Host '  Proefrun afgerond.' -ForegroundColor Green
+    } elseif ($script:HttpsGedaan) {
+        Write-Host '  Klaar, op Cloudflare (Full strict) na en op de tests die je zelf moet doen.' -ForegroundColor Green
     } else {
         Write-Host '  Klaar, op HTTPS na (zie hierboven) en op de tests die je zelf moet doen.' -ForegroundColor Green
     }
@@ -3188,12 +3252,19 @@ Write-Host ''
         Hij draait in een eigen try: een eindmeting die zelf omvalt mag de foutmelding
         hierboven en de lijst met wijzigingen hieronder niet opeten.
     #>
-    if (-not $DryRun) {
+    $kanMeten = (-not $DryRun) -and
+                [bool](Get-Command Invoke-Eindmeting -ErrorAction SilentlyContinue) -and
+                ($null -ne $nulmeting)
+    if ($kanMeten) {
         try {
             Invoke-Eindmeting
         } catch {
             Fout "De eindmeting kon niet uitgevoerd worden: $($_.Exception.Message)"
         }
+    } elseif (-not $DryRun) {
+        # Stukgelopen voordat de nulmeting bestond: dan valt er niets te vergelijken.
+        # Dat is ook het punt waarop er nog niets aan de machine gewijzigd was.
+        Info 'Er was nog geen nulmeting, dus er valt niets te vergelijken.'
     }
     Write-Host ''
 
