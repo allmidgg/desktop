@@ -28,6 +28,11 @@ param(
     # 8080 is op deze machine al bezet, vandaar 8123.
     [int]    $Port = 8123,
 
+    # Waar de site staat die IIS serveert. De verzamelserver publiceert daar de
+    # verse cijfers naartoe zodra er genoeg games bij zijn gekomen. Leeg laten
+    # zet het automatisch verversen uit.
+    [string] $SiteDir = 'C:\inetpub\allmid',
+
     [string] $TaskName = 'AllMid Collector'
 )
 
@@ -93,6 +98,12 @@ set "ALLMID_HOST=127.0.0.1"
 set "PORT=$Port"
 set "NODE_ENV=production"
 
+rem Zodra er genoeg nieuwe games binnen zijn, rekent de server de cijfers van de
+rem site opnieuw uit en publiceert ze. Zonder deze twee regels blijft de site op
+rem de cijfers staan waarmee hij is uitgerold.
+set "ALLMID_SITE_REFRESH=$(if ($SiteDir) { '1' } else { '0' })"
+set "ALLMID_SITE_OUT=$SiteDir"
+
 cd /d "$RepoRoot"
 "$node" "$tsx" server\index.ts >> "C:\allmid\logs\collector.log" 2>&1
 "@
@@ -146,6 +157,7 @@ try {
 Stap 'Klaar'
 Write-Host @"
    Poort       : 127.0.0.1:$Port   (alleen lokaal; IIS stuurt /api/ hierheen)
+   Site        : $(if ($SiteDir) { "$SiteDir  (ververst zichzelf)" } else { 'automatisch verversen UIT' })
    Data        : $DataRoot\data\matches.jsonl
    Log         : C:\allmid\logs\collector.log
    Taak        : $TaskName

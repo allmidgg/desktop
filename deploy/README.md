@@ -120,20 +120,46 @@ De ontwerpvarianten (`site\_var-*.html`) gaan **niet** mee. Die staan al in
 `.gitignore`, maar iemand kan ze lokaal hebben staan en ze horen niet op een
 publieke site.
 
+## De site ververst zichzelf
+
+Zodra er genoeg nieuwe games binnen zijn, rekent de verzamelserver de cijfers
+opnieuw uit en publiceert ze. Je hoeft daar niets voor te doen; `publish.ps1` is
+alleen nog nodig als de pagina zelf verandert (nieuwe tekst, ander ontwerp).
+
+Standaard gebeurt dat bij **2.000 nieuwe games**, en hooguit **eens per half
+uur**. Die tweede grens is geen luxe: een doorloop leest de database twee keer
+en eindigt in een `robocopy /MIR` over de map die IIS staat te serveren. Zonder
+ondergrens zou een handvol clients die hun achterstand loost dat tientallen
+keren per uur uitlokken. Staat er iets klaar en is de laatste doorloop ouder dan
+**zes uur**, dan gaat hij toch — anders zou de site bij één trage client dagen
+stil kunnen staan zonder dat je ziet dat er iets mis is.
+
+Waarom niet bij elke upload: 2.000 games is op ~300.000 nog geen procent van de
+dataset, en de site drukt winrates op één decimaal af. Vaker herrekenen levert
+letterlijk hetzelfde plaatje op, voor negen seconden werk per keer.
+
+Een mislukte doorloop raakt de gepubliceerde bestanden niet aan. De generator
+schrijft eerst in een werkmap; pas als alle drie de bestanden parsen én hetzelfde
+aantal games melden, worden ze op hun plek gezet. Daarna loopt de pauze op
+(30, 60, 120, 240 minuten) tot het weer lukt.
+
+Wat er gebeurt zie je hier:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8123/api/v1/health | Select-Object -Expand site
+```
+
+Dat toont wanneer er voor het laatst ververst is, met hoeveel games, hoeveel er
+nu klaarstaan, of er op dit moment een doorloop bezig is, en de laatste fout.
+
+Uitzetten kan met `-SiteDir ''` bij `install-collector.ps1`, of door
+`ALLMID_SITE_REFRESH` op `0` te zetten in `C:\allmid\start-collector.cmd`.
+
 ## Wat er nog niet af is
 
-**De cijfers op de site ververen zichzelf nog niet.** `site\data\*.json` zijn
-momentopnamen die met de hand gemaakt zijn. Zolang dat zo is, veroudert de site
-zodra de crawler doorloopt.
-
-Wat daarvoor nog moet gebeuren: één generator die in één doorloop over
-`matches.jsonl` alle databestanden opnieuw schrijft, en een geplande taak die
-die generator plus `publish.ps1` bijvoorbeeld elk uur draait. Zolang die
-generator er niet is, moet elke verversing met de hand.
-
-De stap daarna is dat de site zijn cijfers rechtstreeks bij de verzamelserver
-ophaalt in plaats van uit meegeleverde bestanden. Dan is er geen verversing meer
-nodig, want site en server draaien op dezelfde machine.
+De site haalt zijn cijfers uit meegeleverde JSON-bestanden, niet rechtstreeks
+bij de API. Dat werkt en het is snel — IIS serveert statische bestanden — maar
+het betekent wel dat de pagina in stappen bijwerkt in plaats van continu.
 
 ## Als er iets misgaat
 

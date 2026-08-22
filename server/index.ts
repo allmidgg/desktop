@@ -20,6 +20,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { join } from "node:path";
 import { MatchStore, defaultStorePath, type StoredMatch } from "../src/core/services/matchStore";
 import { JadeStats } from "../src/core/services/stats";
+import { SiteRefresher } from "./siteRefresh";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const API_KEY = process.env.ALLMID_KEY ?? "";
@@ -46,13 +47,31 @@ const MAX_IDS_PER_REQUEST = 2_000;
 const RATE_LIMIT = 120;
 const RATE_WINDOW_MS = 60_000;
 
-const store = new MatchStore(defaultStorePath(DATA_ROOT));
+const DATABASE = defaultStorePath(DATA_ROOT);
+
+const store = new MatchStore(DATABASE);
 let stats = new JadeStats();
 let statsCache: string | null = null;
 let uploadsSinceRebuild = 0;
 
-/** Statistiek herberekenen is duur, dus niet bij elke upload. */
+/**
+ * Statistiek herberekenen is duur, dus niet bij elke upload.
+ *
+ * Dit getal gaat over de telling in dít proces voor /api/v1/stats: geheugen, geen
+ * schijf, en klaar voordat het volgende verzoek binnen is. De site verversen is een
+ * heel andere prijs (307 MB twee keer van schijf, plus de HTML, plus de publicatie)
+ * en heeft daarom een eigen, veel hogere drempel. Zie de onderbouwing bij
+ * ALLMID_SITE_EVERY in siteRefresh.ts.
+ */
 const REBUILD_AFTER_UPLOADS = 500;
+
+/**
+ * Zorgt dat de website de nieuwe games ook echt gaat tonen.
+ *
+ * Staat standaard uit; zonder ALLMID_SITE_REFRESH=1 gebeurt hier niets. Zie
+ * siteRefresh.ts voor alle grenzen en waarom ze zo staan.
+ */
+const site = new SiteRefresher(DATABASE, () => store.size);
 
 const hits = new Map<string, { count: number; resetAt: number }>();
 
@@ -156,7 +175,16 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
 
   if (url.pathname === "/api/v1/health") {
-    return send(res, 200, { ok: true, games: store.size, players: store.knownPuuids.length });
+    // `site` erbij omdat de verversing anders onzichtbaar is: hij draait vanzelf,
+    // in een kindproces, en de enige andere weg naar die informatie is het
+    // logbestand doorspitten. Nu zie je in één blik wanneer de site voor het laatst
+    // bijgewerkt is, met hoeveel games, en of er nu iets loopt of vastzit.
+    return send(res, 200, {
+      ok: true,
+      games: store.size,
+      players: store.knownPuuids.length,
+      site: site.status(),
+    });
   }
 
   if (rateLimited(ip)) return send(res, 429, { error: "te veel verzoeken" });
@@ -189,6 +217,11 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (uploadsSinceRebuild >= REBUILD_AFTER_UPLOADS) rebuildStats();
     else if (added > 0) statsCache = null;
 
+    // Alleen melden, nooit erop wachten: de verversing beslist zelf of ze aan de
+    // beurt is en draait daarna in een kindproces. Deze aanroep kost dus niets en
+    // het antwoord aan de client hangt er niet vanaf.
+    site.noteUploads(added);
+
     console.log(
       `[allmid] ${ip}: ${incoming.length} aangeboden, ${valid.length} geldig, ${added} nieuw ` +
         `(totaal ${store.size})`,
@@ -210,6 +243,9 @@ async function main(): Promise<void> {
   rebuildStats();
   console.log(`[allmid] ${store.size} games, ${store.knownPuuids.length} spelers`);
   if (!API_KEY) console.warn("[allmid] LET OP: geen ALLMID_KEY gezet, iedereen mag uploaden");
+
+  // Ná load(), want hij vergelijkt wat er gepubliceerd staat met wat de store kent.
+  site.start();
 
   server.listen(PORT, HOST, () => {
     console.log(`[allmid] luistert op ${HOST}:${PORT}`);
