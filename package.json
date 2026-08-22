@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "package": "electron-builder --config electron-builder.yml",
     "start": "electron-vite preview",
     "manager:dev": "electron-vite dev --config manager/electron.vite.config.ts",
     "manager:build": "electron-vite build --config manager/electron.vite.config.ts",

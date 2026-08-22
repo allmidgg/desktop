@@ -1,0 +1,67 @@
+# Verpakopzet voor AllMid zelf.
+#
+# De repo bevat twee Electron-apps met één package.json ertussen. Die package.json
+# is van AllMid -- "main" wijst naar out/main/index.js en de naam is allmid -- dus
+# hier is geen extraMetadata nodig; de Server Manager heeft dat wel, en die staat
+# in manager/electron-builder.yml.
+#
+# Draaien met: npm run package (na npm run build).
+#
+# Zonder dit bestand kwam er uit de CI alleen een installer van de Server Manager
+# en niet van de app zelf, terwijl de downloadknop op allmid.gg wel naar de
+# releases wijst. Dat wees dus naar een pagina zonder client.
+
+appId: gg.allmid.desktop
+productName: AllMid
+copyright: AllMid
+
+directories:
+  output: dist
+
+# Alleen het bouwsel. Zonder deze lijst pakt electron-builder de hele repo in:
+# de bronnen, manager/out van de andere app, en -- erger -- data/ met de
+# matchdatabase van 300 MB en de backups van je eigen rune- en masterypagina's.
+# Die horen niet in een installer die je aan vreemden geeft.
+#
+# out/main/index.js verwacht ../preload en ../renderer naast zich
+# (import.meta.dirname), dus de mapstructuur moet exact zo blijven staan.
+files:
+  - out/**
+  - package.json
+
+# De main-bundel importeert alleen electron en node:-modules; vite bakt de rest
+# in. Er valt dus niets te herbouwen, en dat scheelt een stap die zonder native
+# modules toch niets doet.
+npmRebuild: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+
+nsis:
+  # Geen stille één-klik-installatie. Dit is een .exe die naast je game draait;
+  # wie hem installeert hoort te zien waar hij landt. Dat is dezelfde belofte
+  # als de veiligheidssectie op de site doet.
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+  # Per gebruiker installeren zet de app in %LOCALAPPDATA%\Programs in plaats van
+  # Program Files. Dat scheelt de UAC-prompt bij het installeren, en belangrijker:
+  # de app draait dan niet vanuit een map waar Windows schrijven blokkeert.
+  # De verzamelde matches staan los onder %APPDATA%, dus een herinstallatie of
+  # deïnstallatie raakt ze nooit.
+  perMachine: false
+
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: AllMid
+  artifactName: ${productName} Setup ${version}.${ext}
+
+portable:
+  # Een portable .exe pakt zichzelf uit in temp, dus de opslag mag daar niet
+  # staan. Omdat de app zijn map altijd onder %APPDATA% zoekt, deelt de portable
+  # versie zijn gegevens gewoon met de geïnstalleerde.
+  artifactName: ${productName} ${version} Portable.${ext}
