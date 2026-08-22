@@ -1561,7 +1561,9 @@ function Get-Nulmeting {
     return $meting
 }
 
-$nulmeting = Get-Nulmeting
+# Met $script: ervoor, want Invoke-Eindmeting hieronder leest hem en dat leest prettiger
+# dan vertrouwen op het opzoeken in de bovenliggende scope.
+$script:nulmeting = Get-Nulmeting
 
 <#
     De nulmeting opnieuw doen en het verschil tonen.
@@ -2463,32 +2465,46 @@ if ($script:KanIIS) {
                -Doe {
                    Set-Proxybescherming -RegelOpnieuw $doeRegel -ProxyAanzetten $doeProxy
                }
-        if ($proxyNodig) { $script:ProxyDoorOnsAan = $true }
-
-        # Nakijken, niet aannemen: staat er nu echt een regel die de inhoudscontrole haalt?
-        $naStaat = Get-Beschermregelstaat
-        if ($naStaat.Ok) {
-            Meld-Controle -Wat 'beschermregel in applicationHost.config' -Ok $true -Detail 'inhoud gecontroleerd, niet alleen de naam'
+        # In een proefrun heeft Wijzig niets geschreven, dus er valt hierna ook niets
+        # na te kijken. Deed je dat toch, dan faalt de controle altijd -- de regel
+        # staat er immers niet -- en draait de foutafhandeling de proxy ECHT terug.
+        # Dat is precies wat een proefrun nooit mag doen, en het gebeurde ook: de
+        # eerste proefrun op de doelmachine meldde "er is niets gewijzigd" en had
+        # ondertussen de ARR-proxy omgezet.
+        if ($DryRun) {
+            Plan 'daarna wordt de regel op INHOUD gecontroleerd, niet op naam:'
+            Plan 'bestaat hij, staat hij aan, heeft hij de drie condities en de'
+            Plan 'CustomResponse met de juiste reden'
+            Plan 'haalt hij die controle niet, dan gaat de ARR-proxy meteen weer uit'
+            Plan 'en stopt het script -- liever een halve installatie dan een open proxy'
         } else {
-            Meld-Controle -Wat 'beschermregel in applicationHost.config' -Ok $false `
-                -Detail (($naStaat.Problemen) -join ' | ')
-            # De proxy staat nu mogelijk aan zonder werkende bescherming. Dat is precies
-            # de toestand die we nooit willen laten bestaan.
-            if ($script:ProxyDoorOnsAan) {
-                Fout 'De regel staat er niet goed op terwijl de proxy net aan is gegaan. Ik zet hem terug uit.'
-                try {
-                    Disable-ArrProxy
-                    Fout 'ARR-proxy weer UIT gezet.'
-                    $script:Terugdraaiingen += 'ARR-proxy weer uitgezet: de beschermregel haalde de inhoudscontrole niet'
-                    $script:ProxyDoorOnsAan = $false
-                } catch {
-                    Fout "De proxy kon niet uitgezet worden: $($_.Exception.Message)"
-                    Fout "  Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'enabled' -Value `$false"
-                    $script:OpenProxy = $true
+            if ($proxyNodig) { $script:ProxyDoorOnsAan = $true }
+
+            # Nakijken, niet aannemen: staat er nu echt een regel die de inhoudscontrole haalt?
+            $naStaat = Get-Beschermregelstaat
+            if ($naStaat.Ok) {
+                Meld-Controle -Wat 'beschermregel in applicationHost.config' -Ok $true -Detail 'inhoud gecontroleerd, niet alleen de naam'
+            } else {
+                Meld-Controle -Wat 'beschermregel in applicationHost.config' -Ok $false `
+                    -Detail (($naStaat.Problemen) -join ' | ')
+                # De proxy staat nu mogelijk aan zonder werkende bescherming. Dat is precies
+                # de toestand die we nooit willen laten bestaan.
+                if ($script:ProxyDoorOnsAan) {
+                    Fout 'De regel staat er niet goed op terwijl de proxy net aan is gegaan. Ik zet hem terug uit.'
+                    try {
+                        Disable-ArrProxy
+                        Fout 'ARR-proxy weer UIT gezet.'
+                        $script:Terugdraaiingen += 'ARR-proxy weer uitgezet: de beschermregel haalde de inhoudscontrole niet'
+                        $script:ProxyDoorOnsAan = $false
+                    } catch {
+                        Fout "De proxy kon niet uitgezet worden: $($_.Exception.Message)"
+                        Fout "  Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'enabled' -Value `$false"
+                        $script:OpenProxy = $true
+                    }
                 }
+                Blokkeer -Reden 'De beschermregel is aangelegd maar haalt de inhoudscontrole niet.' `
+                         -Hint  'Kijk in IIS Manager > (server) > URL Rewrite naar de regel, of in applicationHost.config onder system.webServer/rewrite/globalRules.'
             }
-            Blokkeer -Reden 'De beschermregel is aangelegd maar haalt de inhoudscontrole niet.' `
-                     -Hint  'Kijk in IIS Manager > (server) > URL Rewrite naar de regel, of in applicationHost.config onder system.webServer/rewrite/globalRules.'
         }
     }
 } else {
@@ -2747,12 +2763,12 @@ if ($DryRun) {
     Info '                                   bewijs. 502/504 is een open proxy: dan zet dit'
     Info '                                   script de ARR-proxy zelf uit en eindigt met'
     Info '                                   afsluitcode 2.'
-    if ($PfxPath) {
+    if ($script:PfxStaat -and $script:PfxStaat.Ok) {
         Info '  6. https op 443                : GET https://127.0.0.1/ met de juiste Host-kop,'
         Info '                                   en het aangeboden certificaat moet HET certificaat'
         Info '                                   uit de meegegeven .pfx zijn'
     } else {
-        Info '  6. https op 443                : overgeslagen, er is geen -PfxPath meegegeven'
+        Info "  6. https op 443                : $($script:HttpsReden)"
     }
     Info '  7. de nulmeting opnieuw        : diensten, sites, toepassingsgroepen en'
     Info '                                   dezelfde HTTP-verzoeken, met het verschil erbij.'
@@ -2999,6 +3015,21 @@ if ($DryRun) {
 
     # Dit logboek is het enige waar je op terug kunt vallen als er over een half jaar
     # iemand vraagt "wat heeft dat script eigenlijk gedaan".
+    #
+    # In een proefrun mag daarvoor GEEN map aangemaakt worden. Het script meldt aan
+    # het eind dat er niets gewijzigd is, en dan is een nieuwe map op schijf een
+    # tegenspraak -- ook al is het er maar een. Bestaat de map al, dan gaat het
+    # logboek er gewoon in; dat is nuttig en verandert niets aan de machine.
+    # Geen `return` hier: dit blok staat niet in een functie, dus dat zou de
+    # afsluitcode onderaan overslaan.
+    $logbaar = $true
+    if ($DryRun -and -not (Test-Path $script:LogMap)) {
+        Info "Geen logboek geschreven: $($script:LogMap) bestaat nog niet en een"
+        Info 'proefrun maakt geen mappen aan. Bij een echte run komt hij er wel.'
+        $logbaar = $false
+    }
+
+    if ($logbaar) {
     if (-not (Test-Path $script:LogMap)) { New-Item -ItemType Directory -Path $script:LogMap -Force | Out-Null }
     $logpad = Join-Path $script:LogMap ("bootstrap-{0:yyyyMMdd-HHmmss}.log" -f $script:Start)
     $regels = @("allmid.gg bootstrap -- $($script:Start.ToString('yyyy-MM-dd HH:mm:ss'))", '')
@@ -3051,6 +3082,7 @@ if ($DryRun) {
     $regels += 'Het .pfx-wachtwoord en de vingerafdruk van het certificaat staan hier ook niet in.'
     Set-Content -Path $logpad -Value $regels -Encoding UTF8
     Info "logboek: $logpad"
+    }
 
     Stap 'Uitkomst van de controles'
     $mislukt   = @($script:Controles | Where-Object { $_.Staat -eq 'FOUT' })
