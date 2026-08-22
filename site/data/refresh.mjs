@@ -219,6 +219,30 @@ const teltMeeAlsCore = (baseId) => teltMeeAlsItem(baseId) && !LAARZEN.has(baseId
 const PRIOR_STRENGTH = 20;
 const MIN_MATCHUP_GAMES = 8;
 const MIN_LANE_GAMES = 100;
+
+/**
+ * Twee eisen aan een matchup, allebei gelijk aan src/core/services/stats.ts.
+ *
+ * MIN_LANE_SHARE: hoe vaak de tegenstander minstens in die lane moet staan, als
+ * deel van alle spelersloten daar. Zonder deze eis kwam Kog'Maw er in de botlane
+ * uit als winnend tegen Ryze, Nunu, Alistar, Veigar en Lulu. Echte games, 19 tot
+ * 40 stuks, maar geen van die vijf haalt 1% van de botlane -- Ryze staat er 36e
+ * met 0,37%. Je krijgt ze nooit tegenover je. De botlane is negen ADC's die samen
+ * 72% van de lane vullen, en dat is wat er hoort te staan.
+ *
+ * MIN_MATCHUP_SHARE: hoe groot de matchup minstens moet zijn ten opzichte van je
+ * eigen lane-games. Een vaste ondergrens van 8 werkt averechts bij een veelge-
+ * speelde champion: met 6.627 botgames is een reeks van 26 pure ruis, en door de
+ * sortering op winrate belandt juist die ruis bovenaan. Deze eis schaalt mee --
+ * Ezreal moet 320 games hebben, en een champion met 300 lane-games houdt de
+ * ondergrens van 8, zodat er niemand leeg raakt.
+ *
+ * Nagerekend over alle 296 champion+lane-combinaties: geen enkele verliest al
+ * zijn matchups. De mediaan houdt er 18 over, ruim meer dan de vijf die getoond
+ * worden.
+ */
+const MIN_LANE_SHARE = 0.01;
+const MIN_MATCHUP_SHARE = 0.01;
 const LANES = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "SUPPORT"];
 
 /** Naar 50% getrokken winrate, in procenten. Bij weinig games zegt de rauwe niets. */
@@ -814,10 +838,13 @@ function bouwHighlights(t, champTotalen) {
  * src/core/services/stats.ts, want de app en de site horen nooit een ander
  * antwoord te geven op dezelfde vraag.
  */
-function tegenstanders(perTegen) {
+function tegenstanders(perTegen, eis = null) {
   const matchups = [];
+  const drempel = eis?.drempel ?? MIN_MATCHUP_GAMES;
   for (const [tegen, paar] of perTegen ?? []) {
-    if (paar.games < MIN_MATCHUP_GAMES) continue;
+    if (paar.games < drempel) continue;
+    // Alleen tegenstanders die in deze lane ook echt voorkomen. Zie MIN_LANE_SHARE.
+    if (eis && eis.laneAandeel(tegen) < MIN_LANE_SHARE) continue;
     matchups.push({
       baseId: tegen,
       name: championNaam.get(tegen),
@@ -879,7 +906,13 @@ function bouwChampions(t, nu) {
       // De tegenstander die in DEZE lane tegenover je stond. Vaak zijn dit er
       // minder dan bij de gepoolde variant, want MIN_MATCHUP_GAMES geldt nu per
       // lane. Dat is de bedoeling: liever vier eerlijke dan tien verzonnen.
-      const eigen = tegenstanders(perLaneTegen.get(`${lane}|${champion}`));
+      // Twee eisen, allebei nodig. De eerste zorgt dat er namen staan die je
+      // echt tegenover je krijgt, de tweede dat het getal ernaast iets waard is.
+      const slots = t.slotenPerLane.get(lane) || 1;
+      const eigen = tegenstanders(perLaneTegen.get(`${lane}|${champion}`), {
+        drempel: Math.max(MIN_MATCHUP_GAMES, Math.round(tally.games * MIN_MATCHUP_SHARE)),
+        laneAandeel: (tegen) => (t.champions.get(`${lane}|${tegen}`)?.games ?? 0) / slots,
+      });
       regel.beats = eigen.beats;
       regel.losesTo = eigen.losesTo;
       lanes.push(regel);

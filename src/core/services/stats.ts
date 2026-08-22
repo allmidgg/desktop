@@ -19,6 +19,29 @@ const PRIOR_STRENGTH = 20;
 /** Onder dit aantal games tonen we een matchup niet als advies. */
 export const MIN_MATCHUP_GAMES = 8;
 
+/**
+ * Hoe vaak een champion minstens in die lane moet staan om als matchup te tellen,
+ * als deel van alle spelersloten daar.
+ *
+ * Zonder deze eis kwam Kog'Maw er in de botlane uit als winnend tegen Ryze, Nunu,
+ * Alistar, Veigar en Lulu. Dat waren echte games -- 19 tot 40 stuks -- maar geen
+ * van die vijf haalt 1% van de botlane, en Ryze staat er 36e met 0,37%. Je krijgt
+ * ze dus nooit tegenover je, en een lijst met alleen namen die je nooit ziet is
+ * geen advies. De botlane is in de praktijk negen ADC's die samen 72% van de lane
+ * vullen; die wil je zien.
+ */
+export const MIN_LANE_SHARE = 0.01;
+
+/**
+ * Hoe groot een matchup minstens moet zijn ten opzichte van je eigen lane-games.
+ *
+ * Een vaste ondergrens van 8 werkt averechts bij een veelgespeelde champion: met
+ * 6.627 botgames is een reeks van 26 ruis die dankzij de sortering op winrate
+ * juist bovenaan belandt. Deze eis schaalt mee -- Ezreal moet 320 games hebben,
+ * een champion met 300 lane-games houdt gewoon de ondergrens van 8.
+ */
+export const MIN_MATCHUP_SHARE = 0.01;
+
 export interface WinRecord {
   games: number;
   wins: number;
@@ -182,6 +205,19 @@ export class JadeStats {
     return result.sort((a, b) => b.adjusted - a.adjusted);
   }
 
+  /** Deel van alle spelersloten in die lane dat naar deze champion gaat. */
+  private laneShare(position: Position, championId: number): number {
+    const slots = this.positionTotals.get(position) ?? 0;
+    if (!slots) return 0;
+    return (this.champions.get(`${position}|${championId}`)?.games ?? 0) / slots;
+  }
+
+  /** De ondergrens voor een matchup van deze champion in deze lane. */
+  private matchupFloor(position: Position, championId: number, minGames: number): number {
+    const eigen = this.champions.get(`${position}|${championId}`)?.games ?? 0;
+    return Math.max(minGames, Math.round(eigen * MIN_MATCHUP_SHARE));
+  }
+
   matchup(championId: number, opponentId: number, position: Position): MatchupStat | null {
     const tally = this.matchups.get(`${position}|${championId}|${opponentId}`);
     if (!tally) return null;
@@ -196,9 +232,14 @@ export class JadeStats {
     const result: MatchupStat[] = [];
     for (const [key, tally] of this.matchups) {
       const [pos, champ, opponent] = key.split("|");
-      if (pos !== position || opponent !== String(opponentId) || tally.games < minGames) continue;
+      if (pos !== position || opponent !== String(opponentId)) continue;
+      // Hier varieert de kandidaat, niet de tegenstander. De eis geldt dus voor
+      // de kandidaat: geen counterpick voorstellen die daar nooit gespeeld wordt.
+      const championId = Number(champ);
+      if (this.laneShare(position, championId) < MIN_LANE_SHARE) continue;
+      if (tally.games < this.matchupFloor(position, championId, minGames)) continue;
       result.push({
-        championId: Number(champ),
+        championId,
         opponentId,
         position: position,
         ...record(tally.games, tally.wins),
@@ -274,9 +315,13 @@ export class JadeStats {
   strugglesAgainst(championId: number, position: Position, minGames = MIN_MATCHUP_GAMES): MatchupStat[] {
     const result: MatchupStat[] = [];
     const prefix = `${position}|${championId}|`;
+    const floor = this.matchupFloor(position, championId, minGames);
     for (const [key, tally] of this.matchups) {
-      if (!key.startsWith(prefix) || tally.games < minGames) continue;
+      if (!key.startsWith(prefix) || tally.games < floor) continue;
       const opponentId = Number(key.slice(prefix.length));
+      // De tegenstander moet in deze lane thuishoren, anders staat er een naam
+      // die je er nooit tegenover krijgt.
+      if (this.laneShare(position, opponentId) < MIN_LANE_SHARE) continue;
       const stat = { championId, opponentId, position, ...record(tally.games, tally.wins) };
       if (stat.winrate < 0.5) result.push(stat);
     }
@@ -287,9 +332,13 @@ export class JadeStats {
   strongAgainst(championId: number, position: Position, minGames = MIN_MATCHUP_GAMES): MatchupStat[] {
     const result: MatchupStat[] = [];
     const prefix = `${position}|${championId}|`;
+    const floor = this.matchupFloor(position, championId, minGames);
     for (const [key, tally] of this.matchups) {
-      if (!key.startsWith(prefix) || tally.games < minGames) continue;
+      if (!key.startsWith(prefix) || tally.games < floor) continue;
       const opponentId = Number(key.slice(prefix.length));
+      // De tegenstander moet in deze lane thuishoren, anders staat er een naam
+      // die je er nooit tegenover krijgt.
+      if (this.laneShare(position, opponentId) < MIN_LANE_SHARE) continue;
       const stat = { championId, opponentId, position, ...record(tally.games, tally.wins) };
       if (stat.winrate > 0.5) result.push(stat);
     }
