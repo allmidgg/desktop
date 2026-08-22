@@ -1,0 +1,83 @@
+# Bouwt beide apps en levert de Windows-installers op.
+#
+# Deze workflow is ook de plek waar de ondertekening straks aan hangt: SignPath
+# tekent alleen artefacten die uit een pipeline komen die zij kunnen inzien, niet
+# iets dat op een laptop gebouwd is. Vandaar dat de release-stap hier woont en
+# niet in een script op je eigen machine.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    name: Typecheck
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Beide apps delen src/core, dus een fout in de kern breekt ze allebei.
+      # Dat wil je hier zien en niet pas bij het pakken.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+  build:
+    name: Build installers
+    needs: check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build client
+        run: npm run build
+
+      - name: Build server manager
+        run: npm run manager:build
+
+      - name: Package server manager
+        run: npm run manager:package
+
+      # De installers worden hier bewaard zodat SignPath ze kan ophalen om te
+      # tekenen. Ongetekend blijven ze beschikbaar voor wie zelf wil bouwen.
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-manager-windows
+          path: |
+            manager/dist/*.exe
+            manager/dist/*.blockmap
+          if-no-files-found: error
+          retention-days: 30
+
+      # Alleen bij een tag: een echte release aanmaken.
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            manager/dist/*.exe
+            manager/dist/*.blockmap
+          draft: true
+          generate_release_notes: true

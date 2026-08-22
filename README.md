@@ -1,183 +1,181 @@
 # jade.gg
 
-Stats, scouting en overlay voor **League of Legends Classic** — de modus die geen
-enkele bestaande tool ondersteunt.
+Stats, champion select scouting and build data for **League of Legends Classic** —
+the mode no existing tool supports.
 
-## Waarom dit bestaat
+---
 
-Blitz, Porofessor, Mobalytics en OP.GG laten bij League Classic niets zien. Niet
-omdat het niet kan, maar omdat ze allemaal filteren op `mapId` 11/12 en
-`gameMode: CLASSIC`. League Classic draait onder een andere naam en een andere
-map, en valt daardoor overal buiten de boot. De publieke Riot API kent de
-Classic-queues ook (nog) niet.
+## Why this exists
 
-Wij halen alles rechtstreeks uit de lokale League-client. Die weet het wel.
+Open Blitz, Porofessor, Mobalytics or OP.GG during a League Classic game and you get
+nothing. Not because it is impossible, but because they all filter on `mapId` 11/12 and
+`gameMode: CLASSIC`. League Classic runs under a different name on a different map, so it
+falls through every filter. Riot's public API does not expose the mode at all — we
+verified this: every Classic match returns `403 Forbidden`, and every Classic queue filter
+returns zero results.
 
-## Wat we hebben uitgezocht
+So jade.gg reads the League client directly, the same way Blitz and Porofessor do, and
+builds its own dataset from what it finds.
 
-League Classic heet intern **`JADE`**.
+![Champion select](docs/screenshots/champion-select.png)
 
-| Onderwerp | Waarde |
+*Champion select, lane by lane: who is against whom, their rank and form, their record on
+that champion, the matchup winrate, and what wins on your pick.*
+
+## What we found
+
+League Classic is called **`JADE`** internally.
+
+| | |
 | --- | --- |
 | Game mode | `JADE` |
-| Map | `453` — "Classic Rift" (`mapStringId: JD`) |
+| Map | `453` — "Classic Rift" |
 | Queues | `3260` / `3262` normal, `4310` ranked solo, `4320` bots |
-| Ranked queue type | `JADE_RANKED_SOLO_5x5` |
-| Client-plugin | `rcp-fe-lol-jade` |
-| Rank-tiers | eigen ladder: o.a. **Wood**, **Salt** (niet Iron→Challenger) |
+| Ranked queue | `JADE_RANKED_SOLO_5x5` |
+| Ranks | its own ladder — **Wood**, **Salt**, ... not Iron to Challenger |
 
-### ID-ruimtes
+Champions and items live in separate ID spaces so the classic and modern versions can
+coexist:
 
-Classic-champions en -items bestaan naast hun moderne tegenhangers en hebben
-daarom eigen ID's:
-
-| Type | Formule | Voorbeeld |
+| Type | Formula | Example |
 | --- | --- | --- |
-| Champion | `60000 + basisId` | Ashe `22` → `60022`, alias `Jade_Ashe` |
-| Item | `770000 + basisId` | Infinity Edge `3031` → `773031` |
-| Summoner spell | `"7" + basisId` | Flash `4` → `74`, Teleport `12` → `712` |
+| Champion | `60000 + baseId` | Ashe `22` becomes `60022`, alias `Jade_Ashe` |
+| Item | `770000 + baseId` | Infinity Edge `3031` becomes `773031` |
+| Summoner spell | `"7" + baseId` | Flash `4` becomes `74`, Teleport `12` becomes `712` |
 
-De client serveert zelf de bijbehorende namen en iconen:
+The client serves the names and icons for all of it: 63 champions, 162 items, the full
+three-tree mastery system and 59 runes. `src/core/jade/catalog.ts` builds the catalogue
+from those files and **validates the formulas against them**, so if Riot ever changes the
+convention you get a warning instead of silently wrong data.
 
-- 63 Classic-champions in `/lol-game-data/assets/v1/champion-summary.json`
-- 162 Classic-items in `/lol-game-data/assets/v1/items.json`
+---
 
-`src/core/jade/catalog.ts` bouwt daar de catalogus uit op en **controleert de
-formules tegen de assets**, zodat we het merken als Riot de afspraak verandert.
+## Is this safe to run?
 
-### Wat er (nog) niet in de matchhistorie zit
+Fair question to ask of any executable that talks to your game client. The honest answer:
 
-De velden `perk0` t/m `perk5` zijn in Classic-games allemaal `0`: welke runes en
-masteries iemand droeg wordt niet in de matchhistorie vastgelegd. Voor je eigen
-pagina's maakt dat niet uit (die staan in de loadout, zie onder), maar het betekent
-wel dat we van andere spelers nooit kunnen zien waarmee ze speelden.
+**What it does**
 
-## Aanpak
+- Reads the **League Client API** (LCU) — the local HTTPS server your own client runs.
+  This is the same interface Blitz, Porofessor and OP.GG's desktop app use.
+- Reads the **Live Client Data API** on port 2999 during a game, for skill order.
+- Writes your rune and mastery pages, but **only when you ask it to**, and it saves a
+  backup of your loadout first.
 
-Alles loopt via de **LCU API** (de lokale HTTPS-server van de client) en straks de
-**Live Client Data API** op poort 2999. Dat zijn de officiële, door Riot
-toegestane routes die Blitz en Porofessor ook gebruiken. Geen memory reading,
-geen injectie, geen scripting van gameplay.
+**What it does not do**
 
-Praktisch voordeel: omdat de client namens jou de publieke matchhistorie en
-ranked-gegevens van willekeurige spelers mag opvragen, hebben we **geen Riot
-API-key nodig**.
+- No memory reading. No injection. No DLLs. No hooking the game process.
+- No scripting, no automation of gameplay, nothing that touches the game itself.
+- No account credentials. It never sees or asks for your password — the client
+  authenticates itself and jade.gg talks to it locally over `127.0.0.1`.
 
-## Gebruik
+**Why you can check this yourself**
 
-Start de app met de snelkoppeling **jade.gg** op je bureaublad, of met
-`Start jade.gg.bat` in deze map. De League-client mag al draaien of later
-opstarten -- jade.gg pikt de verbinding vanzelf op.
+The whole thing is open source. Every request it makes to your client is in
+`src/core/lcu/`. You can also build it yourself (see below) and compare — the release
+binaries come from the GitHub Actions workflow in this repo, not from someone's laptop.
 
-De interface is Engels. De app heeft vier schermen plus een popup:
+---
 
-| Scherm | Wat je ziet |
-| --- | --- |
-| **Live** | Je huidige status en je laatste Classic-games met items, spells en KDA. |
-| **Champion select** | Verschijnt als **eigen popup** zodra select begint, altijd bovenop. Per lane: wie staat tegenover wie, hun rank en winrate, hun staat van dienst op die champion, hun gebruikelijke rol, de matchup-winrate en de beste counters. |
-| **Profiel** | Je eigen cijfers, plus een zoekveld om elke speler op te zoeken. |
-| **Runes** | Per champion de beste rune-pagina die je met je bezit kunt maken, met koopadvies, en een knop om hem in te stellen. |
-| **Masteries** | Al je pagina's en de volledige boom van het 30-punten-systeem. |
+## Install
 
-### Ontwikkelen
+Download the latest installer from [Releases](../../releases). Two builds are published:
 
-Vereist: Node 20+.
+- **Setup** — normal installer, installs to `%LOCALAPPDATA%` (no admin rights needed)
+- **Portable** — single `.exe`, no installation
+
+> **Windows SmartScreen** may warn on first run. Signing is in progress; until a release
+> has enough downloads to build reputation the warning appears for everyone. If that
+> bothers you, build from source — the instructions below produce the same binary.
+
+## Build from source
+
+Requires Node 20 or newer and a Windows machine.
 
 ```bash
 npm install
-npm run dev
+npm run build          # the jade.gg client
+npm run manager:build  # the server manager
+npm run manager:package
 ```
 
-Champion select testen zonder in de wachtrij te staan -- speelt je laatste
-gespeelde game na als select:
+The installers land in `manager/dist/`.
+
+---
+
+## The apps
+
+### jade.gg client
+
+| Screen | What it shows |
+| --- | --- |
+| **Live** | Your current status and recent Classic games with items, spells and KDA |
+| **Champion select** | Opens as its own window the moment select starts. Per lane: who is against whom, their rank and winrate, their record on that champion, their usual role, the matchup winrate and the best counters |
+| **Meta** | Tier lists per lane, and per champion the builds, summoner spells and matchups |
+| **Profile** | Your own numbers, plus a search box for any player |
+| **Runes / Masteries** | The classic 30-point mastery trees, and rune suggestions from what you actually own |
+
+![Meta](docs/screenshots/meta.png)
+
+Auto Set Best Masteries is a checkbox: leave it on and your mastery page follows whichever
+champion you pick, including when you switch mid-select.
+
+### Server Manager
+
+A separate desktop app that hosts the collection servers for every game helper — not just
+League. All services run on **one port** with path routing (`/lol-classic/...`, `/auth/...`),
+and each one can be started, paused, resumed and stopped independently while the host keeps
+running. It also browses and edits the collected data directly.
+
+Adding a game means writing one service file and registering it. No extra port, no extra
+process.
+
+---
+
+## How the data works
+
+There is no public dataset for this mode, so the app builds one. Every game it encounters
+is reduced to the fields that matter statistically and appended as one line of JSON.
+
+Each game contains ten players, and each player leads to more games — so the crawler walks
+that network outward from your own account. It holds back deliberately: one request at a
+time, and never while you are in champion select or in a game.
 
 ```bash
-JADE_DEMO_CHAMPSELECT=1 npx electron .
+npm run crawl          # runs until you stop it
+npm run stats          # tier lists from what you have
+npm run stats -- Ashe  # everything known about one champion
 ```
 
-De CLI-versies blijven bestaan voor snel testen zonder UI:
+**What is stored per player:** puuid, champion, team, position, result, KDA, CS, gold,
+final items, summoner spells. **What is not:** names (looked up live when needed), runes
+and masteries (Riot does not record them for this mode), and item purchase order (the match
+data only contains the final inventory, so we do not pretend to know the order).
 
-Scout de tien spelers uit je laatste Classic-game:
+Games shorter than five minutes are dropped — remakes distort everything.
 
-```bash
-npm run scout
-```
+### Sharing
 
-Eén speler opzoeken:
+The client can send what it finds to a shared server so the dataset grows for everyone.
+That is a **checkbox you can turn off**, and the first run explains what gets sent. Only
+game IDs the server does not already have are uploaded, so overlapping users cost nothing.
 
-```bash
-npm run scout -- Faker#KR1
-```
+---
 
-Je mastery- en rune-pagina's plus je rune-bezit bekijken:
+## Contributing
 
-```bash
-npm run loadout
-```
+Issues and pull requests are welcome. A few things worth knowing:
 
-De beste rune-pagina die je nu kunt maken, voor een champion:
+- Code comments are currently in Dutch; user-facing strings are English.
+- `npx tsc --noEmit` must stay clean — both apps share `src/core`, so a change there
+  affects everything.
+- The storage layer (`src/core/services/matchStore.ts`, `manager/src/main/data/`) is where
+  data can genuinely be lost. It is deliberately careful and heavily commented; read those
+  comments before changing anything there.
 
-```bash
-npm run runes -- Ashe
-```
+## License
 
-## De matchdatabase
+MIT — see [LICENSE](LICENSE).
 
-Counters, tier lists en matchup-winrates bestaan nergens voor deze modus, dus
-verzamelen we ze zelf. Elke game die we tegenkomen wordt uitgekleed tot de velden
-die statistisch tellen en weggeschreven als een regel JSON in `data/matches.jsonl`.
-
-Elke game levert tien spelers op, en elke speler levert weer games op -- de
-crawler loopt dat netwerk af vanaf jouw eigen account. Bewust ingehouden: één
-verzoek tegelijk met een pauze ertussen, en nooit tijdens champion select of een
-lopende game.
-
-```bash
-npm run crawl -- 50
-```
-
-Wat de data mogelijk maakt:
-
-- **Matchup-winrates per lane.** Riot levert `lane` en `role` per speler, dus we
-  weten wie er echt tegenover wie stond. Een matchup telt pas mee vanaf 8 games.
-- **Rol-inschatting.** In ranked verbergt Riot de namen van tegenstanders en
-  wijst het alleen jouw eigen team een positie toe. Van spelers die we al kennen
-  weten we waar ze meestal spelen -- daarmee koppelen we de lanes.
-- **Tier lists per positie**, gesorteerd op een naar 50% getrokken winrate, zodat
-  "3 van de 4 gewonnen" niet als 75% bovenaan komt te staan.
-
-## Masteries en runes
-
-Classic bewaart die niet in de perks-plugin waar de moderne runes zitten, maar
-als slots in je **account-loadout**:
-
-```
-MASTERY_PAGE_3_MASTERY_17    een van de 30 puntslots van pagina 3
-RUNE_PAGE_1_BLUE_4           het vierde glyph-slot van rune-pagina 1
-ACTIVE_MASTERY_PAGE          welke pagina actief is
-```
-
-- **Masteries**: 3 bomen (Offense/Defense/Utility), 6 rijen elk, 30 punten te
-  verdelen. De volledige boom staat in `jade-mastery-display.json`, inclusief
-  `maxRank` en `pointsRequired` per rij — genoeg om pagina's te valideren
-  voordat we ze wegschrijven. Riot's eigen presets komen door onze validatie heen.
-- **Runes**: 59 stuks (12 Marks, 13 Seals, 14 Glyphs, 20 Quintessences) in
-  `jade-perks.json`, mét machineleesbare stats. Slots: 9/9/9/3.
-- Runes moeten **gekocht** worden. De optimizer rekent daarom met je inventaris
-  en kiest de beste pagina die je nú kunt maken, plus wat een aankoop zou opleveren.
-
-Schrijven gaat via `PATCH /lol-loadouts/v4/loadouts/{id}`. Dat past je echte
-pagina's aan, dus er wordt eerst een kopie weggeschreven naar `data/backups/`.
-
-## Structuur
-
-```
-src/core/lcu/         verbinding met de client (lockfile, auth, HTTP, events)
-src/core/jade/        ID-vertaling, champions/items/spells, masteries, runes
-src/core/services/    speleranalyse, champ select, loadout, rune-optimizer
-src/main/             Electron main-proces: vensters, IPC, asset-protocol
-src/preload/          de afgebakende brug tussen UI en main-proces
-src/renderer/         de interface (React + Tailwind)
-src/cli/              terminalversies voor snel testen
-tools/                Python-scripts voor reverse engineering van de client
-```
+Not endorsed by Riot Games. League of Legends and Riot Games are trademarks or registered
+trademarks of Riot Games, Inc.
