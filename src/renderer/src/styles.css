@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+/**
+ * Ontwerpsysteem van jade.gg.
+ *
+ * Uitgangspunt: bijna-zwart met dunne glaslagen, één jadegroen accent voor alles
+ * wat "goed" is en één warm goud voor alles wat naar de klassieke periode
+ * verwijst. Verlies is rood, maar gedempt -- de app moet leesbaar blijven als je
+ * vijf games op rij hebt verloren.
+ */
+@theme {
+  --color-void: #07080a;
+  --color-surface: #0d0f13;
+  --color-surface-2: #12151a;
+
+  --color-jade-300: #7df3c8;
+  --color-jade-400: #4de7ad;
+  --color-jade-500: #24d391;
+  --color-jade-600: #12a973;
+
+  --color-gold-300: #f0d6a0;
+  --color-gold-400: #e6c88a;
+  --color-gold-500: #cfa961;
+
+  --color-loss-400: #ff6b74;
+  --color-loss-500: #e0454f;
+
+  --color-ink-100: #f2f5f8;
+  --color-ink-300: #aab3bf;
+  --color-ink-500: #6b7482;
+  --color-ink-700: #3a414c;
+
+  --font-sans: "Inter", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+
+  --radius-panel: 16px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-void);
+  color: var(--color-ink-100);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04";
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Achtergrondgloed: geeft het bijna-zwart diepte zonder ruis toe te voegen. */
+.app-backdrop::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 500px at 12% -8%, rgba(36, 211, 145, 0.13), transparent 65%),
+    radial-gradient(700px 420px at 96% 4%, rgba(207, 169, 97, 0.07), transparent 60%);
+}
+
+/* Sleepgebied van het eigen titelbalkje. */
+.drag {
+  -webkit-app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+@utility panel {
+  background: color-mix(in oklab, white 3.5%, transparent);
+  border: 1px solid color-mix(in oklab, white 7%, transparent);
+  border-radius: var(--radius-panel);
+  backdrop-filter: blur(14px);
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Slanke scrollbalk die niet met het ontwerp vecht. */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, white 9%, transparent);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, white 16%, transparent);
+  background-clip: content-box;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-jade-500) 45%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 9px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 2s ease-out infinite;
+}

@@ -1,0 +1,41 @@
+# Afhankelijkheden
+node_modules/
+
+# Bouwresultaten
+out/
+dist/
+manager/out/
+manager/dist/
+*.tsbuildinfo
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Verzamelde data en persoonlijke gegevens -- NOOIT in de repo.
+#
+# data/ bevat de matchdatabase (honderden MB's en groeiend), de crawlstaat, en
+# backups van je eigen rune- en masterypagina's met je account-id's erin. Dat
+# hoort thuis op de machine van de gebruiker, niet in versiebeheer.
+# ─────────────────────────────────────────────────────────────────────────────
+data/
+server-data/
+*.jsonl
+*.jsonl.lock
+*.jsonl.tmp-*
+*.jsonl.stale-*
+
+# Sleutels en instellingen
+.env
+.env.*
+settings.json
+*.key
+*.pem
+
+# Logs en tijdelijke bestanden
+*.log
+sniff.log
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp

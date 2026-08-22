@@ -1,0 +1,73 @@
+# Verpakopzet voor de Server Manager.
+#
+# De repo bevat twee Electron-apps met één package.json ertussen. Dat bestand is
+# van jade.gg -- "main" wijst naar out/main/index.js en de naam is jade-gg -- dus
+# alles wat de Manager anders nodig heeft staat hier, en niet daar. Zo kan de ene
+# app verpakt worden zonder dat de andere iets merkt.
+#
+# Draaien met: npm run manager:package (na npm run manager:build).
+
+appId: gg.jade.server-manager
+productName: jade.gg Server Manager
+copyright: jade.gg
+
+directories:
+  # Naast manager/out, zodat de bouwsels van beide apps gescheiden blijven en
+  # `dist/` uit .gitignore ze allebei al afvangt.
+  output: manager/dist
+
+# electron-builder leest de ingang uit package.json, en die van jade.gg. Deze
+# override wordt in de meegeleverde package.json geschreven en raakt het bestand
+# op schijf niet aan. De naam gaat mee omdat Electron daar de map voor
+# gebruikersdata uit afleidt: mocht app.setPath() in main ooit sneuvelen, dan
+# landt de Manager alsnog niet in de opslag van jade.gg.
+extraMetadata:
+  main: manager/out/main/index.js
+  name: jade-gg-server-manager
+
+# Alleen het bouwsel van de Manager. Zonder deze lijst pakt electron-builder de
+# hele repo in: de bronnen, de root-out/ van jade.gg, en -- erger -- data/ en
+# server-data/ met matches erin. Die horen niet in een installer.
+#
+# manager/out/main/index.js verwacht ../preload en ../renderer naast zich
+# (import.meta.dirname), dus de mapstructuur moet exact zo blijven staan.
+files:
+  - manager/out/**
+  - package.json
+
+# De main-bundel importeert alleen electron en node:-modules; vite bakt de rest
+# in. Er valt dus niets te herbouwen, en dat scheelt een stap die zonder native
+# modules toch niets doet.
+npmRebuild: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+
+nsis:
+  # Geen stille één-klik-installatie: dit is beheerdersgereedschap, wie het
+  # installeert wil zien waar het landt.
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+  # Per gebruiker installeren zet de app in %LOCALAPPDATA%\Programs in plaats van
+  # Program Files. Dat scheelt de UAC-prompt, en belangrijker: de app draait dan
+  # niet vanuit een map waar Windows schrijven blokkeert. De opslag zelf staat
+  # los in %APPDATA%\server-manager (zie app.setPath in main/index.ts) -- niets
+  # van de gebruiker komt naast de binaries te staan, dus een herinstallatie of
+  # deïnstallatie raakt de matches nooit.
+  perMachine: false
+
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: jade.gg Server Manager
+  artifactName: ${productName} Setup ${version}.${ext}
+
+portable:
+  # Dezelfde reden andersom: een portable .exe pakt zichzelf uit in temp, dus de
+  # opslag mág daar niet staan. Omdat main de map altijd onder %APPDATA% zoekt,
+  # deelt de portable versie zijn gegevens gewoon met de geïnstalleerde.
+  artifactName: ${productName} ${version} Portable.${ext}
