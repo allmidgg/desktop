@@ -1405,10 +1405,10 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
       <p class="eyebrow">Free &middot; Open source &middot; MIT &middot; Windows</p>
       <h1>The stats page League Classic <em>never got</em>.</h1>
       <p class="lede">
-        Blitz, Porofessor, OP.GG and METAsrc all stop at the modern game &mdash; Classic has no public
-        API, so nobody covers it. AllMid reads the Classic client&rsquo;s own local APIs and has built
-        the dataset from scratch: <strong>${n(T.games)} games</strong> across
-        <strong>${n(T.players)} players</strong> and all <strong>63 champions</strong>.
+        AllMid reads the Classic client&rsquo;s own local APIs and builds its dataset from the games
+        people actually play: <strong>${n(T.games)} games</strong> across
+        <strong>${n(T.players)} players</strong> and all <strong>63 champions</strong>. Free, open
+        source, and every number here carries the sample size it came from.
       </p>
       <div class="cta-row" id="get">
         <a class="btn btn-primary" id="hero-download" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">
@@ -1426,8 +1426,8 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 
     <div class="explorer-col rise">
       <div class="coverage">
-        <p class="cov-label">Classic coverage</p>
-        <span>Blitz</span><span>Porofessor</span><span>OP.GG</span><span>METAsrc</span><span class="yes">AllMid</span>
+        <p class="cov-label">Live Classic data</p>
+        <span class="yes">${n(T.games)} games</span><span class="yes">${n(T.players)} players</span><span class="yes">patch ${esc(T.patches[0])}</span><span class="yes">updates itself</span>
       </div>
       <div class="explorer">
       <div class="explorer-head">
@@ -1506,7 +1506,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     <div class="section-head rise">
       <p class="eyebrow">What the data says</p>
       <h2>Three things ${n(T.games)} Classic games make obvious.</h2>
-      <p>None of these are visible anywhere else, because nobody else has the games to see them.</p>
+      <p>Each of these comes straight out of the match data below, with the sample size it rests on.</p>
     </div>
     <div class="rise">${findings()}</div>
   </div>
