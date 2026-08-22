@@ -146,16 +146,20 @@ function buildsData() {
   const kort = (x) => [x.baseId, x.pickRate, x.winrate];
   const out = {};
   for (const c of Object.values(roster)) {
-    const b = buildFor(c.baseId);
-    if (!b) continue;
-    out[c.baseId] = {
-      l: b.lane,
-      g: b.games,
-      i: b.items.map(kort),
-      b: b.boots.map(kort),
-      s: b.starters.map(kort),
-      p: b.spells.map((x) => [x.spells[0], x.spells[1], x.pickRate, x.winrate]),
-    };
+    const alle = buildsFor(c.baseId);
+    if (!alle.length) continue;
+    const lanes = {};
+    for (const b of alle) {
+      lanes[b.lane] = {
+        g: b.games,
+        w: b.winrate,
+        i: b.items.map(kort),
+        b: b.boots.map(kort),
+        s: b.starters.map(kort),
+        p: b.spells.map((x) => [x.spells[0], x.spells[1], x.pickRate, x.winrate]),
+      };
+    }
+    out[c.baseId] = { best: hoofdLane(c.baseId), lanes };
   }
   return out;
 }
@@ -165,12 +169,12 @@ function naamTabellen() {
   const items = {};
   const spells = {};
   for (const c of Object.values(roster)) {
-    const b = buildFor(c.baseId);
-    if (!b) continue;
-    for (const lijst of [b.items, b.boots, b.starters]) {
-      for (const x of lijst) items[x.baseId] = x.naam;
+    for (const b of buildsFor(c.baseId)) {
+      for (const lijst of [b.items, b.boots, b.starters]) {
+        for (const x of lijst) items[x.baseId] = x.naam;
+      }
+      for (const s of b.spells) for (const id of s.spells) spells[id] = spellName(id);
     }
-    for (const s of b.spells) for (const id of s.spells) spells[id] = spellName(id);
   }
   return { items, spells };
 }
@@ -281,26 +285,52 @@ const itemName = (id) => builds.itemtabel?.[String(id)]?.naam ?? `Item ${id}`;
 const spellName = (id) => builds.spelltabel?.[String(id)] ?? `Spell ${id}`;
 
 /**
- * De build die we voor een champion tonen.
+ * Alle builds van een champion, één per lane.
  *
- * Een champion speelt vaak in meerdere lanes, en die builds verschillen. We
- * kiezen de lane waar hij het sterkst is, want dat is de build waar iemand naar
- * op zoek is -- en we zetten er expliciet bij welke lane het is, anders lijkt
- * het alsof deze cijfers voor alle lanes gelden.
+ * Een champion speelt vaak in meerdere lanes en die builds verschillen echt --
+ * jungle Tryndamere koopt Feral Flare, top Tryndamere niet. Eén build tonen en
+ * er "op jungle" bij zetten was eerlijk maar te weinig; nu kun je wisselen.
+ *
+ * De volgorde volgt de lanes zoals overal op de pagina, niet de volgorde in het
+ * databestand: anders staat de schakelaar bij elke champion anders.
  */
-function buildFor(baseId) {
+function buildsFor(baseId) {
   const champ = builds.champions?.[String(baseId)];
-  if (!champ?.lanes?.length) return null;
+  if (!champ?.lanes?.length) return [];
 
-  const beste = [...champ.lanes].sort((a, b) => b.winrate - a.winrate)[0];
-  return {
-    lane: beste.lane,
-    games: beste.games,
-    items: (beste.items ?? []).slice(0, 6),
-    boots: (beste.boots ?? []).slice(0, 3),
-    starters: (beste.starters ?? []).slice(0, 3),
-    spells: (beste.spells ?? []).slice(0, 3),
-  };
+  const volgorde = LANES.map((l) => l.key);
+  return [...champ.lanes]
+    .sort((a, b) => volgorde.indexOf(a.lane) - volgorde.indexOf(b.lane))
+    .map((l) => ({
+      lane: l.lane,
+      games: l.games,
+      winrate: l.winrate,
+      items: (l.items ?? []).slice(0, 6),
+      boots: (l.boots ?? []).slice(0, 3),
+      starters: (l.starters ?? []).slice(0, 3),
+      spells: (l.spells ?? []).slice(0, 3),
+    }));
+}
+
+/**
+ * De lane waar de schakelaar op opent: de MEEST GESPEELDE, niet de sterkste.
+ *
+ * Op winrate openen leverde rare uitkomsten op. Annie opende op top, want daar
+ * staat ze op 47,8% tegen 44,9% mid -- maar ze heeft 5.075 mid-games tegen 694
+ * top. Wie een Annie-build opzoekt wil de build die mensen daadwerkelijk spelen,
+ * niet de uitschieter met de kleinste steekproef.
+ */
+function hoofdLane(baseId) {
+  const alle = buildsFor(baseId);
+  if (!alle.length) return null;
+  return [...alle].sort((a, b) => b.games - a.games)[0].lane;
+}
+
+/** De build van één lane, of de sterkste als er geen gekozen is. */
+function buildFor(baseId, lane = null) {
+  const alle = buildsFor(baseId);
+  if (!alle.length) return null;
+  return alle.find((b) => b.lane === lane) ?? alle.find((b) => b.lane === hoofdLane(baseId)) ?? alle[0];
 }
 
 /** Eén regel in een itemlijst: icoon, naam, hoe vaak, en hoe vaak gewonnen. */
@@ -326,12 +356,20 @@ const spellRow = (s) => `
 /** Het buildblok onder het detailpaneel, vooraf gevuld met de startchampion. */
 function detailBuilds(seedId) {
   const b = buildFor(seedId);
-  const laneLabel = LANES.find((l) => l.key === b?.lane)?.label ?? b?.lane ?? "";
 
   return `
     <div class="builds" id="builds">
       <div class="builds-head">
-        <p class="block-label">Most built <span>on <b id="builds-lane">${esc(laneLabel)}</b> &middot; <b id="builds-games">${b ? n(b.games) : "0"}</b> games</span></p>
+        <p class="block-label">Most built <span>over <b id="builds-games">${b ? n(b.games) : "0"}</b> games</span></p>
+        <div class="build-lanes" id="build-lanes" role="tablist" aria-label="Lane">
+          ${buildsFor(seedId)
+            .map(
+              (x) =>
+                `<button type="button" role="tab" data-lane="${x.lane}" aria-selected="${x.lane === b?.lane}">` +
+                `${esc(LANES.find((l) => l.key === x.lane)?.label ?? x.lane)}<span>${pct(x.winrate)}%</span></button>`,
+            )
+            .join("")}
+        </div>
       </div>
 
       <div class="builds-cols">
@@ -858,7 +896,28 @@ nav.links a:hover { color: var(--ink); }
   box-shadow: var(--shadow);
   padding: 1.2rem 1.3rem 1.1rem;
 }
-.builds-head { margin-bottom: 1rem; }
+.builds-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.6rem 1.2rem;
+  margin-bottom: 1rem;
+}
+
+/* De laneschakelaar binnen het buildblok. Kleiner dan de tabs bij de tier-lijst,
+   want dit is een keuze binnen een paneel en niet de kop van een sectie. */
+.build-lanes { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
+.build-lanes button {
+  display: inline-flex; align-items: baseline; gap: 0.35rem;
+  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.08em;
+  text-transform: uppercase; cursor: pointer;
+  padding: 0.32rem 0.6rem; border-radius: 5px;
+  background: var(--raised); border: 1px solid var(--line); color: var(--muted);
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.build-lanes button span { font-size: 0.92em; color: var(--dim); }
+.build-lanes button:hover { color: var(--ink); border-color: var(--line-lit); }
+.build-lanes button[aria-selected="true"] {
+  color: var(--gold); border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.08);
+}
+.build-lanes button[aria-selected="true"] span { color: var(--gold-dim); }
 .builds-head .block-label { margin: 0; }
 .builds-head .block-label b { color: var(--gold); font-weight: 500; }
 
@@ -1391,6 +1450,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   "use strict";
 
   const LANE_LABEL = { TOP: "Top", JUNGLE: "Jungle", MIDDLE: "Mid", BOTTOM: "Bot", SUPPORT: "Support" };
+  const LANE_ORDER = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "SUPPORT"];
   const data = JSON.parse(document.getElementById("champ-data").textContent);
 
   const num = (v) => Number(v).toLocaleString("en-US");
@@ -1463,24 +1523,54 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     regel('<span class="s-pair">' + plaatje(spellSrc(a)) + plaatje(spellSrc(b)) + "</span>",
           (data.t.spells[a] || a) + " + " + (data.t.spells[b] || b), pick, wr);
 
-  function showBuild(id) {
-    const b = data.b[id];
-    const leeg = '<li class="c-empty">Not enough games.</li>';
+  // Welke champion en lane er nu getoond worden, zodat de laneknoppen weten
+  // waar ze bij horen als je erop klikt.
+  let huidigeChamp = el("detail")?.dataset.seed ?? null;
 
-    if (!b) {
-      el("builds-lane").textContent = "—";
+  function showBuild(id, lane) {
+    const set = data.b[id];
+    const leeg = '<li class="c-empty">Not enough games.</li>';
+    huidigeChamp = id;
+
+    if (!set) {
       el("builds-games").textContent = "0";
+      el("build-lanes").innerHTML = "";
       for (const veld of ["items", "boots", "starters", "spells"]) el("builds-" + veld).innerHTML = leeg;
       return;
     }
 
-    el("builds-lane").textContent = LANE_LABEL[b.l] || b.l;
+    const gekozen = lane && set.lanes[lane] ? lane : set.best;
+    const b = set.lanes[gekozen];
+
+    // De knoppen alleen opnieuw opbouwen als het om een andere champion gaat;
+    // bij het wisselen van lane hoeven ze alleen van stand te veranderen.
+    const bestaande = [...el("build-lanes").querySelectorAll("button")];
+    const zelfdeSet = bestaande.length && bestaande.every((btn) => set.lanes[btn.dataset.lane]);
+    if (!zelfdeSet) {
+      el("build-lanes").innerHTML = LANE_ORDER.filter((l) => set.lanes[l])
+        .map(
+          (l) =>
+            '<button type="button" role="tab" data-lane="' + l + '" aria-selected="' + (l === gekozen) + '">' +
+            (LANE_LABEL[l] || l) + "<span>" + pct(set.lanes[l].w) + "%</span></button>",
+        )
+        .join("");
+    } else {
+      for (const btn of bestaande) btn.setAttribute("aria-selected", String(btn.dataset.lane === gekozen));
+    }
+
     el("builds-games").textContent = num(b.g);
     el("builds-items").innerHTML = b.i.map(itemRegel).join("") || leeg;
     el("builds-boots").innerHTML = b.b.map(itemRegel).join("") || leeg;
     el("builds-starters").innerHTML = b.s.map(itemRegel).join("") || leeg;
     el("builds-spells").innerHTML = b.p.map(spellRegel).join("") || leeg;
   }
+
+  // Eén luisteraar op de container: de knoppen worden opnieuw opgebouwd bij elke
+  // championwissel, dus luisteraars per knop zouden telkens opnieuw moeten.
+  el("build-lanes")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-lane]");
+    if (btn && huidigeChamp !== null) showBuild(huidigeChamp, btn.dataset.lane);
+  });
 
   function show(id) {
     const c = data.c[id];
