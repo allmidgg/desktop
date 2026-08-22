@@ -417,6 +417,22 @@ function mosaicTiles() {
   return out.join("");
 }
 
+/**
+ * Hetzelfde splash-art, maar dan achter de hele pagina.
+ *
+ * Elke champion precies één keer, in dezelfde sprongen van 23 zodat buren geen
+ * opeenvolgende id's zijn. Acht kolommen van 22vh vult ruim twee schermen, en
+ * omdat de laag aan het scherm vastzit en niet aan het document is dat genoeg
+ * hoe lang de pagina ook wordt.
+ */
+function paginaTiles() {
+  const all = Object.values(roster);
+  return all
+    .map((_, i) => all[(i * 23) % all.length])
+    .map((c) => `<img src="${c.splash.path}" alt="" width="640" height="360" loading="lazy" />`)
+    .join("");
+}
+
 /** Alle 63 portretten, twee rijen, van rand tot rand, onverdund. */
 function rosterStrip() {
   const all = Object.values(roster).sort((a, b) => a.baseId - b.baseId);
@@ -632,9 +648,10 @@ const html = `<!doctype html>
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
+html { background: var(--ground); }
 body {
   margin: 0;
-  background: var(--ground);
+  background: transparent;
   color: var(--ink);
   font-family: var(--body);
   font-size: clamp(1rem, 0.96rem + 0.2vw, 1.06rem);
@@ -793,12 +810,57 @@ nav.links a:hover { color: var(--ink); }
   content: "";
   position: absolute; inset: 0;
   background:
-    linear-gradient(180deg, rgba(7, 8, 16, 0.55) 0%, rgba(7, 8, 16, 0.72) 34%, rgba(7, 8, 16, 0.9) 62%, var(--ground) 88%),
+    linear-gradient(180deg, rgba(7, 8, 16, 0.55) 0%, rgba(7, 8, 16, 0.72) 34%, rgba(7, 8, 16, 0.86) 62%, rgba(7, 8, 16, 0.91) 88%),
     radial-gradient(90% 70% at 22% 34%, rgba(7, 8, 16, 0.86) 0%, rgba(7, 8, 16, 0.5) 46%, transparent 74%),
     radial-gradient(70% 60% at 78% 30%, rgba(7, 8, 16, 0.78) 0%, rgba(7, 8, 16, 0.35) 52%, transparent 80%);
 }
+
+/* Dezelfde splash-art loopt achter de hele pagina door, niet alleen achter de
+   hero -- anders houdt het beeld halverwege het eerste scherm gewoon op.
+   Vastgezet aan het scherm in plaats van aan het document: een pagina van acht
+   schermen hoog zou anders honderden tegels nodig hebben, en nu glijden de
+   panelen over een stilstaand beeld. De sluier is hier veel dieper dan bij de
+   hero: het is achtergrond, geen onderwerp. */
+.paginadek {
+  position: fixed; inset: 0; z-index: -3;
+  overflow: hidden; pointer-events: none;
+}
+.mosaic-pagina {
+  inset: -10% -6%;
+  grid-template-columns: repeat(8, 1fr);
+  grid-auto-rows: 22vh;
+  transform: rotate(-3deg) scale(1.05);
+  transform-origin: 50% 40%;
+}
+/* Een vaste laag staat helemaal stil terwijl je scrolt; dat leest als
+   vastgeplakt in plaats van doorlopend. Tien procent drift over de hele pagina
+   is genoeg om het beeld bij de pagina te laten horen zonder dat het opvalt.
+   scroll() heeft nog niet iedere browser, en zonder blijft het gewoon stilstaan
+   -- dat is de bestaande toestand, dus er gaat nergens iets stuk. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .mosaic-pagina {
+      animation: dekdrift linear both;
+      animation-timeline: scroll(root block);
+    }
+  }
+}
+@keyframes dekdrift {
+  from { transform: rotate(-3deg) scale(1.05) translateY(2%); }
+  to { transform: rotate(-3deg) scale(1.05) translateY(-9%); }
+}
+
+.paginadek::after {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(7, 8, 16, 0.9) 0%, rgba(7, 8, 16, 0.93) 100%),
+    radial-gradient(115% 75% at 50% 45%, transparent 0%, rgba(7, 8, 16, 0.42) 62%, rgba(7, 8, 16, 0.72) 100%);
+}
+
 @media (max-width: 1040px) {
-  .mosaic { height: 620px; grid-auto-rows: 120px; }
+  .mosaic { grid-auto-rows: 120px; }
+  .mosaic-pagina { grid-template-columns: repeat(5, 1fr); grid-auto-rows: 18vh; }
 }
 
 /* Het modelabel naast het merk. */
@@ -1194,6 +1256,9 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 </script>
 </head>
 <body>
+  <div class="paginadek" aria-hidden="true">
+    <div class="mosaic mosaic-pagina">${paginaTiles()}</div>
+  </div>
 
 <header id="top-bar">
   <div class="wrap">
@@ -1614,10 +1679,16 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 
     // De knoppen alleen opnieuw opbouwen als het om een andere champion gaat;
     // bij het wisselen van lane hoeven ze alleen van stand te veranderen.
+    // Let op de vergelijking: hij moet BEIDE kanten op kloppen. Met alleen
+    // "staat elke bestaande knop ook in de nieuwe set" bleef een champion met
+    // meer lanes de knoppen van de vorige houden. Soraka heeft vijf lanes en
+    // 9.880 daarvan zijn support -- juist die knop ontbrak dan.
+    const gewenst = LANE_ORDER.filter((l) => set.lanes[l]);
     const bestaande = [...el("build-lanes").querySelectorAll("button")];
-    const zelfdeSet = bestaande.length && bestaande.every((btn) => set.lanes[btn.dataset.lane]);
+    const zelfdeSet =
+      bestaande.length === gewenst.length && bestaande.every((btn, i) => btn.dataset.lane === gewenst[i]);
     if (!zelfdeSet) {
-      el("build-lanes").innerHTML = LANE_ORDER.filter((l) => set.lanes[l])
+      el("build-lanes").innerHTML = gewenst
         .map(
           (l) =>
             '<button type="button" role="tab" data-lane="' + l + '" aria-selected="' + (l === gekozen) + '">' +
