@@ -1,0 +1,1712 @@
+{
+  "generatedAt": "2026-08-22T12:43:03.970Z",
+  "description": "Champion-beeldmateriaal voor League Classic (JADE). classicId = 60000 + baseId. Paden zijn relatief t.o.v. site/. Bronassets komen van Community Dragon (latest).",
+  "assetSource": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/",
+  "iconSpec": {
+    "format": "png",
+    "size": "128x128 (native Community Dragon)",
+    "art": "Jade/Classic square portrait (champion-icons/{classicId}.png)"
+  },
+  "splashSpec": {
+    "format": "jpeg",
+    "quality": 80,
+    "maxWidth": 640,
+    "art": "Jade/Classic centered splash (base skin)"
+  },
+  "championCount": 63,
+  "iconCount": 63,
+  "splashCount": 63,
+  "missingIcons": [],
+  "missingSplashes": [],
+  "champions": [
+    {
+      "baseId": 1,
+      "classicId": 60001,
+      "name": "Annie",
+      "alias": "Annie",
+      "roles": [
+        "mage",
+        "support"
+      ],
+      "icon": {
+        "path": "img/champions/icon/1.png",
+        "exists": true,
+        "bytes": 25760,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60001.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/1.jpg",
+        "exists": true,
+        "bytes": 21416,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_annie/skins/base/images/jade_annie_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 2,
+      "classicId": 60002,
+      "name": "Olaf",
+      "alias": "Olaf",
+      "roles": [
+        "fighter",
+        "tank"
+      ],
+      "icon": {
+        "path": "img/champions/icon/2.png",
+        "exists": true,
+        "bytes": 34550,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60002.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/2.jpg",
+        "exists": true,
+        "bytes": 20025,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_olaf/skins/base/images/jade_olaf_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 4,
+      "classicId": 60004,
+      "name": "Twisted Fate",
+      "alias": "TwistedFate",
+      "roles": [
+        "mage",
+        "marksman"
+      ],
+      "icon": {
+        "path": "img/champions/icon/4.png",
+        "exists": true,
+        "bytes": 27405,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60004.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/4.jpg",
+        "exists": true,
+        "bytes": 21891,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_twistedfate/skins/base/images/jade_twistedfate_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 9,
+      "classicId": 60009,
+      "name": "Fiddlesticks",
+      "alias": "Fiddlesticks",
+      "roles": [
+        "mage",
+        "support"
+      ],
+      "icon": {
+        "path": "img/champions/icon/9.png",
+        "exists": true,
+        "bytes": 27578,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60009.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/9.jpg",
+        "exists": true,
+        "bytes": 18942,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_fiddlesticks/skins/base/images/jade_fiddlesticks_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 10,
+      "classicId": 60010,
+      "name": "Kayle",
+      "alias": "Kayle",
+      "roles": [
+        "mage",
+        "marksman"
+      ],
+      "icon": {
+        "path": "img/champions/icon/10.png",
+        "exists": true,
+        "bytes": 26105,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60010.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/10.jpg",
+        "exists": true,
+        "bytes": 25255,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_kayle/skins/skin302/images/jade_kayle_splash_centered_302.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 11,
+      "classicId": 60011,
+      "name": "Master Yi",
+      "alias": "MasterYi",
+      "roles": [
+        "fighter",
+        "assassin"
+      ],
+      "icon": {
+        "path": "img/champions/icon/11.png",
+        "exists": true,
+        "bytes": 26242,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60011.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/11.jpg",
+        "exists": true,
+        "bytes": 22372,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_masteryi/skins/base/images/jade_masteryi_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 12,
+      "classicId": 60012,
+      "name": "Alistar",
+      "alias": "Alistar",
+      "roles": [
+        "tank",
+        "support"
+      ],
+      "icon": {
+        "path": "img/champions/icon/12.png",
+        "exists": true,
+        "bytes": 30876,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60012.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/12.jpg",
+        "exists": true,
+        "bytes": 21419,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_alistar/skins/base/images/jade_alistar_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 13,
+      "classicId": 60013,
+      "name": "Ryze",
+      "alias": "Ryze",
+      "roles": [
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/13.png",
+        "exists": true,
+        "bytes": 29667,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60013.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/13.jpg",
+        "exists": true,
+        "bytes": 19868,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_ryze/skins/base/images/jade_ryze_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 14,
+      "classicId": 60014,
+      "name": "Sion",
+      "alias": "Sion",
+      "roles": [
+        "tank",
+        "fighter"
+      ],
+      "icon": {
+        "path": "img/champions/icon/14.png",
+        "exists": true,
+        "bytes": 25386,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60014.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/14.jpg",
+        "exists": true,
+        "bytes": 20553,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_sion/skins/base/images/jade_sion_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 15,
+      "classicId": 60015,
+      "name": "Sivir",
+      "alias": "Sivir",
+      "roles": [
+        "marksman"
+      ],
+      "icon": {
+        "path": "img/champions/icon/15.png",
+        "exists": true,
+        "bytes": 22218,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60015.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/15.jpg",
+        "exists": true,
+        "bytes": 14269,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_sivir/skins/base/images/jade_sivir_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 16,
+      "classicId": 60016,
+      "name": "Soraka",
+      "alias": "Soraka",
+      "roles": [
+        "support",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/16.png",
+        "exists": true,
+        "bytes": 24800,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60016.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/16.jpg",
+        "exists": true,
+        "bytes": 26119,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_soraka/skins/base/images/jade_soraka_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 17,
+      "classicId": 60017,
+      "name": "Teemo",
+      "alias": "Teemo",
+      "roles": [
+        "marksman",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/17.png",
+        "exists": true,
+        "bytes": 27008,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60017.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/17.jpg",
+        "exists": true,
+        "bytes": 26759,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_teemo/skins/base/images/jade_teemo_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 18,
+      "classicId": 60018,
+      "name": "Tristana",
+      "alias": "Tristana",
+      "roles": [
+        "marksman",
+        "assassin"
+      ],
+      "icon": {
+        "path": "img/champions/icon/18.png",
+        "exists": true,
+        "bytes": 28826,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60018.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/18.jpg",
+        "exists": true,
+        "bytes": 18114,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_tristana/skins/base/images/jade_tristana_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 19,
+      "classicId": 60019,
+      "name": "Warwick",
+      "alias": "Warwick",
+      "roles": [
+        "fighter",
+        "tank"
+      ],
+      "icon": {
+        "path": "img/champions/icon/19.png",
+        "exists": true,
+        "bytes": 27103,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60019.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/19.jpg",
+        "exists": true,
+        "bytes": 22259,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_warwick/skins/base/images/jade_warwick_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 20,
+      "classicId": 60020,
+      "name": "Nunu & Willump",
+      "alias": "Nunu",
+      "roles": [
+        "tank",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/20.png",
+        "exists": true,
+        "bytes": 24795,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60020.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/20.jpg",
+        "exists": true,
+        "bytes": 23039,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_nunu/skins/base/images/jade_nunu_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 21,
+      "classicId": 60021,
+      "name": "Miss Fortune",
+      "alias": "MissFortune",
+      "roles": [
+        "marksman",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/21.png",
+        "exists": true,
+        "bytes": 24855,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60021.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/21.jpg",
+        "exists": true,
+        "bytes": 23732,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_missfortune/skins/base/images/jade_missfortune_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 22,
+      "classicId": 60022,
+      "name": "Ashe",
+      "alias": "Ashe",
+      "roles": [
+        "marksman",
+        "support"
+      ],
+      "icon": {
+        "path": "img/champions/icon/22.png",
+        "exists": true,
+        "bytes": 24473,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60022.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/22.jpg",
+        "exists": true,
+        "bytes": 13806,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_ashe/skins/base/images/jade_ashe_splash_centered_0.project_jade_16_16.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 23,
+      "classicId": 60023,
+      "name": "Tryndamere",
+      "alias": "Tryndamere",
+      "roles": [
+        "fighter",
+        "assassin"
+      ],
+      "icon": {
+        "path": "img/champions/icon/23.png",
+        "exists": true,
+        "bytes": 28010,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60023.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/23.jpg",
+        "exists": true,
+        "bytes": 16729,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_tryndamere/skins/base/images/jade_tryndamere_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 24,
+      "classicId": 60024,
+      "name": "Jax",
+      "alias": "Jax",
+      "roles": [
+        "fighter"
+      ],
+      "icon": {
+        "path": "img/champions/icon/24.png",
+        "exists": true,
+        "bytes": 22694,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60024.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/24.jpg",
+        "exists": true,
+        "bytes": 19399,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_jax/skins/base/images/jade_jax_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 25,
+      "classicId": 60025,
+      "name": "Morgana",
+      "alias": "Morgana",
+      "roles": [
+        "support",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/25.png",
+        "exists": true,
+        "bytes": 22134,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60025.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/25.jpg",
+        "exists": true,
+        "bytes": 19877,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_morgana/skins/base/images/jade_morgana_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 26,
+      "classicId": 60026,
+      "name": "Zilean",
+      "alias": "Zilean",
+      "roles": [
+        "support",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/26.png",
+        "exists": true,
+        "bytes": 34525,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60026.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/26.jpg",
+        "exists": true,
+        "bytes": 19639,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_zilean/skins/base/images/jade_zilean_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 27,
+      "classicId": 60027,
+      "name": "Singed",
+      "alias": "Singed",
+      "roles": [
+        "tank",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/27.png",
+        "exists": true,
+        "bytes": 25317,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60027.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/27.jpg",
+        "exists": true,
+        "bytes": 15826,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_singed/skins/base/images/jade_singed_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 28,
+      "classicId": 60028,
+      "name": "Evelynn",
+      "alias": "Evelynn",
+      "roles": [
+        "assassin",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/28.png",
+        "exists": true,
+        "bytes": 23302,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60028.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/28.jpg",
+        "exists": true,
+        "bytes": 18379,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_evelynn/skins/base/images/jade_evelynn_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 29,
+      "classicId": 60029,
+      "name": "Twitch",
+      "alias": "Twitch",
+      "roles": [
+        "marksman",
+        "assassin"
+      ],
+      "icon": {
+        "path": "img/champions/icon/29.png",
+        "exists": true,
+        "bytes": 26840,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60029.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/29.jpg",
+        "exists": true,
+        "bytes": 24035,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_twitch/skins/base/images/jade_twitch_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 30,
+      "classicId": 60030,
+      "name": "Karthus",
+      "alias": "Karthus",
+      "roles": [
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/30.png",
+        "exists": true,
+        "bytes": 27853,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60030.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/30.jpg",
+        "exists": true,
+        "bytes": 17834,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_karthus/skins/base/images/jade_karthus_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 31,
+      "classicId": 60031,
+      "name": "Cho'Gath",
+      "alias": "Chogath",
+      "roles": [
+        "tank",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/31.png",
+        "exists": true,
+        "bytes": 26297,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60031.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/31.jpg",
+        "exists": true,
+        "bytes": 15967,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_chogath/skins/base/images/jade_chogath_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 32,
+      "classicId": 60032,
+      "name": "Amumu",
+      "alias": "Amumu",
+      "roles": [
+        "tank",
+        "support"
+      ],
+      "icon": {
+        "path": "img/champions/icon/32.png",
+        "exists": true,
+        "bytes": 25938,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60032.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/32.jpg",
+        "exists": true,
+        "bytes": 11332,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_amumu/skins/base/images/jade_amumu_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 33,
+      "classicId": 60033,
+      "name": "Rammus",
+      "alias": "Rammus",
+      "roles": [
+        "tank"
+      ],
+      "icon": {
+        "path": "img/champions/icon/33.png",
+        "exists": true,
+        "bytes": 32933,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60033.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/33.jpg",
+        "exists": true,
+        "bytes": 15999,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_rammus/skins/base/images/jade_rammus_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 34,
+      "classicId": 60034,
+      "name": "Anivia",
+      "alias": "Anivia",
+      "roles": [
+        "mage",
+        "support"
+      ],
+      "icon": {
+        "path": "img/champions/icon/34.png",
+        "exists": true,
+        "bytes": 29006,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60034.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/34.jpg",
+        "exists": true,
+        "bytes": 18680,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_anivia/skins/base/images/jade_anivia_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 35,
+      "classicId": 60035,
+      "name": "Shaco",
+      "alias": "Shaco",
+      "roles": [
+        "assassin"
+      ],
+      "icon": {
+        "path": "img/champions/icon/35.png",
+        "exists": true,
+        "bytes": 28911,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60035.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/35.jpg",
+        "exists": true,
+        "bytes": 13540,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_shaco/skins/base/images/jade_shaco_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 36,
+      "classicId": 60036,
+      "name": "Dr. Mundo",
+      "alias": "DrMundo",
+      "roles": [
+        "tank",
+        "fighter"
+      ],
+      "icon": {
+        "path": "img/champions/icon/36.png",
+        "exists": true,
+        "bytes": 24163,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60036.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/36.jpg",
+        "exists": true,
+        "bytes": 24833,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_drmundo/skins/base/images/jade_drmundo_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 37,
+      "classicId": 60037,
+      "name": "Sona",
+      "alias": "Sona",
+      "roles": [
+        "support",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/37.png",
+        "exists": true,
+        "bytes": 26856,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60037.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/37.jpg",
+        "exists": true,
+        "bytes": 20370,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_sona/skins/base/images/jade_sona_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 38,
+      "classicId": 60038,
+      "name": "Kassadin",
+      "alias": "Kassadin",
+      "roles": [
+        "assassin",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/38.png",
+        "exists": true,
+        "bytes": 28827,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60038.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/38.jpg",
+        "exists": true,
+        "bytes": 24749,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_kassadin/skins/base/images/jade_kassadin_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 40,
+      "classicId": 60040,
+      "name": "Janna",
+      "alias": "Janna",
+      "roles": [
+        "support",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/40.png",
+        "exists": true,
+        "bytes": 23853,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60040.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/40.jpg",
+        "exists": true,
+        "bytes": 16100,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_janna/skins/base/images/jade_janna_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 41,
+      "classicId": 60041,
+      "name": "Gangplank",
+      "alias": "Gangplank",
+      "roles": [
+        "fighter"
+      ],
+      "icon": {
+        "path": "img/champions/icon/41.png",
+        "exists": true,
+        "bytes": 23705,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60041.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/41.jpg",
+        "exists": true,
+        "bytes": 24576,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_gangplank/skins/base/images/jade_gangplank_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 42,
+      "classicId": 60042,
+      "name": "Corki",
+      "alias": "Corki",
+      "roles": [
+        "marksman",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/42.png",
+        "exists": true,
+        "bytes": 30297,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60042.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/42.jpg",
+        "exists": true,
+        "bytes": 19525,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_corki/skins/base/images/jade_corki_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 44,
+      "classicId": 60044,
+      "name": "Taric",
+      "alias": "Taric",
+      "roles": [
+        "support",
+        "tank"
+      ],
+      "icon": {
+        "path": "img/champions/icon/44.png",
+        "exists": true,
+        "bytes": 24026,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60044.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/44.jpg",
+        "exists": true,
+        "bytes": 19612,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_taric/skins/base/images/jade_taric_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 45,
+      "classicId": 60045,
+      "name": "Veigar",
+      "alias": "Veigar",
+      "roles": [
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/45.png",
+        "exists": true,
+        "bytes": 27105,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60045.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/45.jpg",
+        "exists": true,
+        "bytes": 21072,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_veigar/skins/base/images/jade_veigar_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 53,
+      "classicId": 60053,
+      "name": "Blitzcrank",
+      "alias": "Blitzcrank",
+      "roles": [
+        "tank",
+        "support"
+      ],
+      "icon": {
+        "path": "img/champions/icon/53.png",
+        "exists": true,
+        "bytes": 28594,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60053.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/53.jpg",
+        "exists": true,
+        "bytes": 20689,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_blitzcrank/skins/base/images/jade_blitzcrank_splash_centered_0.project_jade_16_16.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 54,
+      "classicId": 60054,
+      "name": "Malphite",
+      "alias": "Malphite",
+      "roles": [
+        "tank",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/54.png",
+        "exists": true,
+        "bytes": 29699,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60054.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/54.jpg",
+        "exists": true,
+        "bytes": 16410,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_malphite/skins/base/images/jade_malphite_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 55,
+      "classicId": 60055,
+      "name": "Katarina",
+      "alias": "Katarina",
+      "roles": [
+        "assassin",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/55.png",
+        "exists": true,
+        "bytes": 22957,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60055.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/55.jpg",
+        "exists": true,
+        "bytes": 25786,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_katarina/skins/base/images/jade_katarina_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 59,
+      "classicId": 60059,
+      "name": "Jarvan IV",
+      "alias": "JarvanIV",
+      "roles": [
+        "fighter",
+        "tank"
+      ],
+      "icon": {
+        "path": "img/champions/icon/59.png",
+        "exists": true,
+        "bytes": 28927,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60059.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/59.jpg",
+        "exists": true,
+        "bytes": 23175,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_jarvaniv/skins/base/images/jade_jarvaniv_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 62,
+      "classicId": 60062,
+      "name": "Wukong",
+      "alias": "Wukong",
+      "roles": [
+        "fighter",
+        "tank"
+      ],
+      "icon": {
+        "path": "img/champions/icon/62.png",
+        "exists": true,
+        "bytes": 28495,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60062.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/62.jpg",
+        "exists": true,
+        "bytes": 17582,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_wukong/skins/base/images/jade_wukong_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 63,
+      "classicId": 60063,
+      "name": "Brand",
+      "alias": "Brand",
+      "roles": [
+        "mage",
+        "support"
+      ],
+      "icon": {
+        "path": "img/champions/icon/63.png",
+        "exists": true,
+        "bytes": 29346,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60063.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/63.jpg",
+        "exists": true,
+        "bytes": 19794,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_brand/skins/base/images/jade_brand_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 64,
+      "classicId": 60064,
+      "name": "Lee Sin",
+      "alias": "LeeSin",
+      "roles": [
+        "fighter",
+        "assassin"
+      ],
+      "icon": {
+        "path": "img/champions/icon/64.png",
+        "exists": true,
+        "bytes": 28635,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60064.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/64.jpg",
+        "exists": true,
+        "bytes": 21102,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_leesin/skins/base/images/jade_leesin_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 67,
+      "classicId": 60067,
+      "name": "Vayne",
+      "alias": "Vayne",
+      "roles": [
+        "marksman",
+        "assassin"
+      ],
+      "icon": {
+        "path": "img/champions/icon/67.png",
+        "exists": true,
+        "bytes": 31049,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60067.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/67.jpg",
+        "exists": true,
+        "bytes": 16738,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_vayne/skins/base/images/jade_vayne_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 72,
+      "classicId": 60072,
+      "name": "Skarner",
+      "alias": "Skarner",
+      "roles": [
+        "tank",
+        "fighter"
+      ],
+      "icon": {
+        "path": "img/champions/icon/72.png",
+        "exists": true,
+        "bytes": 30719,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60072.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/72.jpg",
+        "exists": true,
+        "bytes": 19024,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_skarner/skins/base/images/jade_skarner_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 74,
+      "classicId": 60074,
+      "name": "Heimerdinger",
+      "alias": "Heimerdinger",
+      "roles": [
+        "mage",
+        "support"
+      ],
+      "icon": {
+        "path": "img/champions/icon/74.png",
+        "exists": true,
+        "bytes": 30136,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60074.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/74.jpg",
+        "exists": true,
+        "bytes": 22617,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_heimerdinger/skins/base/images/jade_heimerdinger_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 75,
+      "classicId": 60075,
+      "name": "Nasus",
+      "alias": "Nasus",
+      "roles": [
+        "fighter",
+        "tank"
+      ],
+      "icon": {
+        "path": "img/champions/icon/75.png",
+        "exists": true,
+        "bytes": 24193,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60075.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/75.jpg",
+        "exists": true,
+        "bytes": 23849,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_nasus/skins/base/images/jade_nasus_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 76,
+      "classicId": 60076,
+      "name": "Nidalee",
+      "alias": "Nidalee",
+      "roles": [
+        "assassin",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/76.png",
+        "exists": true,
+        "bytes": 22052,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60076.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/76.jpg",
+        "exists": true,
+        "bytes": 22756,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_nidalee/skins/base/images/jade_nidalee_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 79,
+      "classicId": 60079,
+      "name": "Gragas",
+      "alias": "Gragas",
+      "roles": [
+        "fighter",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/79.png",
+        "exists": true,
+        "bytes": 29653,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60079.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/79.jpg",
+        "exists": true,
+        "bytes": 19467,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_gragas/skins/base/images/jade_gragas_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 80,
+      "classicId": 60080,
+      "name": "Pantheon",
+      "alias": "Pantheon",
+      "roles": [
+        "fighter",
+        "assassin"
+      ],
+      "icon": {
+        "path": "img/champions/icon/80.png",
+        "exists": true,
+        "bytes": 25080,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60080.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/80.jpg",
+        "exists": true,
+        "bytes": 23184,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_pantheon/skins/base/images/jade_pantheon_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 81,
+      "classicId": 60081,
+      "name": "Ezreal",
+      "alias": "Ezreal",
+      "roles": [
+        "marksman",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/81.png",
+        "exists": true,
+        "bytes": 26386,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60081.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/81.jpg",
+        "exists": true,
+        "bytes": 28173,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_ezreal/skins/base/images/jade_ezreal_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 84,
+      "classicId": 60084,
+      "name": "Akali",
+      "alias": "Akali",
+      "roles": [
+        "assassin"
+      ],
+      "icon": {
+        "path": "img/champions/icon/84.png",
+        "exists": true,
+        "bytes": 27333,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60084.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/84.jpg",
+        "exists": true,
+        "bytes": 19209,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_akali/skins/base/images/jade_akali_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 85,
+      "classicId": 60085,
+      "name": "Kennen",
+      "alias": "Kennen",
+      "roles": [
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/85.png",
+        "exists": true,
+        "bytes": 33159,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60085.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/85.jpg",
+        "exists": true,
+        "bytes": 14757,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_kennen/skins/base/images/jade_kennen_splash_centered_0.project_jade_16_16.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 86,
+      "classicId": 60086,
+      "name": "Garen",
+      "alias": "Garen",
+      "roles": [
+        "fighter",
+        "tank"
+      ],
+      "icon": {
+        "path": "img/champions/icon/86.png",
+        "exists": true,
+        "bytes": 29400,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60086.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/86.jpg",
+        "exists": true,
+        "bytes": 25219,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_garen/skins/base/images/jade_garen_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 89,
+      "classicId": 60089,
+      "name": "Leona",
+      "alias": "Leona",
+      "roles": [
+        "tank",
+        "support"
+      ],
+      "icon": {
+        "path": "img/champions/icon/89.png",
+        "exists": true,
+        "bytes": 31176,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60089.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/89.jpg",
+        "exists": true,
+        "bytes": 22714,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_leona/skins/base/images/jade_leona_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 90,
+      "classicId": 60090,
+      "name": "Malzahar",
+      "alias": "Malzahar",
+      "roles": [
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/90.png",
+        "exists": true,
+        "bytes": 27536,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60090.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/90.jpg",
+        "exists": true,
+        "bytes": 17524,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_malzahar/skins/base/images/jade_malzahar_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 96,
+      "classicId": 60096,
+      "name": "Kog'Maw",
+      "alias": "KogMaw",
+      "roles": [
+        "marksman",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/96.png",
+        "exists": true,
+        "bytes": 33940,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60096.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/96.jpg",
+        "exists": true,
+        "bytes": 18833,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_kogmaw/skins/base/images/jade_kogmaw_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 98,
+      "classicId": 60098,
+      "name": "Shen",
+      "alias": "Shen",
+      "roles": [
+        "tank"
+      ],
+      "icon": {
+        "path": "img/champions/icon/98.png",
+        "exists": true,
+        "bytes": 32052,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60098.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/98.jpg",
+        "exists": true,
+        "bytes": 20953,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_shen/skins/base/images/jade_shen_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 99,
+      "classicId": 60099,
+      "name": "Lux",
+      "alias": "Lux",
+      "roles": [
+        "mage",
+        "support"
+      ],
+      "icon": {
+        "path": "img/champions/icon/99.png",
+        "exists": true,
+        "bytes": 26657,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60099.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/99.jpg",
+        "exists": true,
+        "bytes": 19723,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_lux/skins/base/images/jade_lux_splash_centered_0.project_jade_16_16.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 103,
+      "classicId": 60103,
+      "name": "Ahri",
+      "alias": "Ahri",
+      "roles": [
+        "mage",
+        "assassin"
+      ],
+      "icon": {
+        "path": "img/champions/icon/103.png",
+        "exists": true,
+        "bytes": 25548,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60103.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/103.jpg",
+        "exists": true,
+        "bytes": 28103,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_ahri/skins/base/images/jade_ahri_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    },
+    {
+      "baseId": 117,
+      "classicId": 60117,
+      "name": "Lulu",
+      "alias": "Lulu",
+      "roles": [
+        "support",
+        "mage"
+      ],
+      "icon": {
+        "path": "img/champions/icon/117.png",
+        "exists": true,
+        "bytes": 28964,
+        "width": 128,
+        "height": 128,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/60117.png"
+      },
+      "splash": {
+        "path": "img/champions/splash/117.jpg",
+        "exists": true,
+        "bytes": 25570,
+        "width": 640,
+        "height": 360,
+        "source": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/assets/characters/jade_lulu/skins/base/images/jade_lulu_splash_centered_0.project_jade.jpg",
+        "variant": "jade centered splash"
+      }
+    }
+  ]
+}

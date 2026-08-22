@@ -1,0 +1,13 @@
+[
+    {
+        "file":  "allmid-main.png",
+        "windowTitle":  "AllMid",
+        "process":  "electron",
+        "pid":  14736,
+        "width":  1296,
+        "height":  828,
+        "bytes":  273572,
+        "capturedAt":  "2026-08-22T14:42:37+02:00",
+        "method":  "Win32 PrintWindow(hwnd, hdc, PW_RENDERFULLCONTENT=2)"
+    }
+]
