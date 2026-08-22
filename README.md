@@ -3,6 +3,8 @@
 Stats, champion select scouting and build data for **League of Legends Classic** —
 the mode no existing tool supports.
 
+**[allmid.gg](https://allmid.gg)** &nbsp;·&nbsp; [Download](https://github.com/allmidgg/desktop/releases/latest) &nbsp;·&nbsp; [Report a bug](https://github.com/allmidgg/desktop/issues)
+
 ---
 
 ## Why this exists
