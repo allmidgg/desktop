@@ -51,3 +51,6 @@ Thumbs.db
 *.swp
 site/_var-*.html
 site/_shot.html
+
+# Gebouwde hulpprogrammas -- bouw ze zelf met build.cmd
+tools/pfx-maker/PfxMaker.exe
