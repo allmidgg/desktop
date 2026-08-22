@@ -43,8 +43,22 @@ const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const MAX_MATCHES_PER_REQUEST = 500;
 const MAX_IDS_PER_REQUEST = 2_000;
 
-/** Per IP: hoeveel verzoeken per minuut. */
-const RATE_LIMIT = 120;
+/**
+ * Per IP: hoeveel verzoeken per minuut.
+ *
+ * Stond op 120 en dat was te krap. Een eerste sync vraagt eerst in blokken van
+ * duizend welke gameIds ontbreken -- bij 128.000 games zijn dat al 129 verzoeken
+ * voordat er een enkele game verstuurd is -- en daarna komt het uploaden zelf in
+ * batches van 500. Samen bijna vierhonderd verzoeken, dus drie tot vier keer een
+ * minuut stilstaan. Gemeten op de echte server: ruim vijf minuten voor de eerste
+ * sync, en dat overkomt elke nieuwe gebruiker een keer.
+ *
+ * 600 haalt dat terug naar ongeveer een minuut en blijft begrensd. Het beschermt
+ * ook niet minder dan eerst: wat een verzoek kan aanrichten wordt bepaald door
+ * MAX_BODY_BYTES en MAX_MATCHES_PER_REQUEST, niet door hoe vaak je mag kloppen,
+ * en alles wat binnenkomt gaat door isValidMatch en de ontdubbeling op gameId.
+ */
+const RATE_LIMIT = 600;
 const RATE_WINDOW_MS = 60_000;
 
 const DATABASE = defaultStorePath(DATA_ROOT);
