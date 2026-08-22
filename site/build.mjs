@@ -92,21 +92,81 @@ const wrClass = (wr) => (wr >= 54 ? "wr-hi" : wr >= 50 ? "wr-ok" : wr >= 46 ? "w
 
 /* ── De champion-verkenner ───────────────────────────────────────────────── */
 
+/**
+ * De vijf lanes van een champion, altijd alle vijf en altijd in dezelfde volgorde.
+ *
+ * champions.json sorteert ze op aantal games, en dan verspringen de regels bij
+ * elke champion die je aanklikt: bij Soraka begint de tabel met Support, bij
+ * Tryndamere met Top. Je kunt dan niets vergelijken zonder elke keer opnieuw te
+ * lezen waar je naar kijkt.
+ */
+function laneLijst(full) {
+  const per = new Map((full?.lanes ?? []).map((x) => [x.lane, x]));
+  return LANES.map(({ key, label }) => {
+    const x = per.get(key);
+    return {
+      lane: key,
+      label,
+      games: x?.games ?? 0,
+      winrate: x?.winrate ?? null,
+      rank: x?.qualified ? (x.rank ?? null) : null,
+      qualified: Boolean(x?.qualified),
+      beats: x?.beats ?? [],
+      losesTo: x?.losesTo ?? [],
+    };
+  });
+}
+
+/** De lane waar de champion het vaakst staat. Puur op aantal games. */
+function vaakstGespeeld(full) {
+  const rijen = laneLijst(full).filter((r) => r.games > 0);
+  if (!rijen.length) return null;
+  return rijen.reduce((a, b) => (b.games > a.games ? b : a)).lane;
+}
+
+/**
+ * De lane waarop het paneel opent: de meest gespeelde, maar alleen als die de
+ * drempel haalt. Anders de zwaarste die hem wel haalt -- op een lane met veertig
+ * games valt niets te zeggen en dan hoeft hij ook niet open te staan.
+ */
+function openLane(full) {
+  const rijen = laneLijst(full);
+  const gekwalificeerd = rijen.filter((r) => r.qualified);
+  const bron = gekwalificeerd.length ? gekwalificeerd : rijen.filter((r) => r.games > 0);
+  if (!bron.length) return null;
+  return bron.reduce((a, b) => (b.games > a.games ? b : a)).lane;
+}
+
 /** Compacte vorm van champions.json, klein genoeg om in de pagina te zetten. */
 function explorerData() {
+  const kort = (rij) => (rij ?? []).slice(0, 4).map((x) => [x.baseId, x.winrate, x.games]);
   const out = {};
   for (const c of Object.values(roster)) {
     const full = champions.champions[String(c.baseId)];
     if (!full) throw new Error(`champions.json mist ${c.name} (${c.baseId})`);
+
+    // Matchups per lane. Dit is de kern van de wijziging: gepoold over alle
+    // lanes kwam Kog'Maw eruit met Skarner, Malphite, Garen en Nidalee als beste
+    // matchups, terwijl geen van die vier ooit tegenover een botlane-ADC staat.
+    const m = {};
+    for (const rij of laneLijst(full)) {
+      if (!rij.games) continue;
+      m[rij.lane] = { b: kort(rij.beats), d: kort(rij.losesTo) };
+    }
+
     out[c.baseId] = {
       n: c.name,
       g: full.totalGames,
       w: full.winrate,
-      // Niet-gekwalificeerde lanes gaan mee, maar zonder rang -- anders zou een
-      // lane met 40 games er even hard uitzien als een met 8.000.
-      l: full.lanes.map((x) => [x.lane, x.games, x.winrate, x.qualified ? x.rank : null]),
-      b: full.beats.slice(0, 4).map((x) => [x.baseId, x.winrate, x.games]),
-      d: full.losesTo.slice(0, 4).map((x) => [x.baseId, x.winrate, x.games]),
+      // Vaste volgorde, alle vijf de lanes, met een expliciete vlag of de lane
+      // de drempel haalt. Niet-gekwalificeerde lanes gaan mee maar zonder rang:
+      // een lane met 40 games hoort er niet even hard uit te zien als een met 8.000.
+      l: laneLijst(full).map((x) => [x.lane, x.games, x.winrate, x.rank, x.qualified ? 1 : 0]),
+      h: vaakstGespeeld(full),
+      o: openLane(full),
+      m,
+      b: kort(full.beats),
+      d: kort(full.losesTo),
     };
   }
   return out;
@@ -212,24 +272,34 @@ const SEED = Object.values(champions.champions).sort((a, b) => b.winrate - a.win
 function detailPanel() {
   const seedId = SEED;
   const c = champions.champions[String(seedId)];
-  const lanes = c?.lanes ?? [];
-  const beats = (c?.beats ?? []).slice(0, 4);
-  const loses = (c?.losesTo ?? []).slice(0, 4);
+  const rijen = laneLijst(c);
+  const vaakst = vaakstGespeeld(c);
+  const open = openLane(c);
+  const openRij = rijen.find((x) => x.lane === open);
 
-  const laneRows = lanes.length
-    ? lanes
-        .map(
-          (l) => `
-          <tr>
-            <th scope="row">${esc(LANES.find((x) => x.key === l.lane)?.label ?? l.lane)}</th>
+  // De matchups van de lane waarop het paneel opent, niet de gepoolde. Zie de
+  // toelichting bij explorerData.
+  const beats = (openRij?.beats ?? []).slice(0, 4);
+  const loses = (openRij?.losesTo ?? []).slice(0, 4);
+
+  const laneRows = rijen
+    .map((l) => {
+      // Alleen lanes die de drempel halen zijn aanklikbaar. Bij de rest valt er
+      // niets te tonen, dus een klik zou op een leeg paneel uitkomen.
+      const naam = l.qualified
+        ? `<button type="button" class="lane-knop" data-lane="${l.lane}">${esc(l.label)}</button>`
+        : `<span class="lane-knop is-stil">${esc(l.label)}</span>`;
+      const tag = l.lane === vaakst ? ` <span class="lane-tag">most played</span>` : "";
+      return `
+          <tr data-lane="${l.lane}"${l.lane === vaakst ? ' class="is-vaakst"' : ""} aria-selected="${l.lane === open}">
+            <th scope="row">${naam}${tag}</th>
             <td class="c-rank">${l.rank ? `#${l.rank}` : "&mdash;"}</td>
-            <td class="c-bar"><span style="width:${bar(l.winrate).toFixed(1)}%"></span></td>
-            <td class="c-wr ${wrClass(l.winrate)}">${pct(l.winrate)}<small>%</small></td>
-            <td class="c-games">${n(l.games)}</td>
-          </tr>`,
-        )
-        .join("")
-    : `<tr><td colspan="5" class="c-empty">No lane data yet.</td></tr>`;
+            <td class="c-bar">${l.winrate === null ? "" : `<span style="width:${bar(l.winrate).toFixed(1)}%"></span>`}</td>
+            <td class="c-wr ${l.winrate === null ? "" : wrClass(l.winrate)}">${l.winrate === null ? "&mdash;" : `${pct(l.winrate)}<small>%</small>`}</td>
+            <td class="c-games">${l.games ? n(l.games) : "&mdash;"}</td>
+          </tr>`;
+    })
+    .join("");
 
   const matchup = (m, dir) => `
       <li>
@@ -241,7 +311,7 @@ function detailPanel() {
 
   return `
     <div class="detail" id="detail"
-         data-seed="${seedId}"
+         data-seed="${seedId}" data-lane="${open ?? ""}"
          style="--splash:url('${splashOf(seedId)}')">
       <div class="detail-art">
         <img id="detail-splash" src="${splashOf(seedId)}" alt="" width="640" height="360" />
@@ -265,6 +335,13 @@ function detailPanel() {
       </div>
 
       <div class="detail-matchups">
+        <div class="mu-kop">
+          <p class="block-label">Matchups <span id="mu-uitleg">${open ? "in lane" : "all lanes"}</span></p>
+          <div class="build-lanes mu-schakel" id="mu-schakel" role="tablist" aria-label="Matchup scope">
+            <button type="button" role="tab" data-mu="lane" aria-selected="true" id="mu-lane"${open ? "" : " hidden"}>${esc(rijen.find((x) => x.lane === open)?.label ?? "Lane")}</button>
+            <button type="button" role="tab" data-mu="overall" aria-selected="false">Overall</button>
+          </div>
+        </div>
         <div>
           <p class="block-label">Wins into</p>
           <ul class="matchups" id="detail-beats">${beats.map((m) => matchup(m, "up")).join("") || `<li class="c-empty">Not enough games.</li>`}</ul>
@@ -948,7 +1025,14 @@ nav.links a:hover { color: var(--ink); }
   border: 1px solid var(--line-lit);
   border-radius: var(--radius);
   overflow: hidden;
-  box-shadow: var(--shadow);
+  /* De bovenrand verdween. Gemeten: het paneel staat op .375 van een schermpixel,
+     dus die rand van 1px wordt over twee pixelrijen verdeeld en elk voor een deel
+     getekend -- op een donkere ondergrond blijft daar bijna niets van over. De
+     breuk komt uit de hero erboven, die met vw-eenheden een gebroken hoogte
+     krijgt, en is dus niet weg te nemen zonder de hele opmaak op hele pixels te
+     dwingen. Een tweede lijn er direct onder lost het wel op: die twee kunnen
+     nooit allebei tegelijk wegvallen. */
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.055);
   background: var(--surface);
 }
 
@@ -972,8 +1056,42 @@ nav.links a:hover { color: var(--ink); }
 
 .detail-lanes, .detail-matchups { background: var(--surface); padding: 1.3rem 1.2rem 1.2rem; }
 .detail-matchups { display: grid; gap: 1.1rem; align-content: start; }
+.mu-kop { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem 0.8rem; }
+.mu-kop .block-label { margin: 0; }
+.mu-schakel { margin-left: 0; }
+.mu-schakel button { padding: 0.26rem 0.5rem; font-size: 0.62rem; }
 
+/* border-collapse zodat de rand om de meest gespeelde lane een rechthoek is en
+   geen losse stukjes per cel. De binnenmarge staat op alle regels, ook zonder
+   rand, anders zou de gemarkeerde regel een halve letter verspringen. */
+.lane-table { border-collapse: collapse; width: calc(100% + 0.9rem); margin-inline: -0.45rem; }
 .lane-table th, .lane-table td { padding: 0.32rem 0; font-size: 0.83rem; }
+.lane-table th:first-child, .lane-table td:first-child { padding-left: 0.45rem; }
+.lane-table th:last-child, .lane-table td:last-child { padding-right: 0.45rem; }
+
+/* De lane-namen zijn knoppen: hij kiest waar de matchups en de build over gaan. */
+.lane-knop {
+  font: inherit; color: inherit; background: none; border: 0; padding: 0;
+  font-weight: 600; cursor: pointer;
+}
+.lane-knop:hover { color: var(--gold-lit); }
+.lane-knop:focus-visible { outline: 2px solid var(--gold-dim); outline-offset: 2px; border-radius: 3px; }
+.lane-knop.is-stil { cursor: default; color: var(--dim); font-weight: 500; }
+
+.lane-tag {
+  font-family: var(--mono); font-size: 0.52rem; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--gold-dim); white-space: nowrap;
+}
+
+/* De lane waar deze champion het vaakst staat. Bij Soraka is dat support met
+   9.880 van haar 15.747 games; de andere vier lanes samen halen dat niet. */
+.lane-table tr.is-vaakst > * { border-block: 1px solid rgba(231, 199, 110, 0.32); }
+.lane-table tr.is-vaakst > :first-child { border-left: 1px solid rgba(231, 199, 110, 0.32); }
+.lane-table tr.is-vaakst > :last-child { border-right: 1px solid rgba(231, 199, 110, 0.32); }
+
+/* De lane die nu gekozen is. Bij het openen is dat dezelfde regel. */
+.lane-table tbody tr[aria-selected="true"] > * { background: rgba(231, 199, 110, 0.07); }
+.lane-table tbody tr:not([aria-selected="true"]) .lane-knop:not(.is-stil) { color: var(--muted); }
 .lane-table thead th {
   font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--dim); font-weight: 400; text-align: right; padding-bottom: 0.5rem;
@@ -1658,9 +1776,13 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     regel('<span class="s-pair">' + plaatje(spellSrc(a)) + plaatje(spellSrc(b)) + "</span>",
           (data.t.spells[a] || a) + " + " + (data.t.spells[b] || b), pick, wr);
 
-  // Welke champion en lane er nu getoond worden, zodat de laneknoppen weten
-  // waar ze bij horen als je erop klikt.
+  // Welke champion en lane er nu getoond worden. De lane is er een voor het hele
+  // paneel: hij bepaalt tegelijk welke regel oplicht in de lane-tabel, over welke
+  // lane de matchups gaan, en welke build eronder staat. Eerder had het buildblok
+  // zijn eigen lane en gingen de matchups over alles tegelijk.
   let huidigeChamp = el("detail")?.dataset.seed ?? null;
+  let huidigeLane = el("detail")?.dataset.lane || null;
+  let matchupBron = "lane";
 
   function showBuild(id, lane) {
     const set = data.b[id];
@@ -1706,11 +1828,68 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     el("builds-spells").innerHTML = b.p.map(spellRegel).join("") || leeg;
   }
 
+  function kiesLane(lane) {
+    if (!lane) return;
+    huidigeLane = lane;
+    matchupBron = "lane";
+    toonLaneKeuze();
+    toonMatchups();
+    showBuild(huidigeChamp, lane);
+  }
+
+  function toonLaneKeuze() {
+    for (const tr of document.querySelectorAll("#detail-lane-rows tr[data-lane]")) {
+      tr.setAttribute("aria-selected", String(tr.dataset.lane === huidigeLane));
+    }
+    const knop = el("mu-lane");
+    if (knop) {
+      knop.textContent = LANE_LABEL[huidigeLane] || "Lane";
+      knop.hidden = !huidigeLane;
+    }
+  }
+
+  /**
+   * De matchups. Standaard alleen de tegenstander die in DEZE lane tegenover je
+   * stond; dat is wat je bij een pick wilt weten. Gepoold over alle lanes kwam
+   * Kog'Maw eruit met Skarner, Malphite, Garen en Nidalee als beste matchups, en
+   * die vier staan nooit tegenover een botlane-ADC. Dat blijft opvraagbaar onder
+   * "Overall", want voor een off-meta champion is dat soms het enige dat er is.
+   */
+  function toonMatchups() {
+    const c = data.c[huidigeChamp];
+    if (!c) return;
+    const perLane = c.m ? c.m[huidigeLane] : null;
+    const overall = matchupBron === "overall" || !perLane;
+    const bron = overall ? { b: c.b, d: c.d } : perLane;
+    const leeg = '<li class="c-empty">Not enough games.</li>';
+    el("detail-beats").innerHTML = (bron.b || []).map((m) => matchupRow(m, "up")).join("") || leeg;
+    el("detail-loses").innerHTML = (bron.d || []).map((m) => matchupRow(m, "down")).join("") || leeg;
+    for (const btn of document.querySelectorAll("#mu-schakel button[data-mu]")) {
+      btn.setAttribute("aria-selected", String(btn.dataset.mu === (overall ? "overall" : "lane")));
+    }
+    const uitleg = el("mu-uitleg");
+    if (uitleg) uitleg.textContent = overall ? "all lanes" : "in lane";
+  }
+
   // Eén luisteraar op de container: de knoppen worden opnieuw opgebouwd bij elke
   // championwissel, dus luisteraars per knop zouden telkens opnieuw moeten.
   el("build-lanes")?.addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-lane]");
-    if (btn && huidigeChamp !== null) showBuild(huidigeChamp, btn.dataset.lane);
+    if (btn && huidigeChamp !== null) kiesLane(btn.dataset.lane);
+  });
+
+  // De hele regel is aanklikbaar, niet alleen het woord. Regels van lanes die de
+  // drempel niet halen doen niets: daar valt niets te tonen.
+  el("detail-lane-rows")?.addEventListener("click", (e) => {
+    const tr = e.target.closest("tr[data-lane]");
+    if (tr && tr.querySelector(".lane-knop:not(.is-stil)")) kiesLane(tr.dataset.lane);
+  });
+
+  el("mu-schakel")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-mu]");
+    if (!btn) return;
+    matchupBron = btn.dataset.mu;
+    toonMatchups();
   });
 
   function show(id) {
@@ -1718,29 +1897,41 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     const r = data.r[id];
     if (!c || !r) return;
 
+    // Elke champion opent op zijn eigen drukste lane, met de matchups van die
+    // lane. Anders zou de lanekeuze van de vorige champion blijven hangen.
+    huidigeChamp = id;
+    huidigeLane = c.o || null;
+    matchupBron = "lane";
+
     el("detail-name").textContent = r[0];
     el("detail-icon").src = r[1];
     el("detail-splash").src = r[2];
     el("detail-sub").innerHTML =
       c.g ? num(c.g) + " games &middot; " + pct(c.w) + "% overall" : "&nbsp;";
 
-    el("detail-lane-rows").innerHTML = c.l.length
+    el("detail-lane-rows").innerHTML = c.l.some((x) => x[1] > 0)
       ? c.l
-          .map(([lane, games, wr, rank]) =>
-            "<tr><th scope=\\"row\\">" + (LANE_LABEL[lane] || lane) + "</th>" +
-            '<td class="c-rank">' + (rank ? "#" + rank : "&mdash;") + "</td>" +
-            '<td class="c-bar"><span style="width:' + barW(wr).toFixed(1) + '%"></span></td>' +
-            '<td class="c-wr ' + wrClass(wr) + '">' + pct(wr) + "<small>%</small></td>" +
-            '<td class="c-games">' + num(games) + "</td></tr>",
-          )
+          .map(([lane, games, wr, rank, qual]) => {
+            const label = LANE_LABEL[lane] || lane;
+            const naam = qual
+              ? '<button type="button" class="lane-knop" data-lane="' + lane + '">' + label + "</button>"
+              : '<span class="lane-knop is-stil">' + label + "</span>";
+            return '<tr data-lane="' + lane + '"' + (lane === c.h ? ' class="is-vaakst"' : "") +
+              ' aria-selected="' + (lane === huidigeLane) + '">' +
+              '<th scope="row">' + naam + (lane === c.h ? ' <span class="lane-tag">most played</span>' : "") + "</th>" +
+              '<td class="c-rank">' + (rank ? "#" + rank : "&mdash;") + "</td>" +
+              '<td class="c-bar">' + (wr === null ? "" : '<span style="width:' + barW(wr).toFixed(1) + '%"></span>') + "</td>" +
+              '<td class="c-wr ' + (wr === null ? "" : wrClass(wr)) + '">' +
+              (wr === null ? "&mdash;" : pct(wr) + "<small>%</small>") + "</td>" +
+              '<td class="c-games">' + (games ? num(games) : "&mdash;") + "</td></tr>";
+          })
           .join("")
       : '<tr><td colspan="5" class="c-empty">No lane data yet.</td></tr>';
 
-    const none = '<li class="c-empty">Not enough games.</li>';
-    el("detail-beats").innerHTML = c.b.map((m) => matchupRow(m, "up")).join("") || none;
-    el("detail-loses").innerHTML = c.d.map((m) => matchupRow(m, "down")).join("") || none;
+    toonLaneKeuze();
+    toonMatchups();
 
-    showBuild(id);
+    showBuild(id, huidigeLane);
     buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.champ === String(id))));
   }
 

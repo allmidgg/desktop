@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-22T15:47:06.960Z",
+  "generatedAt": "2026-08-22T20:45:22.073Z",
   "bron": "data/matches.jsonl",
   "methode": {
     "beschrijving": "Zelfde berekening als src/core/services/stats.ts, zodat site en app dezelfde cijfers tonen.",
@@ -23,7 +23,7 @@
       "16.16",
       "16.15"
     ],
-    "generatedAt": "2026-08-22T15:47:06.960Z",
+    "generatedAt": "2026-08-22T20:45:22.073Z",
     "gamesPerPatch": {
       "16.16": 67662,
       "16.15": 60966

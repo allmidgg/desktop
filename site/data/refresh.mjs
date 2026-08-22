@@ -505,6 +505,27 @@ function rangenPerLane(t) {
   return uit;
 }
 
+/**
+ * Matchups per lane: "champion+lane" -> Map(tegenstander -> {games, wins}).
+ *
+ * Dit is wat je bij een pick eigenlijk wilt weten. De gepoolde variant hieronder
+ * telt alle lanes bij elkaar op, en dat levert antwoorden op die niemand kan
+ * gebruiken: Kog'Maw kwam er als bot-lane ADC uit met Skarner, Malphite, Garen en
+ * Nidalee als beste matchups. Geen van die vier staat ooit tegenover hem in de
+ * botlane. Die cijfers komen uit de zeldzame games waarin Kog'Maw top of mid ging.
+ */
+function laneMatchups(t) {
+  const uit = new Map(); // "lane|champion" -> Map(tegenstander -> paar)
+  for (const [sleutel, paar] of t.matchups) {
+    const delen = sleutel.split("|");
+    const perTegen = pak(uit, `${delen[0]}|${delen[1]}`, () => new Map());
+    const totaal = pak(perTegen, Number(delen[2]), nieuwPaar);
+    totaal.games += paar.games;
+    totaal.wins += paar.wins;
+  }
+  return uit;
+}
+
 /** Matchups opgeteld over alle lanes: ook een off-meta champion houdt zo bruikbare cijfers. */
 function gepooldeMatchups(t) {
   const uit = new Map(); // champion -> Map(tegenstander -> {games, wins})
@@ -786,9 +807,50 @@ function bouwHighlights(t, champTotalen) {
 
 /* ── champions.json ──────────────────────────────────────────────────────────*/
 
+/**
+ * Uit een tabel tegenstander -> {games, wins} de vijf beste en vijf slechtste.
+ *
+ * Precies dezelfde drempel en volgorde als strongAgainst/strugglesAgainst in
+ * src/core/services/stats.ts, want de app en de site horen nooit een ander
+ * antwoord te geven op dezelfde vraag.
+ */
+function tegenstanders(perTegen) {
+  const matchups = [];
+  for (const [tegen, paar] of perTegen ?? []) {
+    if (paar.games < MIN_MATCHUP_GAMES) continue;
+    matchups.push({
+      baseId: tegen,
+      name: championNaam.get(tegen),
+      winrate: glad(paar.games, paar.wins),
+      winrateRaw: ruw(paar.games, paar.wins),
+      games: paar.games,
+    });
+  }
+  const naarUit = (m) => ({
+    baseId: m.baseId,
+    name: m.name,
+    winrate: vast(m.winrate, 1),
+    winrateRaw: vast(m.winrateRaw, 1),
+    games: m.games,
+  });
+  return {
+    beats: matchups
+      .filter((m) => m.winrateRaw > 50)
+      .sort((a, b) => b.winrate - a.winrate || b.games - a.games || a.baseId - b.baseId)
+      .slice(0, 5)
+      .map(naarUit),
+    losesTo: matchups
+      .filter((m) => m.winrateRaw < 50)
+      .sort((a, b) => a.winrate - b.winrate || b.games - a.games || a.baseId - b.baseId)
+      .slice(0, 5)
+      .map(naarUit),
+  };
+}
+
 function bouwChampions(t, nu) {
   const perLaneRang = rangenPerLane(t);
   const pool = gepooldeMatchups(t);
+  const perLaneTegen = laneMatchups(t);
   const champTotalen = championTotalen(t);
   const laneQualifiers = Object.fromEntries(LANES.map((lane) => [lane, perLaneRang.get(lane).size]));
 
@@ -814,6 +876,12 @@ function bouwChampions(t, nu) {
         regel.rank = perLaneRang.get(lane).get(champion);
         regel.rankOf = perLaneRang.get(lane).size;
       }
+      // De tegenstander die in DEZE lane tegenover je stond. Vaak zijn dit er
+      // minder dan bij de gepoolde variant, want MIN_MATCHUP_GAMES geldt nu per
+      // lane. Dat is de bedoeling: liever vier eerlijke dan tien verzonnen.
+      const eigen = tegenstanders(perLaneTegen.get(`${lane}|${champion}`));
+      regel.beats = eigen.beats;
+      regel.losesTo = eigen.losesTo;
       lanes.push(regel);
     }
     lanes.sort((a, b) => b.games - a.games || LANES.indexOf(a.lane) - LANES.indexOf(b.lane));
@@ -832,34 +900,7 @@ function bouwChampions(t, nu) {
     }
     if (!sterkste) sterkste = lanes[0]?.lane ?? null;
 
-    const matchups = [];
-    for (const [tegen, paar] of pool.get(champion) ?? []) {
-      if (paar.games < MIN_MATCHUP_GAMES) continue;
-      matchups.push({
-        baseId: tegen,
-        name: championNaam.get(tegen),
-        winrate: glad(paar.games, paar.wins),
-        winrateRaw: ruw(paar.games, paar.wins),
-        games: paar.games,
-      });
-    }
-    const naarUit = (m) => ({
-      baseId: m.baseId,
-      name: m.name,
-      winrate: vast(m.winrate, 1),
-      winrateRaw: vast(m.winrateRaw, 1),
-      games: m.games,
-    });
-    const beats = matchups
-      .filter((m) => m.winrateRaw > 50)
-      .sort((a, b) => b.winrate - a.winrate || b.games - a.games || a.baseId - b.baseId)
-      .slice(0, 5)
-      .map(naarUit);
-    const losesTo = matchups
-      .filter((m) => m.winrateRaw < 50)
-      .sort((a, b) => a.winrate - b.winrate || b.games - a.games || a.baseId - b.baseId)
-      .slice(0, 5)
-      .map(naarUit);
+    const { beats, losesTo } = tegenstanders(pool.get(champion));
 
     champions[champion] = {
       baseId: champion,
@@ -903,7 +944,8 @@ function bouwChampions(t, nu) {
         `Alle ${ROSTER.length} champions uit site/img/champions/manifest.json staan erin, niet alleen de top 10 per lane.`,
         "lanes bevat elke lane waarin de champion voorkomt. qualified=true vanaf 100 lane-games; alleen dan is er een rank (plus rankOf: het aantal gekwalificeerde champions in die lane).",
         "totalGames/totalWins/kda tellen alleen spelersloten met een bekende positie, dus totalGames is exact de som van de lane-games. gamesInclUnknownLane laat zien hoeveel games er inclusief UNKNOWN-sloten waren.",
-        "beats/losesTo zijn gepoold over alle lanes: per lane geldt nog steeds 'tegenstander op dezelfde positie in het andere team', maar de tellingen van de lanes worden bij elkaar opgeteld voordat MIN_MATCHUP_GAMES=8 wordt toegepast. Zo hebben ook off-meta champions bruikbare matchups.",
+        "beats/losesTo op championniveau zijn gepoold over alle lanes: per lane geldt nog steeds 'tegenstander op dezelfde positie in het andere team', maar de tellingen van de lanes worden bij elkaar opgeteld voordat MIN_MATCHUP_GAMES=8 wordt toegepast. Zo hebben ook off-meta champions bruikbare matchups.",
+        "lanes[].beats/losesTo zijn NIET gepoold: dat zijn alleen de tegenstanders uit die ene lane, met MIN_MATCHUP_GAMES=8 per lane. Dat is wat je bij een pick wilt weten -- gepoold kwam Kog'Maw eruit met Skarner en Malphite als beste matchups, die nooit tegenover hem in de botlane staan.",
         "beats bevat alleen matchups met een ruwe winrate boven 50%, losesTo alleen onder 50% (zelfde filter als strongAgainst/strugglesAgainst in stats.ts); gesorteerd op gladgestreken winrate. Daardoor kunnen het er minder dan 5 zijn.",
         "strongestLane = de gekwalificeerde lane met de hoogste gladgestreken winrate; heeft geen enkele lane 100 games, dan de meest gespeelde lane.",
         "Bevat uitsluitend geaggregeerde champion-cijfers; geen spelersidentificatie van welke aard dan ook.",
@@ -987,6 +1029,14 @@ function bouwBuilds(t, combinaties, lanes, nu) {
 
     const laarzen = alleItems.filter((r) => LAARZEN.has(r.item));
     const startitems = alleItems.filter((r) => STARTITEMS.has(r.item));
+    // De drie kolommen op de site moeten elk iets ANDERS zeggen. Deden ze niet:
+    // bij Tryndamere top stond "Berserker's Greaves 78,8%" bovenaan bij items,
+    // en er pal naast nog een keer bij laarzen. Bij Soraka gold hetzelfde voor
+    // Ionian Boots, en Doran's Ring stond zowel bij items als bij startitems.
+    // De bovenste regel van de itemlijst ging zo altijd verloren aan iets wat
+    // er al stond. Laarzen en startitems hebben hun eigen kolom; items zijn nu
+    // wat daar niet in zit.
+    const echteItems = alleItems.filter((r) => !LAARZEN.has(r.item) && !STARTITEMS.has(r.item));
     // Zeldzame laarzen en startitems gaan eraf om het bestand onder de 900 KB te
     // houden; hoeveel dat er waren staat in totals.weggelatenRegels.
     weggelaten.laarzen += Math.max(0, laarzen.length - TOON_LAARZEN);
@@ -1044,7 +1094,7 @@ function bouwBuilds(t, combinaties, lanes, nu) {
         assists: rond(tally.assists / laneGames, 2),
         ratio: rond(tally.deaths ? (tally.kills + tally.assists) / tally.deaths : tally.kills + tally.assists, 2),
       },
-      items: alleItems.slice(0, TOON_ITEMS).map((r) => itemRegel(r.item, r.games, r.wins, laneGames)),
+      items: echteItems.slice(0, TOON_ITEMS).map((r) => itemRegel(r.item, r.games, r.wins, laneGames)),
       boots: laarzen.slice(0, TOON_LAARZEN).map((r) => itemRegel(r.item, r.games, r.wins, laneGames)),
       starters: startitems.slice(0, TOON_STARTITEMS).map((r) => itemRegel(r.item, r.games, r.wins, laneGames)),
       core: core.map((r) => ({
@@ -1122,6 +1172,8 @@ function bouwBuilds(t, combinaties, lanes, nu) {
       startitemHerkendAls: "basiscomponent zonder buildsFrom, prijs 1-500 gold, geen consumable",
       toelichting:
         "Trinkets en consumables zijn uit alle tellingen gehouden. Boots of Speed staat zowel bij laarzen als bij startitems, want het is allebei.",
+      kolommenZijnDisjunct:
+        "items bevat GEEN laarzen en GEEN startitems; die hebben hun eigen lijst. Anders stond hetzelfde item in twee kolommen naast elkaar.",
       afkapping: `Om onder de 900 KB te blijven staan per champion+lane de ${TOON_ITEMS} vaakst gebouwde items, de ${TOON_LAARZEN} vaakste laarzen en de ${TOON_STARTITEMS} vaakste startitems in dit bestand. Zeldzamere laarzen en startitems zijn weggelaten; zie totals.weggelatenRegels voor hoeveel.`,
     },
     totals: {
