@@ -4,13 +4,13 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AllMid</title>
-<meta name="description" content="Stats, counters, builds and one-click masteries for League of Legends Classic. Free, open source, and built on 112,000 games collected from scratch." />
+<meta name="description" content="Tier lists, counters, builds and one-click masteries for League of Legends Classic — built from 120,032 real Classic games. Free and open source." />
 
 <meta property="og:type" content="website" />
 <meta property="og:title" content="AllMid — stats for League of Legends Classic" />
-<meta property="og:description" content="The other overlays stop where Classic starts. AllMid builds the data itself: 112,000 games, 63 champions, every lane." />
+<meta property="og:description" content="Every other tracker stops where Classic starts. AllMid collects the data itself: 120,032 games, 336,247 players, all 63 champions." />
 <meta property="og:url" content="https://allmid.gg/" />
-<meta property="og:image" content="https://allmid.gg/img/champion-select.png" />
+<meta property="og:image" content="https://allmid.gg/img/meta.png" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="theme-color" content="#06080c" />
 
@@ -22,13 +22,12 @@
 /* ───────────────────────────────────────────────────────────────────────────
    AllMid — allmid.gg
 
-   Bewust één donker thema. Dit is een pagina voor een overlay bij een spel; een
-   licht thema zou hem uit zijn wereld trekken. Alles wordt expliciet geverfd,
-   dus de pagina houdt stand op elke achtergrond.
+   Eén donker thema, bewust. Dit is een pagina voor een overlay bij een spel.
 
-   Het terugkerende motief is het masteryraster: dertig vakjes in drie kolommen.
-   Dat is de vorm die alleen Classic heeft, en precies wat de andere overlays
-   niet kunnen laten zien.
+   De leidende regel na drie afgekeurde ontwerprichtingen: champion-art staat
+   op VOLLE KLEUR in zijn eigen zone, en tekst staat op schone donkere grond.
+   Art wegdimmen achter een kop levert modder op — dat is precies wat er mis
+   was aan de vorige versie.
    ─────────────────────────────────────────────────────────────────────────── */
 
 :root {
@@ -45,19 +44,21 @@
   --jade:     #2fd696;
   --jade-dim: #1a8f63;
   --gold:     #c9a05a;
-  --loss:     #d9556b;
+
+  --wr-hi:  #2fd696;
+  --wr-ok:  #8fc98a;
+  --wr-lo:  #d5a95e;
+  --wr-bad: #d9556b;
 
   --display: "Archivo", "Segoe UI", system-ui, sans-serif;
   --body:    "Public Sans", "Segoe UI", system-ui, sans-serif;
   --mono:    "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace;
 
-  --gutter:  clamp(1.25rem, 5vw, 5rem);
-  --measure: 62ch;
-  --max:     1240px;
+  --gutter:  clamp(1.25rem, 5vw, 4.5rem);
+  --max:     1320px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
@@ -66,8 +67,8 @@ body {
   background: var(--ground);
   color: var(--ink);
   font-family: var(--body);
-  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.075rem);
-  line-height: 1.65;
+  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.06rem);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -76,137 +77,73 @@ h1, h2, h3 {
   font-family: var(--display);
   font-weight: 800;
   font-stretch: 112%;
-  line-height: 1.02;
-  letter-spacing: -0.025em;
+  line-height: 1.03;
+  letter-spacing: -0.028em;
   text-wrap: balance;
   margin: 0;
 }
 
 a { color: inherit; }
 img { max-width: 100%; display: block; }
+table { border-collapse: collapse; width: 100%; }
 
-:focus-visible {
-  outline: 2px solid var(--jade);
-  outline-offset: 3px;
-  border-radius: 2px;
-}
+:focus-visible { outline: 2px solid var(--jade); outline-offset: 3px; border-radius: 2px; }
 
-.wrap {
-  width: 100%;
-  max-width: var(--max);
-  margin-inline: auto;
-  padding-inline: var(--gutter);
-}
+.wrap { width: 100%; max-width: var(--max); margin-inline: auto; padding-inline: var(--gutter); }
+.mono { font-family: var(--mono); }
 
-/* Kleine hoofdletterlabels. Alleen waar ze iets benoemen, niet als versiering. */
 .eyebrow {
   font-family: var(--mono);
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.18em;
+  font-size: 0.7rem;
+  letter-spacing: 0.17em;
   text-transform: uppercase;
   color: var(--jade);
-  margin: 0 0 1.25rem;
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-}
-.eyebrow::before {
-  content: "";
-  width: 1.75rem;
-  height: 1px;
-  background: var(--jade-dim);
-  flex: none;
+  margin: 0 0 1.1rem;
 }
 
-/* ── Het masteryraster als achtergrondtextuur ───────────────────────────── */
-.lattice {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(var(--line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size: 46px 46px;
-  opacity: 0.55;
-  mask-image: radial-gradient(120% 90% at 78% 22%, #000 0%, transparent 72%);
-  -webkit-mask-image: radial-gradient(120% 90% at 78% 22%, #000 0%, transparent 72%);
+.block-label {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: 0 0 0.85rem;
 }
-.lattice.centred {
-  mask-image: radial-gradient(90% 80% at 50% 40%, #000 0%, transparent 70%);
-  -webkit-mask-image: radial-gradient(90% 80% at 50% 40%, #000 0%, transparent 70%);
-}
+.block-label span { color: var(--line-lit); text-transform: none; letter-spacing: 0.04em; }
 
-/* ── Kop ────────────────────────────────────────────────────────────────── */
+/* ── Kop ───────────────────────────────────────────────────────────────── */
 header {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: rgba(6, 8, 12, 0.88);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  position: sticky; top: 0; z-index: 60;
+  background: rgba(6, 8, 12, 0.9);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid transparent;
   transition: border-color 0.25s ease;
 }
 header.stuck { border-bottom-color: var(--line); }
-
-header .wrap {
-  display: flex;
-  align-items: center;
-  gap: 2rem;
-  min-height: 68px;
-}
+header .wrap { display: flex; align-items: center; gap: 2rem; min-height: 66px; }
 
 .brand {
-  font-family: var(--display);
-  font-weight: 800;
-  font-stretch: 112%;
-  font-size: 1.2rem;
-  letter-spacing: -0.02em;
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-right: auto;
+  display: flex; align-items: center; gap: 0.6rem;
+  font-family: var(--display); font-weight: 800; font-stretch: 112%;
+  font-size: 1.18rem; letter-spacing: -0.02em; text-decoration: none; margin-right: auto;
 }
-.brand .mark {
-  width: 22px;
-  height: 22px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
-  flex: none;
-}
+.brand .mark { width: 22px; height: 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; flex: none; }
 .brand .mark i { background: var(--line-lit); border-radius: 1px; }
-.brand .mark i:nth-child(2),
-.brand .mark i:nth-child(4),
-.brand .mark i:nth-child(9) { background: var(--jade); }
+.brand .mark i:nth-child(2), .brand .mark i:nth-child(4), .brand .mark i:nth-child(9) { background: var(--jade); }
+.brand-name { white-space: nowrap; }
+.brand em { font-style: normal; color: var(--jade); }
 
-nav.links { display: flex; gap: 1.75rem; }
-nav.links a {
-  text-decoration: none;
-  color: var(--muted);
-  font-size: 0.92rem;
-  font-weight: 500;
-  transition: color 0.18s ease;
-}
+nav.links { display: flex; gap: 1.6rem; }
+nav.links a { text-decoration: none; color: var(--muted); font-size: 0.9rem; font-weight: 500; transition: color 0.18s ease; }
 nav.links a:hover { color: var(--ink); }
-@media (max-width: 780px) { nav.links { display: none; } }
+@media (max-width: 900px) { nav.links { display: none; } }
 
-/* ── Knoppen ────────────────────────────────────────────────────────────── */
+/* ── Knoppen ───────────────────────────────────────────────────────────── */
 .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.78rem 1.35rem;
-  border-radius: 6px;
-  font-family: var(--body);
-  font-weight: 600;
-  font-size: 0.95rem;
-  text-decoration: none;
-  border: 1px solid transparent;
-  cursor: pointer;
-  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  padding: 0.78rem 1.35rem; border-radius: 6px;
+  font-family: var(--body); font-weight: 600; font-size: 0.94rem;
+  text-decoration: none; border: 1px solid transparent; cursor: pointer; white-space: nowrap;
   transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
 }
 .btn:hover { transform: translateY(-1px); }
@@ -214,341 +151,301 @@ nav.links a:hover { color: var(--ink); }
 .btn-primary:hover { background: #45e2a8; }
 .btn-ghost { border-color: var(--line-lit); color: var(--ink); }
 .btn-ghost:hover { border-color: var(--muted); background: var(--surface); }
-.btn-sm { padding: 0.55rem 1rem; font-size: 0.88rem; }
+.btn-sm { padding: 0.52rem 1rem; font-size: 0.86rem; }
 .btn svg { width: 17px; height: 17px; flex: none; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center; }
 
-.cta-row { display: flex; flex-wrap: wrap; gap: 0.85rem; align-items: center; }
-.cta-note {
-  font-family: var(--mono);
-  font-size: 0.76rem;
-  color: var(--dim);
-  margin: 1.15rem 0 0;
-  letter-spacing: 0.02em;
-}
-
-/* ── Hero ───────────────────────────────────────────────────────────────── */
-.hero {
-  position: relative;
-  padding-block: clamp(4rem, 9vw, 8rem) clamp(3rem, 6vw, 5rem);
-  overflow: hidden;
-}
-.hero::after {
-  content: "";
-  position: absolute;
-  width: 780px;
-  height: 780px;
-  right: -14%;
-  top: -34%;
-  background: radial-gradient(circle, rgba(47, 214, 150, 0.11) 0%, transparent 62%);
-  pointer-events: none;
-}
-
+/* ── Hero ──────────────────────────────────────────────────────────────── */
+.hero { padding-block: clamp(3rem, 6vw, 5.5rem) clamp(2rem, 4vw, 3rem); }
 .hero .wrap {
-  position: relative;
-  z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-  gap: clamp(2rem, 5vw, 4.5rem);
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  gap: clamp(2rem, 4vw, 3.5rem);
   align-items: center;
 }
-@media (max-width: 960px) {
-  .hero .wrap { grid-template-columns: 1fr; }
-}
+@media (max-width: 1040px) { .hero .wrap { grid-template-columns: 1fr; } }
 
-.hero h1 {
-  font-size: clamp(2.6rem, 6.2vw, 4.6rem);
-  margin-bottom: 1.5rem;
-}
+.hero h1 { font-size: clamp(2.5rem, 5.4vw, 4.15rem); margin-bottom: 1.35rem; }
 .hero h1 em { font-style: normal; color: var(--jade); }
-
-.hero .lede {
-  font-size: clamp(1.06rem, 1rem + 0.4vw, 1.22rem);
-  color: var(--muted);
-  max-width: 46ch;
-  margin: 0 0 2.25rem;
-}
+.hero .lede { font-size: clamp(1.02rem, 0.98rem + 0.35vw, 1.16rem); color: var(--muted); max-width: 46ch; margin: 0 0 1.9rem; }
 .hero .lede strong { color: var(--ink); font-weight: 600; }
+.cta-note { font-family: var(--mono); font-size: 0.73rem; color: var(--dim); margin: 1.05rem 0 0; }
 
-/* Het schermbeeld hangt iets gekanteld, alsof het venster naar je toe draait. */
-.hero-shot {
-  position: relative;
-  border-radius: 10px;
+/* Dekking: het verkoopverhaal in één regel. */
+.coverage {
+  grid-column: 1 / -1;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem;
+  margin-top: 0.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
+}
+.coverage .cov-label {
+  flex: none;
+  font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--dim); width: 100%; margin: 0 0 0.7rem;
+}
+.coverage span {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.84rem; font-weight: 600;
+  padding: 0.34rem 0.7rem; border-radius: 5px;
+  border: 1px solid var(--line); color: var(--dim);
+}
+.coverage span::before { content: "\00d7"; color: var(--wr-bad); font-weight: 700; }
+.coverage span.yes { color: var(--ink); border-color: var(--jade-dim); background: rgba(47, 214, 150, 0.08); }
+.coverage span.yes::before { content: "\2713"; color: var(--jade); }
+
+/* ── Verkenner: portretten op volle kleur ──────────────────────────────── */
+.explorer {
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
   overflow: hidden;
-  border: 1px solid var(--line-lit);
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.03),
-    0 40px 90px -30px rgba(0, 0, 0, 0.9),
-    0 0 0 1px rgba(47, 214, 150, 0.06);
-  transform: perspective(1800px) rotateY(-7deg) rotateX(1.5deg);
-  transform-origin: left center;
 }
-@media (max-width: 960px) {
-  .hero-shot { transform: none; }
+.explorer-head {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.85rem 1rem; border-bottom: 1px solid var(--line);
 }
+.explorer-head h2 { font-size: 0.95rem; font-weight: 700; font-stretch: 105%; letter-spacing: -0.01em; }
+.explorer-head .count { margin-left: auto; font-family: var(--mono); font-size: 0.68rem; color: var(--dim); }
 
-/* ── Cijferband ─────────────────────────────────────────────────────────── */
-.figures {
-  border-block: 1px solid var(--line);
-  background: linear-gradient(180deg, var(--surface), var(--ground));
-}
-.figures .wrap {
+.explorer-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1px;
-  background: var(--line);
-  padding-inline: 0;
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap: 4px; padding: 0.8rem;
 }
-.figures .cell {
-  background: var(--ground);
-  padding: clamp(1.5rem, 3vw, 2.4rem) clamp(1rem, 2.4vw, 2rem);
-  text-align: center;
+.portrait {
+  position: relative; padding: 0; border: 1px solid transparent; border-radius: 5px;
+  background: none; cursor: pointer; overflow: hidden; line-height: 0;
+  transition: border-color 0.14s ease, transform 0.14s ease;
 }
+.portrait img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; }
+.portrait:hover { transform: translateY(-2px); border-color: var(--line-lit); }
+.portrait[aria-pressed="true"] { border-color: var(--jade); box-shadow: 0 0 0 1px var(--jade); }
+.portrait-name {
+  position: absolute; inset: auto 0 0 0;
+  font-family: var(--mono); font-size: 0.52rem; line-height: 1.5;
+  background: rgba(6, 8, 12, 0.86); color: var(--ink);
+  opacity: 0; transition: opacity 0.14s ease;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px;
+}
+.portrait:hover .portrait-name, .portrait:focus-visible .portrait-name { opacity: 1; }
+
+/* ── Detailpaneel ──────────────────────────────────────────────────────── */
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.1fr) minmax(0, 1.05fr);
+  gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+@media (max-width: 1040px) { .detail { grid-template-columns: 1fr; } }
+
+.detail-art { position: relative; background: var(--raised); min-height: 232px; }
+.detail-art > img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+.detail-id {
+  position: absolute; inset: auto 0 0 0; z-index: 1;
+  display: flex; align-items: center; gap: 0.75rem; padding: 1rem;
+  background: linear-gradient(180deg, transparent, rgba(6, 8, 12, 0.94) 62%);
+}
+.detail-id img { width: 46px; height: 46px; border-radius: 5px; border: 1px solid var(--line-lit); flex: none; }
+.detail-id h3 { font-size: 1.25rem; }
+.detail-id p { margin: 0.15rem 0 0; font-size: 0.7rem; color: var(--muted); }
+
+.detail-lanes, .detail-matchups { background: var(--surface); padding: 1.1rem 1.2rem; }
+.detail-matchups { display: grid; gap: 1.1rem; align-content: start; }
+
+.lane-table th, .lane-table td { padding: 0.32rem 0; font-size: 0.83rem; }
+.lane-table thead th {
+  font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--dim); font-weight: 400; text-align: right; padding-bottom: 0.5rem;
+}
+.lane-table thead th:first-child { text-align: left; }
+.lane-table tbody th { text-align: left; font-weight: 600; color: var(--ink); }
+.c-rank, .c-wr, .c-games { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.c-rank { color: var(--gold); font-size: 0.74rem; }
+.c-games { color: var(--dim); font-size: 0.74rem; }
+.c-wr { font-weight: 700; }
+.c-wr small, .t-wr small, .m-wr small { font-size: 0.68em; opacity: 0.62; margin-left: 1px; }
+.c-bar { width: 34%; padding-inline: 0.6rem; }
+.c-bar span, .t-bar span { display: block; height: 4px; border-radius: 2px; background: var(--jade-dim); }
+.c-empty { color: var(--dim); font-size: 0.8rem; font-style: italic; }
+
+.matchups { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+.matchups li { display: grid; grid-template-columns: 26px 1fr auto auto; align-items: center; gap: 0.55rem; font-size: 0.82rem; }
+.matchups img { width: 26px; height: 26px; border-radius: 4px; }
+.m-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-games { font-family: var(--mono); font-size: 0.66rem; color: var(--dim); }
+.m-wr { font-family: var(--mono); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.wr-hi { color: var(--wr-hi); } .wr-ok { color: var(--wr-ok); }
+.wr-lo { color: var(--wr-lo); } .wr-bad { color: var(--wr-bad); }
+
+/* ── Masthead: de herkomst van de cijfers, in één regel ────────────────── */
+.masthead { border-block: 1px solid var(--line); background: var(--surface); }
+.masthead .wrap {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 2.2rem;
+  padding-block: 0.8rem;
+  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--dim);
+}
+.masthead b { color: var(--muted); font-weight: 400; }
+.masthead .v { color: var(--ink); }
+
+/* ── Cijferband ────────────────────────────────────────────────────────── */
+.figures { border-bottom: 1px solid var(--line); }
+.figures .wrap { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--line); padding-inline: 0; }
+.figures .cell { background: var(--ground); padding: clamp(1.3rem, 2.6vw, 2rem) 1rem; text-align: center; }
 .figures .n {
-  font-family: var(--mono);
-  font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.3rem);
-  font-weight: 700;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  font-family: var(--mono); font-weight: 700; letter-spacing: -0.02em;
+  font-size: clamp(1.3rem, 1rem + 1.4vw, 2.05rem);
+  font-variant-numeric: tabular-nums; line-height: 1.1;
 }
 .figures .n .unit { color: var(--jade); }
-.figures .k {
-  font-family: var(--mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--dim);
-  margin-top: 0.55rem;
-}
-@media (max-width: 720px) {
-  .figures .wrap { grid-template-columns: repeat(2, 1fr); }
-}
+.figures .k { font-family: var(--mono); font-size: 0.63rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--dim); margin-top: 0.5rem; }
+@media (max-width: 860px) { .figures .wrap { grid-template-columns: repeat(2, 1fr); } }
 
-/* ── Secties ────────────────────────────────────────────────────────────── */
-section { position: relative; }
-.band { padding-block: clamp(4rem, 8vw, 7.5rem); }
-.band + .band { border-top: 1px solid var(--line); }
+/* ── Roster: 63 portretten, volle breedte, volle kleur ─────────────────── */
+.roster { padding-block: clamp(2.5rem, 5vw, 4rem); overflow: hidden; }
+.roster .rl { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 1rem; margin: 0 0 1.1rem; }
+.roster .rl b { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--jade); font-weight: 500; }
+.roster .rl span { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--dim); }
+.roster-row { display: flex; gap: 4px; margin-bottom: 4px; }
+.roster-row img {
+  width: calc((100vw - 4px * 31) / 32); min-width: 34px; height: auto; aspect-ratio: 1;
+  border-radius: 4px; object-fit: cover; flex: 1 1 auto;
+}
+@media (max-width: 900px) { .roster-row { flex-wrap: wrap; } .roster-row img { width: 40px; flex: none; } }
 
-.section-head { max-width: var(--measure); margin-bottom: clamp(2.5rem, 5vw, 4rem); }
-.section-head h2 { font-size: clamp(1.85rem, 1.3rem + 2vw, 3rem); margin-bottom: 1rem; }
+/* ── Secties ───────────────────────────────────────────────────────────── */
+.band { padding-block: clamp(3.5rem, 7vw, 6.5rem); }
+.band + .band, .roster + .band { border-top: 1px solid var(--line); }
+.section-head { max-width: 62ch; margin-bottom: clamp(2rem, 4vw, 3.2rem); }
+.section-head h2 { font-size: clamp(1.8rem, 1.25rem + 2vw, 2.9rem); margin-bottom: 0.9rem; }
 .section-head p { color: var(--muted); margin: 0; }
 
-/* ── Functies: afwisselende rijen rond de echte schermbeelden ───────────── */
-.feature {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  gap: clamp(2rem, 5vw, 4.5rem);
-  align-items: center;
+/* ── Tier-lijsten ──────────────────────────────────────────────────────── */
+.lane-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.6rem; }
+.lane-tabs button {
+  font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.09em; text-transform: uppercase;
+  padding: 0.5rem 0.95rem; border-radius: 5px; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); color: var(--muted);
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
-.feature + .feature { margin-top: clamp(3.5rem, 7vw, 6rem); }
+.lane-tabs button:hover { color: var(--ink); border-color: var(--line-lit); }
+.lane-tabs button[aria-selected="true"] { color: var(--jade); border-color: var(--jade-dim); background: rgba(47, 214, 150, 0.08); }
+
+.table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.tier-table th, .tier-table td { padding: 0.6rem 0.85rem; text-align: right; white-space: nowrap; }
+.tier-table thead th {
+  font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--dim); font-weight: 400; border-bottom: 1px solid var(--line);
+}
+.tier-table tbody tr + tr td { border-top: 1px solid rgba(28, 36, 47, 0.7); }
+.tier-table tbody tr:hover td { background: rgba(47, 214, 150, 0.04); }
+.t-rank { font-family: var(--mono); color: var(--dim); font-size: 0.78rem; width: 1%; }
+.t-champ { text-align: left; }
+.t-champ { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; }
+.t-champ img { width: 30px; height: 30px; border-radius: 5px; flex: none; }
+.t-bar { width: 22%; min-width: 90px; }
+.t-wr { font-family: var(--mono); font-weight: 700; font-variant-numeric: tabular-nums; }
+.t-raw, .t-games, .t-pick { font-family: var(--mono); font-size: 0.78rem; color: var(--dim); font-variant-numeric: tabular-nums; }
+.pane-heading { display: none; }
+.tier-pane { display: none; }
+.tier-pane.is-open { display: block; }
+
+.footnote { margin: 1rem 0 0; font-size: 0.83rem; color: var(--dim); max-width: 78ch; line-height: 1.65; }
+.footnote strong { color: var(--muted); font-weight: 600; }
+.footnote code { font-family: var(--mono); font-size: 0.9em; color: var(--muted); }
+.fn-mark {
+  display: inline-grid; place-items: center; width: 15px; height: 15px; margin-right: 0.35rem;
+  border-radius: 3px; background: rgba(47, 214, 150, 0.14); color: var(--jade);
+  font-family: var(--mono); font-size: 0.62rem; vertical-align: 1px;
+}
+
+/* ── Bevindingen ───────────────────────────────────────────────────────── */
+.finding { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: clamp(1.5rem, 3.5vw, 3rem); align-items: center; }
+.finding + .finding { margin-top: clamp(2.5rem, 5vw, 4rem); }
+.finding:nth-child(even) .finding-art { order: 2; }
+@media (max-width: 900px) { .finding { grid-template-columns: 1fr; } .finding:nth-child(even) .finding-art { order: 0; } }
+.finding-art { border-radius: 9px; overflow: hidden; border: 1px solid var(--line); background: var(--raised); }
+.finding-art img { width: 100%; height: auto; }
+.f-num { font-size: 0.66rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--jade); margin: 0 0 0.7rem; }
+.finding-copy h3 { font-size: clamp(1.3rem, 1.05rem + 1vw, 1.75rem); margin-bottom: 0.8rem; }
+.finding-copy p { color: var(--muted); margin: 0; max-width: 50ch; }
+.finding-copy strong { color: var(--ink); font-weight: 700; font-family: var(--mono); }
+
+/* ── Functies ──────────────────────────────────────────────────────────── */
+.feature { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.25fr); gap: clamp(1.75rem, 4vw, 3.5rem); align-items: center; }
+.feature + .feature { margin-top: clamp(3rem, 6vw, 5rem); }
 .feature.flip > .feature-copy { order: 2; }
-@media (max-width: 900px) {
-  .feature { grid-template-columns: 1fr; }
-  .feature.flip > .feature-copy { order: 0; }
-}
+@media (max-width: 940px) { .feature { grid-template-columns: 1fr; } .feature.flip > .feature-copy { order: 0; } }
+.feature-copy h3 { font-size: clamp(1.3rem, 1.05rem + 1vw, 1.8rem); margin-bottom: 0.85rem; }
+.feature-copy > p { color: var(--muted); margin: 0 0 1.3rem; max-width: 48ch; }
 
-.feature-copy h3 { font-size: clamp(1.4rem, 1.1rem + 1vw, 1.9rem); margin-bottom: 0.9rem; }
-.feature-copy p { color: var(--muted); margin: 0 0 1.4rem; max-width: 48ch; }
-
-.ticks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
-.ticks li {
-  display: grid;
-  grid-template-columns: 1.1rem 1fr;
-  gap: 0.75rem;
-  align-items: start;
-  font-size: 0.95rem;
-  color: var(--muted);
-}
-.ticks li::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  margin-top: 0.55rem;
-  background: var(--jade);
-  border-radius: 1px;
-  transform: rotate(45deg);
-}
+.ticks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55rem; }
+.ticks li { display: grid; grid-template-columns: 1rem 1fr; gap: 0.7rem; align-items: start; font-size: 0.93rem; color: var(--muted); }
+.ticks li::before { content: ""; width: 6px; height: 6px; margin-top: 0.55rem; background: var(--jade); border-radius: 1px; transform: rotate(45deg); }
 .ticks li b { color: var(--ink); font-weight: 600; }
 
-.shot {
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  box-shadow: 0 30px 70px -34px rgba(0, 0, 0, 0.9);
+/* Vensterlijst om de schermafbeeldingen, zodat ze niet in de pagina wegzakken. */
+.window { border: 1px solid var(--line-lit); border-radius: 9px; overflow: hidden; background: var(--surface); box-shadow: 0 30px 70px -34px rgba(0, 0, 0, 0.95); }
+.window figcaption {
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.13em; text-transform: uppercase;
+  color: var(--dim); padding: 0.6rem 0.85rem; border-top: 1px solid var(--line); background: var(--ground);
 }
+.window img { width: 100%; height: auto; }
 
-/* ── Het masteryraster als illustratie ──────────────────────────────────── */
-.mastery-demo {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: clamp(0.75rem, 1.6vw, 1.25rem);
-  padding: clamp(1.25rem, 3vw, 2rem);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-}
-.tree-title {
-  font-family: var(--mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--dim);
-  text-align: center;
-  margin-bottom: 0.9rem;
-}
-.tree-title .pts { color: var(--jade); }
-.tree.empty .tree-title .pts { color: var(--dim); }
-
-.tree-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-.tree-grid span {
-  aspect-ratio: 1;
-  background: var(--raised);
-  border: 1px solid var(--line);
-  border-radius: 3px;
-}
-.tree-grid span.on {
-  background: linear-gradient(160deg, var(--jade), var(--jade-dim));
-  border-color: var(--jade);
-  box-shadow: 0 0 12px -2px rgba(47, 214, 150, 0.55);
-}
-.tree-grid span.keystone {
-  background: linear-gradient(160deg, var(--gold), #7d6234);
-  border-color: var(--gold);
-  box-shadow: 0 0 12px -2px rgba(201, 160, 90, 0.5);
-}
-.mastery-caption {
-  grid-column: 1 / -1;
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  color: var(--dim);
-  text-align: center;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--line);
-  margin: 0.3rem 0 0;
-}
-.mastery-caption b { color: var(--jade); font-weight: 500; }
-
-/* ── De keten: dit is écht een volgorde, dus mag hij genummerd ──────────── */
-.chain {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-}
+/* ── Keten ─────────────────────────────────────────────────────────────── */
+.chain { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
 @media (max-width: 900px) { .chain { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 560px) { .chain { grid-template-columns: 1fr; } }
+@media (max-width: 540px) { .chain { grid-template-columns: 1fr; } }
+.step { background: var(--surface); padding: clamp(1.4rem, 2.6vw, 1.9rem); }
+.step .num { display: block; font-family: var(--mono); font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em; color: var(--jade); margin-bottom: 0.9rem; }
+.step h4 { font-family: var(--display); font-weight: 700; font-stretch: 108%; font-size: 1.02rem; letter-spacing: -0.015em; margin: 0 0 0.55rem; }
+.step p { margin: 0; font-size: 0.88rem; color: var(--muted); line-height: 1.6; }
 
-.step { background: var(--surface); padding: clamp(1.5rem, 3vw, 2.1rem); }
-.step .num {
-  display: block;
-  font-family: var(--mono);
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--jade);
-  margin-bottom: 1rem;
-}
-.step h4 {
-  font-family: var(--display);
-  font-weight: 700;
-  font-stretch: 108%;
-  font-size: 1.06rem;
-  letter-spacing: -0.015em;
-  margin: 0 0 0.6rem;
-}
-.step p { margin: 0; font-size: 0.9rem; color: var(--muted); line-height: 1.6; }
-
-/* ── Vertrouwen ─────────────────────────────────────────────────────────── */
-.trust {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
-  gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.trust .item { background: var(--surface); padding: clamp(1.4rem, 3vw, 1.9rem); }
-.trust .item .top {
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 0.8rem;
-}
-.trust .no .top { color: var(--loss); }
+/* ── Veiligheid ────────────────────────────────────────────────────────── */
+.trust { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 246px), 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.trust .item { background: var(--surface); padding: clamp(1.3rem, 2.6vw, 1.8rem); }
+.trust .item .top { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.11em; text-transform: uppercase; margin: 0 0 0.7rem; }
+.trust .no .top { color: var(--wr-bad); }
 .trust .yes .top { color: var(--jade); }
-.trust .item p { margin: 0; font-size: 0.92rem; color: var(--muted); }
+.trust .item p { margin: 0; font-size: 0.9rem; color: var(--muted); }
 .trust .item strong { color: var(--ink); font-weight: 600; }
+.audit { margin: 1.5rem 0 0; font-size: 0.9rem; color: var(--muted); max-width: 66ch; }
+.audit code { font-family: var(--mono); font-size: 0.87em; background: var(--raised); border: 1px solid var(--line); padding: 0.1em 0.4em; border-radius: 4px; color: var(--ink); }
 
-.audit {
-  margin: 1.75rem 0 0;
-  font-size: 0.92rem;
-  color: var(--muted);
-  max-width: var(--measure);
+/* ── Download: art op volle kleur aan één kant, één harde overgang ─────── */
+.closing { position: relative; overflow: hidden; border-top: 1px solid var(--line); }
+.closing-art { position: absolute; inset: 0 0 0 auto; width: 58%; z-index: 0; }
+.closing-art img { width: 100%; height: 100%; object-fit: cover; }
+.closing-art::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, var(--ground) 4%, rgba(6, 8, 12, 0.72) 48%, rgba(6, 8, 12, 0.35) 100%);
 }
-.audit code {
-  font-family: var(--mono);
-  font-size: 0.86em;
-  background: var(--raised);
-  border: 1px solid var(--line);
-  padding: 0.12em 0.42em;
-  border-radius: 4px;
-  color: var(--ink);
-}
+.closing .wrap { position: relative; z-index: 1; padding-block: clamp(3.5rem, 7vw, 6rem); }
+.closing h2 { font-size: clamp(1.9rem, 1.35rem + 2.2vw, 3.1rem); margin-bottom: 1rem; max-width: 18ch; }
+.closing > .wrap > p { color: var(--muted); max-width: 46ch; margin: 0 0 2rem; }
+@media (max-width: 860px) { .closing-art { width: 100%; opacity: 0.4; } }
 
-/* ── Slot ───────────────────────────────────────────────────────────────── */
-.closing { text-align: center; overflow: hidden; }
-.closing .wrap { position: relative; z-index: 1; }
-.closing .eyebrow { justify-content: center; }
-.closing h2 { font-size: clamp(2rem, 1.4rem + 2.4vw, 3.4rem); margin-bottom: 1.1rem; }
-.closing > .wrap > p { color: var(--muted); max-width: 52ch; margin: 0 auto 2.25rem; }
-.closing .cta-row { justify-content: center; }
-.closing .cta-note { text-align: center; }
-
-footer {
-  border-top: 1px solid var(--line);
-  padding-block: 2.75rem 3.25rem;
-  font-size: 0.86rem;
-  color: var(--dim);
-}
-footer .wrap { display: flex; flex-wrap: wrap; gap: 1.5rem 2.5rem; align-items: baseline; }
-footer .legal { max-width: 62ch; margin: 0; line-height: 1.6; }
-footer nav { display: flex; gap: 1.5rem; margin-left: auto; }
+footer { border-top: 1px solid var(--line); padding-block: 2.5rem 3rem; font-size: 0.84rem; color: var(--dim); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 1.4rem 2.5rem; align-items: baseline; }
+footer .legal { max-width: 64ch; margin: 0; line-height: 1.6; }
+footer nav { display: flex; gap: 1.4rem; margin-left: auto; }
 footer a { color: var(--muted); text-decoration: none; }
 footer a:hover { color: var(--ink); text-decoration: underline; }
 
-/* ── Beweging: één opbouw bij het binnenschuiven, daarna rustig ───────────
-   Zichtbaar is de grondtoestand. Het verbergen gebeurt alleen onder .reveal,
-   en die klasse zet het script in de <head> pas als het ook echt kan
-   onthullen. Zonder JavaScript staat er dus gewoon een pagina, en niet een
-   scherm vol niets.
+/* ── Beweging ──────────────────────────────────────────────────────────────
+   Zichtbaar is de grondtoestand. Verbergen gebeurt alleen onder .reveal, en
+   die klasse zet het script in de <head> pas als het ook kan onthullen.
+   Zonder JavaScript staat er dus een pagina en geen leeg scherm.
    ───────────────────────────────────────────────────────────────────────── */
-.reveal .rise { opacity: 0; transform: translateY(18px); }
-.reveal .rise.in {
-  opacity: 1;
-  transform: none;
-  transition: opacity 0.65s ease, transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
+.reveal .rise { opacity: 0; transform: translateY(16px); }
+.reveal .rise.in { opacity: 1; transform: none; transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
 @media (prefers-reduced-motion: reduce) {
   .reveal .rise, .reveal .rise.in { opacity: 1; transform: none; transition: none; }
-  .btn:hover { transform: none; }
+  .btn:hover, .portrait:hover { transform: none; }
 }
 </style>
 
 <script>
   // Vóór de eerste tekening: alleen verbergen als we ook kunnen onthullen.
-  // Staat JavaScript uit of kent de browser IntersectionObserver niet, dan
-  // wordt deze klasse nooit gezet en blijft de pagina gewoon leesbaar.
-  if ("IntersectionObserver" in window) {
-    document.documentElement.classList.add("reveal");
-  }
+  if ("IntersectionObserver" in window) document.documentElement.classList.add("reveal");
 </script>
 </head>
 <body>
@@ -556,14 +453,13 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 <header id="top-bar">
   <div class="wrap">
     <a class="brand" href="#">
-      <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
-      AllMid
-    </a>
+      <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>    </a>
     <nav class="links">
-      <a href="#features">Features</a>
+      <a href="#tiers">Tier lists</a>
+      <a href="#findings">Findings</a>
+      <a href="#app">The app</a>
       <a href="#data">The data</a>
       <a href="#safety">Safety</a>
-      <a href="https://github.com/allmidgg/desktop">GitHub</a>
     </nav>
     <a class="btn btn-primary btn-sm" href="#download">Download</a>
   </div>
@@ -571,15 +467,15 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 
 <!-- ── Hero ───────────────────────────────────────────────────────────── -->
 <section class="hero">
-  <div class="lattice" aria-hidden="true"></div>
   <div class="wrap">
-    <div class="rise" data-delay="0">
-      <p class="eyebrow">Free &middot; Open source &middot; Windows</p>
-      <h1>Classic finally has a <em>stat tool</em>.</h1>
+    <div class="rise">
+      <p class="eyebrow">Free &middot; Open source &middot; MIT &middot; Windows</p>
+      <h1>The stats page League Classic <em>never got</em>.</h1>
       <p class="lede">
-        Blitz and Porofessor stop exactly where League of Legends Classic starts &mdash; there is no
-        public API for it. So AllMid builds the data itself, straight from the game client.
-        <strong>112,093 games and counting.</strong>
+        Blitz, Porofessor, OP.GG and METAsrc all stop at the modern game &mdash; Classic has no public
+        API, so nobody covers it. AllMid reads the Classic client&rsquo;s own local APIs and has built
+        the dataset from scratch: <strong>120,032 games</strong> across
+        <strong>336,247 players</strong> and all <strong>63 champions</strong>.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="#download">
@@ -591,37 +487,1223 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
           View the source
         </a>
       </div>
-      <p class="cta-note">No account. No telemetry. MIT licensed.</p>
+      <p class="cta-note">Windows 10 &amp; 11 &middot; no account &middot; no telemetry</p>
+
     </div>
 
-    <div class="hero-shot rise" data-delay="120">
-      <img src="img/champion-select.png" width="1280" height="800"
-           alt="AllMid champion select window showing both teams, their picks and bans, each player's likely role, and counter suggestions." />
+    <div class="explorer rise">
+      <div class="explorer-head">
+        <h2>Champion explorer</h2>
+        <span class="count mono">63 champions &middot; click any portrait</span>
+      </div>
+      <div class="explorer-grid" id="explorer-grid">
+        <button class="portrait" type="button" data-champ="103" aria-label="Ahri">
+          <img src="img/champions/icon/103.png" alt="Ahri" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Ahri</span>
+        </button>
+        <button class="portrait" type="button" data-champ="84" aria-label="Akali">
+          <img src="img/champions/icon/84.png" alt="Akali" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Akali</span>
+        </button>
+        <button class="portrait" type="button" data-champ="12" aria-label="Alistar">
+          <img src="img/champions/icon/12.png" alt="Alistar" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Alistar</span>
+        </button>
+        <button class="portrait" type="button" data-champ="32" aria-label="Amumu">
+          <img src="img/champions/icon/32.png" alt="Amumu" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Amumu</span>
+        </button>
+        <button class="portrait" type="button" data-champ="34" aria-label="Anivia">
+          <img src="img/champions/icon/34.png" alt="Anivia" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Anivia</span>
+        </button>
+        <button class="portrait" type="button" data-champ="1" aria-label="Annie">
+          <img src="img/champions/icon/1.png" alt="Annie" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Annie</span>
+        </button>
+        <button class="portrait" type="button" data-champ="22" aria-label="Ashe">
+          <img src="img/champions/icon/22.png" alt="Ashe" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Ashe</span>
+        </button>
+        <button class="portrait" type="button" data-champ="53" aria-label="Blitzcrank">
+          <img src="img/champions/icon/53.png" alt="Blitzcrank" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Blitzcrank</span>
+        </button>
+        <button class="portrait" type="button" data-champ="63" aria-label="Brand">
+          <img src="img/champions/icon/63.png" alt="Brand" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Brand</span>
+        </button>
+        <button class="portrait" type="button" data-champ="31" aria-label="Cho'Gath">
+          <img src="img/champions/icon/31.png" alt="Cho'Gath" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Cho'Gath</span>
+        </button>
+        <button class="portrait" type="button" data-champ="42" aria-label="Corki">
+          <img src="img/champions/icon/42.png" alt="Corki" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Corki</span>
+        </button>
+        <button class="portrait" type="button" data-champ="36" aria-label="Dr. Mundo">
+          <img src="img/champions/icon/36.png" alt="Dr. Mundo" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Dr. Mundo</span>
+        </button>
+        <button class="portrait" type="button" data-champ="28" aria-label="Evelynn">
+          <img src="img/champions/icon/28.png" alt="Evelynn" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Evelynn</span>
+        </button>
+        <button class="portrait" type="button" data-champ="81" aria-label="Ezreal">
+          <img src="img/champions/icon/81.png" alt="Ezreal" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Ezreal</span>
+        </button>
+        <button class="portrait" type="button" data-champ="9" aria-label="Fiddlesticks">
+          <img src="img/champions/icon/9.png" alt="Fiddlesticks" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Fiddlesticks</span>
+        </button>
+        <button class="portrait" type="button" data-champ="41" aria-label="Gangplank">
+          <img src="img/champions/icon/41.png" alt="Gangplank" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Gangplank</span>
+        </button>
+        <button class="portrait" type="button" data-champ="86" aria-label="Garen">
+          <img src="img/champions/icon/86.png" alt="Garen" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Garen</span>
+        </button>
+        <button class="portrait" type="button" data-champ="79" aria-label="Gragas">
+          <img src="img/champions/icon/79.png" alt="Gragas" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Gragas</span>
+        </button>
+        <button class="portrait" type="button" data-champ="74" aria-label="Heimerdinger">
+          <img src="img/champions/icon/74.png" alt="Heimerdinger" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Heimerdinger</span>
+        </button>
+        <button class="portrait" type="button" data-champ="40" aria-label="Janna">
+          <img src="img/champions/icon/40.png" alt="Janna" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Janna</span>
+        </button>
+        <button class="portrait" type="button" data-champ="59" aria-label="Jarvan IV">
+          <img src="img/champions/icon/59.png" alt="Jarvan IV" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Jarvan IV</span>
+        </button>
+        <button class="portrait" type="button" data-champ="24" aria-label="Jax">
+          <img src="img/champions/icon/24.png" alt="Jax" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Jax</span>
+        </button>
+        <button class="portrait" type="button" data-champ="30" aria-label="Karthus">
+          <img src="img/champions/icon/30.png" alt="Karthus" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Karthus</span>
+        </button>
+        <button class="portrait" type="button" data-champ="38" aria-label="Kassadin">
+          <img src="img/champions/icon/38.png" alt="Kassadin" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Kassadin</span>
+        </button>
+        <button class="portrait" type="button" data-champ="55" aria-label="Katarina">
+          <img src="img/champions/icon/55.png" alt="Katarina" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Katarina</span>
+        </button>
+        <button class="portrait" type="button" data-champ="10" aria-label="Kayle">
+          <img src="img/champions/icon/10.png" alt="Kayle" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Kayle</span>
+        </button>
+        <button class="portrait" type="button" data-champ="85" aria-label="Kennen">
+          <img src="img/champions/icon/85.png" alt="Kennen" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Kennen</span>
+        </button>
+        <button class="portrait" type="button" data-champ="96" aria-label="Kog'Maw">
+          <img src="img/champions/icon/96.png" alt="Kog'Maw" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Kog'Maw</span>
+        </button>
+        <button class="portrait" type="button" data-champ="64" aria-label="Lee Sin">
+          <img src="img/champions/icon/64.png" alt="Lee Sin" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Lee Sin</span>
+        </button>
+        <button class="portrait" type="button" data-champ="89" aria-label="Leona">
+          <img src="img/champions/icon/89.png" alt="Leona" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Leona</span>
+        </button>
+        <button class="portrait" type="button" data-champ="117" aria-label="Lulu">
+          <img src="img/champions/icon/117.png" alt="Lulu" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Lulu</span>
+        </button>
+        <button class="portrait" type="button" data-champ="99" aria-label="Lux">
+          <img src="img/champions/icon/99.png" alt="Lux" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Lux</span>
+        </button>
+        <button class="portrait" type="button" data-champ="54" aria-label="Malphite">
+          <img src="img/champions/icon/54.png" alt="Malphite" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Malphite</span>
+        </button>
+        <button class="portrait" type="button" data-champ="90" aria-label="Malzahar">
+          <img src="img/champions/icon/90.png" alt="Malzahar" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Malzahar</span>
+        </button>
+        <button class="portrait" type="button" data-champ="11" aria-label="Master Yi">
+          <img src="img/champions/icon/11.png" alt="Master Yi" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Master Yi</span>
+        </button>
+        <button class="portrait" type="button" data-champ="21" aria-label="Miss Fortune">
+          <img src="img/champions/icon/21.png" alt="Miss Fortune" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Miss Fortune</span>
+        </button>
+        <button class="portrait" type="button" data-champ="25" aria-label="Morgana">
+          <img src="img/champions/icon/25.png" alt="Morgana" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Morgana</span>
+        </button>
+        <button class="portrait" type="button" data-champ="75" aria-label="Nasus">
+          <img src="img/champions/icon/75.png" alt="Nasus" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Nasus</span>
+        </button>
+        <button class="portrait" type="button" data-champ="76" aria-label="Nidalee">
+          <img src="img/champions/icon/76.png" alt="Nidalee" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Nidalee</span>
+        </button>
+        <button class="portrait" type="button" data-champ="20" aria-label="Nunu &amp; Willump">
+          <img src="img/champions/icon/20.png" alt="Nunu &amp; Willump" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Nunu &amp; Willump</span>
+        </button>
+        <button class="portrait" type="button" data-champ="2" aria-label="Olaf">
+          <img src="img/champions/icon/2.png" alt="Olaf" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Olaf</span>
+        </button>
+        <button class="portrait" type="button" data-champ="80" aria-label="Pantheon">
+          <img src="img/champions/icon/80.png" alt="Pantheon" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Pantheon</span>
+        </button>
+        <button class="portrait" type="button" data-champ="33" aria-label="Rammus">
+          <img src="img/champions/icon/33.png" alt="Rammus" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Rammus</span>
+        </button>
+        <button class="portrait" type="button" data-champ="13" aria-label="Ryze">
+          <img src="img/champions/icon/13.png" alt="Ryze" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Ryze</span>
+        </button>
+        <button class="portrait" type="button" data-champ="35" aria-label="Shaco">
+          <img src="img/champions/icon/35.png" alt="Shaco" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Shaco</span>
+        </button>
+        <button class="portrait" type="button" data-champ="98" aria-label="Shen">
+          <img src="img/champions/icon/98.png" alt="Shen" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Shen</span>
+        </button>
+        <button class="portrait" type="button" data-champ="27" aria-label="Singed">
+          <img src="img/champions/icon/27.png" alt="Singed" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Singed</span>
+        </button>
+        <button class="portrait" type="button" data-champ="14" aria-label="Sion">
+          <img src="img/champions/icon/14.png" alt="Sion" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Sion</span>
+        </button>
+        <button class="portrait" type="button" data-champ="15" aria-label="Sivir">
+          <img src="img/champions/icon/15.png" alt="Sivir" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Sivir</span>
+        </button>
+        <button class="portrait" type="button" data-champ="72" aria-label="Skarner">
+          <img src="img/champions/icon/72.png" alt="Skarner" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Skarner</span>
+        </button>
+        <button class="portrait" type="button" data-champ="37" aria-label="Sona">
+          <img src="img/champions/icon/37.png" alt="Sona" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Sona</span>
+        </button>
+        <button class="portrait" type="button" data-champ="16" aria-label="Soraka">
+          <img src="img/champions/icon/16.png" alt="Soraka" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Soraka</span>
+        </button>
+        <button class="portrait" type="button" data-champ="44" aria-label="Taric">
+          <img src="img/champions/icon/44.png" alt="Taric" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Taric</span>
+        </button>
+        <button class="portrait" type="button" data-champ="17" aria-label="Teemo">
+          <img src="img/champions/icon/17.png" alt="Teemo" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Teemo</span>
+        </button>
+        <button class="portrait" type="button" data-champ="18" aria-label="Tristana">
+          <img src="img/champions/icon/18.png" alt="Tristana" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Tristana</span>
+        </button>
+        <button class="portrait" type="button" data-champ="23" aria-label="Tryndamere">
+          <img src="img/champions/icon/23.png" alt="Tryndamere" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Tryndamere</span>
+        </button>
+        <button class="portrait" type="button" data-champ="4" aria-label="Twisted Fate">
+          <img src="img/champions/icon/4.png" alt="Twisted Fate" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Twisted Fate</span>
+        </button>
+        <button class="portrait" type="button" data-champ="29" aria-label="Twitch">
+          <img src="img/champions/icon/29.png" alt="Twitch" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Twitch</span>
+        </button>
+        <button class="portrait" type="button" data-champ="67" aria-label="Vayne">
+          <img src="img/champions/icon/67.png" alt="Vayne" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Vayne</span>
+        </button>
+        <button class="portrait" type="button" data-champ="45" aria-label="Veigar">
+          <img src="img/champions/icon/45.png" alt="Veigar" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Veigar</span>
+        </button>
+        <button class="portrait" type="button" data-champ="19" aria-label="Warwick">
+          <img src="img/champions/icon/19.png" alt="Warwick" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Warwick</span>
+        </button>
+        <button class="portrait" type="button" data-champ="62" aria-label="Wukong">
+          <img src="img/champions/icon/62.png" alt="Wukong" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Wukong</span>
+        </button>
+        <button class="portrait" type="button" data-champ="26" aria-label="Zilean">
+          <img src="img/champions/icon/26.png" alt="Zilean" width="128" height="128" loading="lazy" />
+          <span class="portrait-name">Zilean</span>
+        </button></div>
     </div>
+
+    <div class="coverage rise">
+      <p class="cov-label">Classic coverage</p>
+      <span>Blitz</span><span>Porofessor</span><span>OP.GG</span><span>METAsrc</span><span class="yes">AllMid</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Detail ─────────────────────────────────────────────────────────── -->
+<section class="band" style="padding-block:0 clamp(2.5rem,5vw,4rem)">
+  <div class="wrap rise">
+    <div class="detail" id="detail"
+         data-seed="23"
+         style="--splash:url('img/champions/splash/23.jpg')">
+      <div class="detail-art">
+        <img id="detail-splash" src="img/champions/splash/23.jpg" alt="" width="640" height="360" />
+        <div class="detail-id">
+          <img id="detail-icon" src="img/champions/icon/23.png" alt="" width="128" height="128" />
+          <div>
+            <h3 id="detail-name">Tryndamere</h3>
+            <p id="detail-sub" class="mono">21,443 games &middot; 58.0% overall</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-lanes">
+        <p class="block-label">Lane performance <span>smoothed, 20-game prior</span></p>
+        <table class="lane-table">
+          <thead>
+            <tr><th scope="col">Lane</th><th scope="col">Rank</th><th scope="col"></th><th scope="col">Win</th><th scope="col">Games</th></tr>
+          </thead>
+          <tbody id="detail-lane-rows">
+          <tr>
+            <th scope="row">Top</th>
+            <td class="c-rank">#2</td>
+            <td class="c-bar"><span style="width:65.0%"></span></td>
+            <td class="c-wr wr-hi">57.8<small>%</small></td>
+            <td class="c-games">11,453</td>
+          </tr>
+          <tr>
+            <th scope="row">Jungle</th>
+            <td class="c-rank">#1</td>
+            <td class="c-bar"><span style="width:71.7%"></span></td>
+            <td class="c-wr wr-hi">58.6<small>%</small></td>
+            <td class="c-games">8,499</td>
+          </tr>
+          <tr>
+            <th scope="row">Mid</th>
+            <td class="c-rank">#3</td>
+            <td class="c-bar"><span style="width:62.5%"></span></td>
+            <td class="c-wr wr-hi">57.5<small>%</small></td>
+            <td class="c-games">1,152</td>
+          </tr>
+          <tr>
+            <th scope="row">Bot</th>
+            <td class="c-rank">#9</td>
+            <td class="c-bar"><span style="width:14.2%"></span></td>
+            <td class="c-wr wr-ok">51.7<small>%</small></td>
+            <td class="c-games">272</td>
+          </tr>
+          <tr>
+            <th scope="row">Support</th>
+            <td class="c-rank">&mdash;</td>
+            <td class="c-bar"><span style="width:2.0%"></span></td>
+            <td class="c-wr wr-bad">43.7<small>%</small></td>
+            <td class="c-games">67</td>
+          </tr></tbody>
+        </table>
+      </div>
+
+      <div class="detail-matchups">
+        <div>
+          <p class="block-label">Wins into</p>
+          <ul class="matchups" id="detail-beats">
+      <li>
+        <img src="img/champions/icon/45.png" alt="" width="128" height="128" loading="lazy" />
+        <span class="m-name">Veigar</span>
+        <span class="m-games">90g</span>
+        <span class="m-wr wr-hi">72.7<small>%</small></span>
+      </li>
+      <li>
+        <img src="img/champions/icon/2.png" alt="" width="128" height="128" loading="lazy" />
+        <span class="m-name">Olaf</span>
+        <span class="m-games">307g</span>
+        <span class="m-wr wr-hi">66.4<small>%</small></span>
+      </li>
+      <li>
+        <img src="img/champions/icon/99.png" alt="" width="128" height="128" loading="lazy" />
+        <span class="m-name">Lux</span>
+        <span class="m-games">80g</span>
+        <span class="m-wr wr-hi">65.0<small>%</small></span>
+      </li>
+      <li>
+        <img src="img/champions/icon/86.png" alt="" width="128" height="128" loading="lazy" />
+        <span class="m-name">Garen</span>
+        <span class="m-games">539g</span>
+        <span class="m-wr wr-hi">64.0<small>%</small></span>
+      </li></ul>
+        </div>
+        <div>
+          <p class="block-label">Loses to</p>
+          <ul class="matchups" id="detail-loses">
+      <li>
+        <img src="img/champions/icon/63.png" alt="" width="128" height="128" loading="lazy" />
+        <span class="m-name">Brand</span>
+        <span class="m-games">42g</span>
+        <span class="m-wr wr-bad">41.9<small>%</small></span>
+      </li>
+      <li>
+        <img src="img/champions/icon/117.png" alt="" width="128" height="128" loading="lazy" />
+        <span class="m-name">Lulu</span>
+        <span class="m-games">34g</span>
+        <span class="m-wr wr-bad">42.6<small>%</small></span>
+      </li>
+      <li>
+        <img src="img/champions/icon/89.png" alt="" width="128" height="128" loading="lazy" />
+        <span class="m-name">Leona</span>
+        <span class="m-games">31g</span>
+        <span class="m-wr wr-bad">45.1<small>%</small></span>
+      </li>
+      <li>
+        <img src="img/champions/icon/15.png" alt="" width="128" height="128" loading="lazy" />
+        <span class="m-name">Sivir</span>
+        <span class="m-games">17g</span>
+        <span class="m-wr wr-bad">45.9<small>%</small></span>
+      </li></ul>
+        </div>
+      </div>
+    </div></div>
+</section>
+
+<!-- ── Masthead ───────────────────────────────────────────────────────── -->
+<section class="masthead">
+  <div class="wrap">
+    <span><b>Data report</b> &middot; <span class="v">edition 22 Aug 2026</span></span>
+    <span><b>Patches</b> <span class="v">16.16 &amp; 16.15</span></span>
+    <span><b>Window</b> <span class="v">29 Jul 2026 &ndash; 22 Aug 2026</span></span>
+    <span><b>Sample</b> <span class="v">120,032 games</span></span>
   </div>
 </section>
 
 <!-- ── Cijfers ────────────────────────────────────────────────────────── -->
 <section class="figures">
   <div class="wrap">
-    <div class="cell"><div class="n">112,093</div><div class="k">Classic games</div></div>
-    <div class="cell"><div class="n">331,115</div><div class="k">Players seen</div></div>
-    <div class="cell"><div class="n">63<span class="unit">/63</span></div><div class="k">Champions covered</div></div>
+    <div class="cell"><div class="n">120,032</div><div class="k">Games recorded</div></div>
+    <div class="cell"><div class="n">336,247</div><div class="k">Players seen</div></div>
+    <div class="cell"><div class="n">63<span class="unit">/63</span></div><div class="k">Champions</div></div>
+    <div class="cell"><div class="n">1,200,320</div><div class="k">Player records</div></div>
     <div class="cell"><div class="n">5</div><div class="k">Lanes ranked</div></div>
   </div>
 </section>
 
-<!-- ── Functies ───────────────────────────────────────────────────────── -->
-<section class="band" id="features">
+<!-- ── Roster: volle kleur, volle breedte ─────────────────────────────── -->
+<section class="roster">
+  <div class="wrap"><p class="rl"><b>The full Classic roster</b> <span>All 63 champions &middot; original season-3 artwork, straight from the Classic client</span></p></div>
+  
+    <div class="roster-row"><img src="img/champions/icon/1.png" alt="Annie" title="Annie" width="128" height="128" loading="lazy" /><img src="img/champions/icon/2.png" alt="Olaf" title="Olaf" width="128" height="128" loading="lazy" /><img src="img/champions/icon/4.png" alt="Twisted Fate" title="Twisted Fate" width="128" height="128" loading="lazy" /><img src="img/champions/icon/9.png" alt="Fiddlesticks" title="Fiddlesticks" width="128" height="128" loading="lazy" /><img src="img/champions/icon/10.png" alt="Kayle" title="Kayle" width="128" height="128" loading="lazy" /><img src="img/champions/icon/11.png" alt="Master Yi" title="Master Yi" width="128" height="128" loading="lazy" /><img src="img/champions/icon/12.png" alt="Alistar" title="Alistar" width="128" height="128" loading="lazy" /><img src="img/champions/icon/13.png" alt="Ryze" title="Ryze" width="128" height="128" loading="lazy" /><img src="img/champions/icon/14.png" alt="Sion" title="Sion" width="128" height="128" loading="lazy" /><img src="img/champions/icon/15.png" alt="Sivir" title="Sivir" width="128" height="128" loading="lazy" /><img src="img/champions/icon/16.png" alt="Soraka" title="Soraka" width="128" height="128" loading="lazy" /><img src="img/champions/icon/17.png" alt="Teemo" title="Teemo" width="128" height="128" loading="lazy" /><img src="img/champions/icon/18.png" alt="Tristana" title="Tristana" width="128" height="128" loading="lazy" /><img src="img/champions/icon/19.png" alt="Warwick" title="Warwick" width="128" height="128" loading="lazy" /><img src="img/champions/icon/20.png" alt="Nunu &amp; Willump" title="Nunu &amp; Willump" width="128" height="128" loading="lazy" /><img src="img/champions/icon/21.png" alt="Miss Fortune" title="Miss Fortune" width="128" height="128" loading="lazy" /><img src="img/champions/icon/22.png" alt="Ashe" title="Ashe" width="128" height="128" loading="lazy" /><img src="img/champions/icon/23.png" alt="Tryndamere" title="Tryndamere" width="128" height="128" loading="lazy" /><img src="img/champions/icon/24.png" alt="Jax" title="Jax" width="128" height="128" loading="lazy" /><img src="img/champions/icon/25.png" alt="Morgana" title="Morgana" width="128" height="128" loading="lazy" /><img src="img/champions/icon/26.png" alt="Zilean" title="Zilean" width="128" height="128" loading="lazy" /><img src="img/champions/icon/27.png" alt="Singed" title="Singed" width="128" height="128" loading="lazy" /><img src="img/champions/icon/28.png" alt="Evelynn" title="Evelynn" width="128" height="128" loading="lazy" /><img src="img/champions/icon/29.png" alt="Twitch" title="Twitch" width="128" height="128" loading="lazy" /><img src="img/champions/icon/30.png" alt="Karthus" title="Karthus" width="128" height="128" loading="lazy" /><img src="img/champions/icon/31.png" alt="Cho'Gath" title="Cho'Gath" width="128" height="128" loading="lazy" /><img src="img/champions/icon/32.png" alt="Amumu" title="Amumu" width="128" height="128" loading="lazy" /><img src="img/champions/icon/33.png" alt="Rammus" title="Rammus" width="128" height="128" loading="lazy" /><img src="img/champions/icon/34.png" alt="Anivia" title="Anivia" width="128" height="128" loading="lazy" /><img src="img/champions/icon/35.png" alt="Shaco" title="Shaco" width="128" height="128" loading="lazy" /><img src="img/champions/icon/36.png" alt="Dr. Mundo" title="Dr. Mundo" width="128" height="128" loading="lazy" /><img src="img/champions/icon/37.png" alt="Sona" title="Sona" width="128" height="128" loading="lazy" /></div>
+    <div class="roster-row"><img src="img/champions/icon/38.png" alt="Kassadin" title="Kassadin" width="128" height="128" loading="lazy" /><img src="img/champions/icon/40.png" alt="Janna" title="Janna" width="128" height="128" loading="lazy" /><img src="img/champions/icon/41.png" alt="Gangplank" title="Gangplank" width="128" height="128" loading="lazy" /><img src="img/champions/icon/42.png" alt="Corki" title="Corki" width="128" height="128" loading="lazy" /><img src="img/champions/icon/44.png" alt="Taric" title="Taric" width="128" height="128" loading="lazy" /><img src="img/champions/icon/45.png" alt="Veigar" title="Veigar" width="128" height="128" loading="lazy" /><img src="img/champions/icon/53.png" alt="Blitzcrank" title="Blitzcrank" width="128" height="128" loading="lazy" /><img src="img/champions/icon/54.png" alt="Malphite" title="Malphite" width="128" height="128" loading="lazy" /><img src="img/champions/icon/55.png" alt="Katarina" title="Katarina" width="128" height="128" loading="lazy" /><img src="img/champions/icon/59.png" alt="Jarvan IV" title="Jarvan IV" width="128" height="128" loading="lazy" /><img src="img/champions/icon/62.png" alt="Wukong" title="Wukong" width="128" height="128" loading="lazy" /><img src="img/champions/icon/63.png" alt="Brand" title="Brand" width="128" height="128" loading="lazy" /><img src="img/champions/icon/64.png" alt="Lee Sin" title="Lee Sin" width="128" height="128" loading="lazy" /><img src="img/champions/icon/67.png" alt="Vayne" title="Vayne" width="128" height="128" loading="lazy" /><img src="img/champions/icon/72.png" alt="Skarner" title="Skarner" width="128" height="128" loading="lazy" /><img src="img/champions/icon/74.png" alt="Heimerdinger" title="Heimerdinger" width="128" height="128" loading="lazy" /><img src="img/champions/icon/75.png" alt="Nasus" title="Nasus" width="128" height="128" loading="lazy" /><img src="img/champions/icon/76.png" alt="Nidalee" title="Nidalee" width="128" height="128" loading="lazy" /><img src="img/champions/icon/79.png" alt="Gragas" title="Gragas" width="128" height="128" loading="lazy" /><img src="img/champions/icon/80.png" alt="Pantheon" title="Pantheon" width="128" height="128" loading="lazy" /><img src="img/champions/icon/81.png" alt="Ezreal" title="Ezreal" width="128" height="128" loading="lazy" /><img src="img/champions/icon/84.png" alt="Akali" title="Akali" width="128" height="128" loading="lazy" /><img src="img/champions/icon/85.png" alt="Kennen" title="Kennen" width="128" height="128" loading="lazy" /><img src="img/champions/icon/86.png" alt="Garen" title="Garen" width="128" height="128" loading="lazy" /><img src="img/champions/icon/89.png" alt="Leona" title="Leona" width="128" height="128" loading="lazy" /><img src="img/champions/icon/90.png" alt="Malzahar" title="Malzahar" width="128" height="128" loading="lazy" /><img src="img/champions/icon/96.png" alt="Kog'Maw" title="Kog'Maw" width="128" height="128" loading="lazy" /><img src="img/champions/icon/98.png" alt="Shen" title="Shen" width="128" height="128" loading="lazy" /><img src="img/champions/icon/99.png" alt="Lux" title="Lux" width="128" height="128" loading="lazy" /><img src="img/champions/icon/103.png" alt="Ahri" title="Ahri" width="128" height="128" loading="lazy" /><img src="img/champions/icon/117.png" alt="Lulu" title="Lulu" width="128" height="128" loading="lazy" /></div>
+</section>
+
+<!-- ── Tier-lijsten ───────────────────────────────────────────────────── -->
+<section class="band" id="tiers">
+  <div class="wrap">
+    <div class="section-head rise">
+      <p class="eyebrow">Live tier list</p>
+      <h2>The Classic meta, right here on the page.</h2>
+      <p>
+        Not a screenshot &mdash; this is the same dataset the app ships with, computed by the same code.
+        120,032 games from patches 16.16 and 16.15, collected between
+        29 Jul 2026 and 22 Aug 2026.
+      </p>
+    </div>
+    <div class="rise">
+      <div class="lane-tabs" role="tablist" aria-label="Lane">
+        <button type="button" role="tab" id="tab-TOP" aria-controls="lane-TOP" aria-selected="true" data-lane="TOP">Top</button><button type="button" role="tab" id="tab-JUNGLE" aria-controls="lane-JUNGLE" aria-selected="false" data-lane="JUNGLE">Jungle</button><button type="button" role="tab" id="tab-MIDDLE" aria-controls="lane-MIDDLE" aria-selected="false" data-lane="MIDDLE">Mid</button><button type="button" role="tab" id="tab-BOTTOM" aria-controls="lane-BOTTOM" aria-selected="false" data-lane="BOTTOM">Bot</button><button type="button" role="tab" id="tab-SUPPORT" aria-controls="lane-SUPPORT" aria-selected="false" data-lane="SUPPORT">Support</button>
+      </div>
+      
+      <div class="tier-pane is-open" id="lane-TOP" role="tabpanel" aria-labelledby="tab-TOP">
+        <h3 class="pane-heading">Top</h3>
+        <div class="table-scroll">
+          <table class="tier-table">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Champion</th>
+                <th scope="col"></th>
+                <th scope="col">Win rate</th>
+                <th scope="col">Raw</th>
+                <th scope="col">Games</th>
+                <th scope="col">Pick</th>
+              </tr>
+            </thead>
+            <tbody>
+        <tr>
+          <td class="t-rank">1</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/55.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Katarina</span>
+          </td>
+          <td class="t-bar"><span style="width:67.5%"></span></td>
+          <td class="t-wr wr-hi">58.1<small>%</small></td>
+          <td class="t-raw">58.2</td>
+          <td class="t-games">2,320</td>
+          <td class="t-pick">1.1<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">2</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/23.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Tryndamere</span>
+          </td>
+          <td class="t-bar"><span style="width:65.0%"></span></td>
+          <td class="t-wr wr-hi">57.8<small>%</small></td>
+          <td class="t-raw">57.9</td>
+          <td class="t-games">11,453</td>
+          <td class="t-pick">5.4<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">3</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/34.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Anivia</span>
+          </td>
+          <td class="t-bar"><span style="width:60.8%"></span></td>
+          <td class="t-wr wr-hi">57.3<small>%</small></td>
+          <td class="t-raw">57.4</td>
+          <td class="t-games">773</td>
+          <td class="t-pick">0.4<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">4</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/90.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Malzahar</span>
+          </td>
+          <td class="t-bar"><span style="width:57.5%"></span></td>
+          <td class="t-wr wr-hi">56.9<small>%</small></td>
+          <td class="t-raw">56.9</td>
+          <td class="t-games">2,138</td>
+          <td class="t-pick">1.0<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">5</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/103.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Ahri</span>
+          </td>
+          <td class="t-bar"><span style="width:57.5%"></span></td>
+          <td class="t-wr wr-hi">56.9<small>%</small></td>
+          <td class="t-raw">57.0</td>
+          <td class="t-games">1,481</td>
+          <td class="t-pick">0.7<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">6</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/74.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Heimerdinger</span>
+          </td>
+          <td class="t-bar"><span style="width:55.8%"></span></td>
+          <td class="t-wr wr-hi">56.7<small>%</small></td>
+          <td class="t-raw">56.7</td>
+          <td class="t-games">3,447</td>
+          <td class="t-pick">1.6<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">7</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/28.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Evelynn</span>
+          </td>
+          <td class="t-bar"><span style="width:53.3%"></span></td>
+          <td class="t-wr wr-hi">56.4<small>%</small></td>
+          <td class="t-raw">57.0</td>
+          <td class="t-games">237</td>
+          <td class="t-pick">0.1<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">8</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/40.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Janna</span>
+          </td>
+          <td class="t-bar"><span style="width:46.7%"></span></td>
+          <td class="t-wr wr-hi">55.6<small>%</small></td>
+          <td class="t-raw">55.7</td>
+          <td class="t-games">818</td>
+          <td class="t-pick">0.4<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">9</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/62.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Wukong</span>
+          </td>
+          <td class="t-bar"><span style="width:45.0%"></span></td>
+          <td class="t-wr wr-hi">55.4<small>%</small></td>
+          <td class="t-raw">55.4</td>
+          <td class="t-games">1,986</td>
+          <td class="t-pick">0.9<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">10</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/33.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Rammus</span>
+          </td>
+          <td class="t-bar"><span style="width:40.8%"></span></td>
+          <td class="t-wr wr-hi">54.9<small>%</small></td>
+          <td class="t-raw">55.1</td>
+          <td class="t-games">477</td>
+          <td class="t-pick">0.2<small>%</small></td>
+        </tr></tbody>
+          </table>
+        </div>
+        <p class="footnote">
+          <span class="fn-mark">1</span>
+          63 of 63 champions cleared the 100-game minimum for Top.
+          <strong>Win rate</strong> is smoothed as <code>(wins + 10) / (games + 20)</code>, so a lucky
+          40-game run cannot fake a 70%. <strong>Raw</strong> is the unsmoothed number, printed next to it
+          so you can see exactly what the smoothing did.
+        </p>
+      </div>
+      <div class="tier-pane" id="lane-JUNGLE" role="tabpanel" aria-labelledby="tab-JUNGLE">
+        <h3 class="pane-heading">Jungle</h3>
+        <div class="table-scroll">
+          <table class="tier-table">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Champion</th>
+                <th scope="col"></th>
+                <th scope="col">Win rate</th>
+                <th scope="col">Raw</th>
+                <th scope="col">Games</th>
+                <th scope="col">Pick</th>
+              </tr>
+            </thead>
+            <tbody>
+        <tr>
+          <td class="t-rank">1</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/23.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Tryndamere</span>
+          </td>
+          <td class="t-bar"><span style="width:71.7%"></span></td>
+          <td class="t-wr wr-hi">58.6<small>%</small></td>
+          <td class="t-raw">58.7</td>
+          <td class="t-games">8,499</td>
+          <td class="t-pick">3.6<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">2</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/19.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Warwick</span>
+          </td>
+          <td class="t-bar"><span style="width:34.2%"></span></td>
+          <td class="t-wr wr-hi">54.1<small>%</small></td>
+          <td class="t-raw">54.1</td>
+          <td class="t-games">35,056</td>
+          <td class="t-pick">14.9<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">3</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/24.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Jax</span>
+          </td>
+          <td class="t-bar"><span style="width:31.7%"></span></td>
+          <td class="t-wr wr-ok">53.8<small>%</small></td>
+          <td class="t-raw">53.8</td>
+          <td class="t-games">8,296</td>
+          <td class="t-pick">3.5<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">4</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/62.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Wukong</span>
+          </td>
+          <td class="t-bar"><span style="width:23.3%"></span></td>
+          <td class="t-wr wr-ok">52.8<small>%</small></td>
+          <td class="t-raw">52.9</td>
+          <td class="t-games">5,468</td>
+          <td class="t-pick">2.3<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">5</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/75.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Nasus</span>
+          </td>
+          <td class="t-bar"><span style="width:16.7%"></span></td>
+          <td class="t-wr wr-ok">52.0<small>%</small></td>
+          <td class="t-raw">52.0</td>
+          <td class="t-games">2,319</td>
+          <td class="t-pick">1.0<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">6</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/33.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Rammus</span>
+          </td>
+          <td class="t-bar"><span style="width:15.0%"></span></td>
+          <td class="t-wr wr-ok">51.8<small>%</small></td>
+          <td class="t-raw">51.8</td>
+          <td class="t-games">7,129</td>
+          <td class="t-pick">3.0<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">7</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/59.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Jarvan IV</span>
+          </td>
+          <td class="t-bar"><span style="width:12.5%"></span></td>
+          <td class="t-wr wr-ok">51.5<small>%</small></td>
+          <td class="t-raw">51.5</td>
+          <td class="t-games">11,011</td>
+          <td class="t-pick">4.7<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">8</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/74.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Heimerdinger</span>
+          </td>
+          <td class="t-bar"><span style="width:11.7%"></span></td>
+          <td class="t-wr wr-ok">51.4<small>%</small></td>
+          <td class="t-raw">51.4</td>
+          <td class="t-games">1,300</td>
+          <td class="t-pick">0.6<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">9</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/27.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Singed</span>
+          </td>
+          <td class="t-bar"><span style="width:10.8%"></span></td>
+          <td class="t-wr wr-ok">51.3<small>%</small></td>
+          <td class="t-raw">51.3</td>
+          <td class="t-games">1,741</td>
+          <td class="t-pick">0.7<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">10</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/28.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Evelynn</span>
+          </td>
+          <td class="t-bar"><span style="width:9.2%"></span></td>
+          <td class="t-wr wr-ok">51.1<small>%</small></td>
+          <td class="t-raw">51.1</td>
+          <td class="t-games">16,452</td>
+          <td class="t-pick">7.0<small>%</small></td>
+        </tr></tbody>
+          </table>
+        </div>
+        <p class="footnote">
+          <span class="fn-mark">1</span>
+          56 of 63 champions cleared the 100-game minimum for Jungle.
+          <strong>Win rate</strong> is smoothed as <code>(wins + 10) / (games + 20)</code>, so a lucky
+          40-game run cannot fake a 70%. <strong>Raw</strong> is the unsmoothed number, printed next to it
+          so you can see exactly what the smoothing did.
+        </p>
+      </div>
+      <div class="tier-pane" id="lane-MIDDLE" role="tabpanel" aria-labelledby="tab-MIDDLE">
+        <h3 class="pane-heading">Mid</h3>
+        <div class="table-scroll">
+          <table class="tier-table">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Champion</th>
+                <th scope="col"></th>
+                <th scope="col">Win rate</th>
+                <th scope="col">Raw</th>
+                <th scope="col">Games</th>
+                <th scope="col">Pick</th>
+              </tr>
+            </thead>
+            <tbody>
+        <tr>
+          <td class="t-rank">1</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/62.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Wukong</span>
+          </td>
+          <td class="t-bar"><span style="width:90.0%"></span></td>
+          <td class="t-wr wr-hi">60.8<small>%</small></td>
+          <td class="t-raw">61.2</td>
+          <td class="t-games">523</td>
+          <td class="t-pick">0.3<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">2</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/53.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Blitzcrank</span>
+          </td>
+          <td class="t-bar"><span style="width:78.3%"></span></td>
+          <td class="t-wr wr-hi">59.4<small>%</small></td>
+          <td class="t-raw">59.4</td>
+          <td class="t-games">2,941</td>
+          <td class="t-pick">1.4<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">3</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/23.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Tryndamere</span>
+          </td>
+          <td class="t-bar"><span style="width:62.5%"></span></td>
+          <td class="t-wr wr-hi">57.5<small>%</small></td>
+          <td class="t-raw">57.6</td>
+          <td class="t-games">1,152</td>
+          <td class="t-pick">0.6<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">4</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/75.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Nasus</span>
+          </td>
+          <td class="t-bar"><span style="width:61.7%"></span></td>
+          <td class="t-wr wr-hi">57.4<small>%</small></td>
+          <td class="t-raw">57.6</td>
+          <td class="t-games">898</td>
+          <td class="t-pick">0.4<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">5</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/40.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Janna</span>
+          </td>
+          <td class="t-bar"><span style="width:60.8%"></span></td>
+          <td class="t-wr wr-hi">57.3<small>%</small></td>
+          <td class="t-raw">57.5</td>
+          <td class="t-games">544</td>
+          <td class="t-pick">0.3<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">6</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/29.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Twitch</span>
+          </td>
+          <td class="t-bar"><span style="width:50.0%"></span></td>
+          <td class="t-wr wr-hi">56.0<small>%</small></td>
+          <td class="t-raw">56.1</td>
+          <td class="t-games">1,121</td>
+          <td class="t-pick">0.5<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">7</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/12.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Alistar</span>
+          </td>
+          <td class="t-bar"><span style="width:40.0%"></span></td>
+          <td class="t-wr wr-hi">54.8<small>%</small></td>
+          <td class="t-raw">54.9</td>
+          <td class="t-games">1,160</td>
+          <td class="t-pick">0.6<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">8</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/59.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Jarvan IV</span>
+          </td>
+          <td class="t-bar"><span style="width:40.0%"></span></td>
+          <td class="t-wr wr-hi">54.8<small>%</small></td>
+          <td class="t-raw">55.1</td>
+          <td class="t-games">383</td>
+          <td class="t-pick">0.2<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">9</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/25.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Morgana</span>
+          </td>
+          <td class="t-bar"><span style="width:38.3%"></span></td>
+          <td class="t-wr wr-hi">54.6<small>%</small></td>
+          <td class="t-raw">54.6</td>
+          <td class="t-games">3,525</td>
+          <td class="t-pick">1.7<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">10</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/90.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Malzahar</span>
+          </td>
+          <td class="t-bar"><span style="width:37.5%"></span></td>
+          <td class="t-wr wr-hi">54.5<small>%</small></td>
+          <td class="t-raw">54.5</td>
+          <td class="t-games">11,757</td>
+          <td class="t-pick">5.7<small>%</small></td>
+        </tr></tbody>
+          </table>
+        </div>
+        <p class="footnote">
+          <span class="fn-mark">1</span>
+          60 of 63 champions cleared the 100-game minimum for Mid.
+          <strong>Win rate</strong> is smoothed as <code>(wins + 10) / (games + 20)</code>, so a lucky
+          40-game run cannot fake a 70%. <strong>Raw</strong> is the unsmoothed number, printed next to it
+          so you can see exactly what the smoothing did.
+        </p>
+      </div>
+      <div class="tier-pane" id="lane-BOTTOM" role="tabpanel" aria-labelledby="tab-BOTTOM">
+        <h3 class="pane-heading">Bot</h3>
+        <div class="table-scroll">
+          <table class="tier-table">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Champion</th>
+                <th scope="col"></th>
+                <th scope="col">Win rate</th>
+                <th scope="col">Raw</th>
+                <th scope="col">Games</th>
+                <th scope="col">Pick</th>
+              </tr>
+            </thead>
+            <tbody>
+        <tr>
+          <td class="t-rank">1</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/74.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Heimerdinger</span>
+          </td>
+          <td class="t-bar"><span style="width:38.3%"></span></td>
+          <td class="t-wr wr-hi">54.6<small>%</small></td>
+          <td class="t-raw">54.7</td>
+          <td class="t-games">1,634</td>
+          <td class="t-pick">0.8<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">2</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/40.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Janna</span>
+          </td>
+          <td class="t-bar"><span style="width:34.2%"></span></td>
+          <td class="t-wr wr-hi">54.1<small>%</small></td>
+          <td class="t-raw">54.2</td>
+          <td class="t-games">938</td>
+          <td class="t-pick">0.5<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">3</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/29.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Twitch</span>
+          </td>
+          <td class="t-bar"><span style="width:31.7%"></span></td>
+          <td class="t-wr wr-ok">53.8<small>%</small></td>
+          <td class="t-raw">53.8</td>
+          <td class="t-games">17,662</td>
+          <td class="t-pick">8.7<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">4</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/53.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Blitzcrank</span>
+          </td>
+          <td class="t-bar"><span style="width:27.5%"></span></td>
+          <td class="t-wr wr-ok">53.3<small>%</small></td>
+          <td class="t-raw">53.4</td>
+          <td class="t-games">3,244</td>
+          <td class="t-pick">1.6<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">5</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/96.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Kog'Maw</span>
+          </td>
+          <td class="t-bar"><span style="width:25.0%"></span></td>
+          <td class="t-wr wr-ok">53.0<small>%</small></td>
+          <td class="t-raw">53.0</td>
+          <td class="t-games">6,213</td>
+          <td class="t-pick">3.1<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">6</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/62.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Wukong</span>
+          </td>
+          <td class="t-bar"><span style="width:23.3%"></span></td>
+          <td class="t-wr wr-ok">52.8<small>%</small></td>
+          <td class="t-raw">53.1</td>
+          <td class="t-games">179</td>
+          <td class="t-pick">0.1<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">7</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/4.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Twisted Fate</span>
+          </td>
+          <td class="t-bar"><span style="width:20.8%"></span></td>
+          <td class="t-wr wr-ok">52.5<small>%</small></td>
+          <td class="t-raw">52.5</td>
+          <td class="t-games">1,203</td>
+          <td class="t-pick">0.6<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">8</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/18.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Tristana</span>
+          </td>
+          <td class="t-bar"><span style="width:18.3%"></span></td>
+          <td class="t-wr wr-ok">52.2<small>%</small></td>
+          <td class="t-raw">52.2</td>
+          <td class="t-games">19,218</td>
+          <td class="t-pick">9.5<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">9</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/23.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Tryndamere</span>
+          </td>
+          <td class="t-bar"><span style="width:14.2%"></span></td>
+          <td class="t-wr wr-ok">51.7<small>%</small></td>
+          <td class="t-raw">51.8</td>
+          <td class="t-games">272</td>
+          <td class="t-pick">0.1<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">10</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/90.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Malzahar</span>
+          </td>
+          <td class="t-bar"><span style="width:13.3%"></span></td>
+          <td class="t-wr wr-ok">51.6<small>%</small></td>
+          <td class="t-raw">51.6</td>
+          <td class="t-games">1,615</td>
+          <td class="t-pick">0.8<small>%</small></td>
+        </tr></tbody>
+          </table>
+        </div>
+        <p class="footnote">
+          <span class="fn-mark">1</span>
+          60 of 63 champions cleared the 100-game minimum for Bot.
+          <strong>Win rate</strong> is smoothed as <code>(wins + 10) / (games + 20)</code>, so a lucky
+          40-game run cannot fake a 70%. <strong>Raw</strong> is the unsmoothed number, printed next to it
+          so you can see exactly what the smoothing did.
+        </p>
+      </div>
+      <div class="tier-pane" id="lane-SUPPORT" role="tabpanel" aria-labelledby="tab-SUPPORT">
+        <h3 class="pane-heading">Support</h3>
+        <div class="table-scroll">
+          <table class="tier-table">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Champion</th>
+                <th scope="col"></th>
+                <th scope="col">Win rate</th>
+                <th scope="col">Raw</th>
+                <th scope="col">Games</th>
+                <th scope="col">Pick</th>
+              </tr>
+            </thead>
+            <tbody>
+        <tr>
+          <td class="t-rank">1</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/40.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Janna</span>
+          </td>
+          <td class="t-bar"><span style="width:48.3%"></span></td>
+          <td class="t-wr wr-hi">55.8<small>%</small></td>
+          <td class="t-raw">55.8</td>
+          <td class="t-games">7,564</td>
+          <td class="t-pick">4.8<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">2</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/4.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Twisted Fate</span>
+          </td>
+          <td class="t-bar"><span style="width:40.8%"></span></td>
+          <td class="t-wr wr-hi">54.9<small>%</small></td>
+          <td class="t-raw">54.9</td>
+          <td class="t-games">1,365</td>
+          <td class="t-pick">0.9<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">3</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/10.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Kayle</span>
+          </td>
+          <td class="t-bar"><span style="width:39.2%"></span></td>
+          <td class="t-wr wr-hi">54.7<small>%</small></td>
+          <td class="t-raw">54.9</td>
+          <td class="t-games">492</td>
+          <td class="t-pick">0.3<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">4</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/53.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Blitzcrank</span>
+          </td>
+          <td class="t-bar"><span style="width:39.2%"></span></td>
+          <td class="t-wr wr-hi">54.7<small>%</small></td>
+          <td class="t-raw">54.7</td>
+          <td class="t-games">22,276</td>
+          <td class="t-pick">14.2<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">5</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/37.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Sona</span>
+          </td>
+          <td class="t-bar"><span style="width:22.5%"></span></td>
+          <td class="t-wr wr-ok">52.7<small>%</small></td>
+          <td class="t-raw">52.8</td>
+          <td class="t-games">10,252</td>
+          <td class="t-pick">6.5<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">6</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/44.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Taric</span>
+          </td>
+          <td class="t-bar"><span style="width:15.0%"></span></td>
+          <td class="t-wr wr-ok">51.8<small>%</small></td>
+          <td class="t-raw">51.8</td>
+          <td class="t-games">10,331</td>
+          <td class="t-pick">6.6<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">7</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/9.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Fiddlesticks</span>
+          </td>
+          <td class="t-bar"><span style="width:13.3%"></span></td>
+          <td class="t-wr wr-ok">51.6<small>%</small></td>
+          <td class="t-raw">51.6</td>
+          <td class="t-games">6,317</td>
+          <td class="t-pick">4.0<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">8</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/54.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Malphite</span>
+          </td>
+          <td class="t-bar"><span style="width:10.0%"></span></td>
+          <td class="t-wr wr-ok">51.2<small>%</small></td>
+          <td class="t-raw">51.2</td>
+          <td class="t-games">1,120</td>
+          <td class="t-pick">0.7<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">9</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/26.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Zilean</span>
+          </td>
+          <td class="t-bar"><span style="width:8.3%"></span></td>
+          <td class="t-wr wr-ok">51.0<small>%</small></td>
+          <td class="t-raw">51.0</td>
+          <td class="t-games">6,786</td>
+          <td class="t-pick">4.3<small>%</small></td>
+        </tr>
+        <tr>
+          <td class="t-rank">10</td>
+          <td class="t-champ">
+            <img src="img/champions/icon/117.png" alt="" width="128" height="128" loading="lazy" />
+            <span>Lulu</span>
+          </td>
+          <td class="t-bar"><span style="width:4.2%"></span></td>
+          <td class="t-wr wr-ok">50.5<small>%</small></td>
+          <td class="t-raw">50.5</td>
+          <td class="t-games">7,635</td>
+          <td class="t-pick">4.9<small>%</small></td>
+        </tr></tbody>
+          </table>
+        </div>
+        <p class="footnote">
+          <span class="fn-mark">1</span>
+          53 of 63 champions cleared the 100-game minimum for Support.
+          <strong>Win rate</strong> is smoothed as <code>(wins + 10) / (games + 20)</code>, so a lucky
+          40-game run cannot fake a 70%. <strong>Raw</strong> is the unsmoothed number, printed next to it
+          so you can see exactly what the smoothing did.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Bevindingen ────────────────────────────────────────────────────── -->
+<section class="band" id="findings">
+  <div class="wrap">
+    <div class="section-head rise">
+      <p class="eyebrow">What the data says</p>
+      <h2>Three things 120,032 Classic games make obvious.</h2>
+      <p>None of these are visible anywhere else, because nobody else has the games to see them.</p>
+    </div>
+    <div class="rise">
+        <article class="finding">
+          <div class="finding-art"><img src="img/champions/splash/23.jpg" alt="" width="640" height="360" loading="lazy" /></div>
+          <div class="finding-copy">
+            <p class="f-num mono">Finding 01</p>
+            <h3>Tryndamere is the strongest champion in Classic</h3>
+            <p>He wins <strong>58.0%</strong> of 21,443 games. The weakest, Lux, sits at <strong>42.6%</strong> over 17,249 games &mdash; a spread of 15.4 percentage points from top to bottom of the roster.</p>
+          </div>
+        </article>
+        <article class="finding">
+          <div class="finding-art"><img src="img/champions/splash/4.jpg" alt="" width="640" height="360" loading="lazy" /></div>
+          <div class="finding-copy">
+            <p class="f-num mono">Finding 02</p>
+            <h3>46 of 63 champions are played in all five lanes</h3>
+            <p>Not a handful of games &mdash; enough to clear the 100-game bar in <em>every single lane</em>. Classic has no role queue, so support Tryndamere and jungle Annie are not memes here, they are sample sizes. That is why a modern tier list tells you nothing about this mode.</p>
+          </div>
+        </article>
+        <article class="finding">
+          <div class="finding-art"><img src="img/champions/splash/74.jpg" alt="" width="640" height="360" loading="lazy" /></div>
+          <div class="finding-copy">
+            <p class="f-num mono">Finding 03</p>
+            <h3>The most lopsided matchup is Heimerdinger into Garen</h3>
+            <p>Heimerdinger takes <strong>69.1%</strong> of 142 head-to-head games. Of every matchup with at least 100 direct meetings, none sits further from even.</p>
+          </div>
+        </article></div>
+  </div>
+</section>
+
+<!-- ── De app ─────────────────────────────────────────────────────────── -->
+<section class="band" id="app">
   <div class="wrap">
     <div class="section-head rise">
       <p class="eyebrow">What you get</p>
       <h2>Everything the modern overlays give you, for the mode they ignore.</h2>
-      <p>
-        Champion select, masteries, tier lists and builds &mdash; all computed from Classic games only.
-        Summoner&rsquo;s Rift numbers say nothing about a mode with different items, different masteries
-        and a different map.
-      </p>
+      <p>Champion select scouting, masteries that set themselves, and builds behind every entry in that tier list.</p>
     </div>
 
     <div class="feature rise">
@@ -631,14 +1713,14 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
         <ul class="ticks">
           <li><b>Who picked what</b>, on both teams, as it happens</li>
           <li><b>Likely role</b> for every player, based on what they actually play</li>
-          <li><b>Counters</b> ranked by real matchup winrate, not gut feeling</li>
+          <li><b>Counters</b> ranked by real matchup win rate, not gut feeling</li>
           <li><b>Team bans</b>, so you can see what got taken away</li>
         </ul>
       </div>
-      <div class="shot">
-        <img src="img/champion-select.png" width="1280" height="800" loading="lazy"
-             alt="Champion select window listing both teams with picks, bans and counter suggestions." />
-      </div>
+      <figure class="window" style="margin:0">
+        <img src="img/champion-select.png" width="1216" height="708" loading="lazy" alt="AllMid champion select: both teams with picks, bans, likely roles and counter suggestions." />
+        <figcaption>Champion select &mdash; both teams, scouted</figcaption>
+      </figure>
     </div>
 
     <div class="feature flip rise">
@@ -654,57 +1736,27 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
           <li>Your existing pages are <b>backed up</b> before anything is touched</li>
         </ul>
       </div>
-      <div class="mastery-demo" role="img"
-           aria-label="A 30-point Classic mastery page: 21 points in Offense, 9 in Defense, none in Utility.">
-        <div class="tree">
-          <p class="tree-title">Offense <span class="pts">21</span></p>
-          <div class="tree-grid">
-            <span class="on"></span><span class="on"></span><span></span><span class="on"></span>
-            <span class="on"></span><span></span><span class="on"></span><span class="on"></span>
-            <span></span><span class="keystone"></span><span class="on"></span><span></span>
-            <span class="on"></span><span></span><span class="on"></span><span class="keystone"></span>
-          </div>
-        </div>
-        <div class="tree">
-          <p class="tree-title">Defense <span class="pts">9</span></p>
-          <div class="tree-grid">
-            <span class="on"></span><span></span><span class="on"></span><span></span>
-            <span class="on"></span><span class="on"></span><span></span><span></span>
-            <span></span><span class="on"></span><span></span><span></span>
-            <span></span><span></span><span></span><span></span>
-          </div>
-        </div>
-        <div class="tree empty">
-          <p class="tree-title">Utility <span class="pts">0</span></p>
-          <div class="tree-grid">
-            <span></span><span></span><span></span><span></span>
-            <span></span><span></span><span></span><span></span>
-            <span></span><span></span><span></span><span></span>
-            <span></span><span></span><span></span><span></span>
-          </div>
-        </div>
-        <p class="mastery-caption"><b>30 / 30 points</b> &mdash; written to your page in under a second</p>
-      </div>
+      <figure class="window" style="margin:0">
+        <img src="img/app/allmid-main.png" width="1296" height="828" loading="lazy" alt="AllMid main window listing recent Classic games with champions, KDA, CS, gold and items." />
+        <figcaption>Live &mdash; your Classic match history</figcaption>
+      </figure>
     </div>
 
     <div class="feature rise">
       <div class="feature-copy">
-        <h3>Tier lists that are actually about Classic</h3>
-        <p>
-          Per lane, per patch, sorted by winrate with the sample size right next to it. Open a champion and
-          you get the build the wins were played with.
-        </p>
+        <h3>Builds behind every number</h3>
+        <p>Open a champion in the app and you get the build the wins were actually played with.</p>
         <ul class="ticks">
           <li><b>Item paths</b> with the pick rate on every slot</li>
           <li><b>Summoner spells</b> and <b>skill order</b></li>
           <li><b>Matchups</b> &mdash; who beats it, who loses to it, and by how much</li>
-          <li>Winrates are <b>smoothed</b>, so a 3-game 100% never tops the list</li>
+          <li>Win rates <b>smoothed</b>, so a 3-game 100% never tops the list</li>
         </ul>
       </div>
-      <div class="shot">
-        <img src="img/meta.png" width="1280" height="800" loading="lazy"
-             alt="AllMid meta window showing Classic tier lists by lane, with winrates, item builds and summoner spells." />
-      </div>
+      <figure class="window" style="margin:0">
+        <img src="img/meta.png" width="1296" height="828" loading="lazy" alt="AllMid meta window: Classic tier list by lane with win rates, summoner spells and item builds." />
+        <figcaption>Meta &mdash; tier lists, spells and builds</figcaption>
+      </figure>
     </div>
   </div>
 </section>
@@ -716,35 +1768,17 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
       <p class="eyebrow">Where the numbers come from</p>
       <h2>There is no API for Classic. There is a way around it.</h2>
       <p>
-        Riot&rsquo;s public API returns nothing usable here: every Classic match ID comes back forbidden, and
-        every Classic queue filter comes back empty. But your own game client knows everything about the games
-        it can see. AllMid starts there.
+        Riot&rsquo;s public API returns nothing usable here: every Classic match ID comes back forbidden and
+        every Classic queue filter comes back empty. But your own game client knows everything about the
+        games it can see.
       </p>
     </div>
-
     <div class="chain rise">
-      <div class="step">
-        <span class="num">STEP 1</span>
-        <h4>Your client already knows</h4>
-        <p>League runs two local APIs on your own machine for its own interface to use. AllMid reads them &mdash; the same match history you can open yourself, just faster.</p>
-      </div>
-      <div class="step">
-        <span class="num">STEP 2</span>
-        <h4>It walks the graph</h4>
-        <p>Every match names ten players, and every player has a match history. Follow that outward and a handful of games becomes a hundred thousand.</p>
-      </div>
-      <div class="step">
-        <span class="num">STEP 3</span>
-        <h4>Finds get pooled</h4>
-        <p>Games are merged and deduplicated by ID. If ten people run into the same match, it is stored once &mdash; so overlap between users costs nothing.</p>
-      </div>
-      <div class="step">
-        <span class="num">STEP 4</span>
-        <h4>Everyone gets it back</h4>
-        <p>The pooled numbers return to every install. The tool gets sharper for everybody each time somebody new runs it, including you.</p>
-      </div>
+      <div class="step"><span class="num">STEP 1</span><h4>Your client already knows</h4><p>League runs two local APIs on your machine for its own interface to use. AllMid reads them &mdash; the same match history you can open yourself, just faster.</p></div>
+      <div class="step"><span class="num">STEP 2</span><h4>It walks the graph</h4><p>Every match names ten players, and every player has a match history. Follow that outward and a handful of games becomes a hundred thousand.</p></div>
+      <div class="step"><span class="num">STEP 3</span><h4>Finds get pooled</h4><p>Games are merged and deduplicated by ID. If ten people run into the same match it is stored once, so overlap between users costs nothing.</p></div>
+      <div class="step"><span class="num">STEP 4</span><h4>Everyone gets it back</h4><p>The pooled numbers return to every install. The tool gets sharper for everybody each time somebody new runs it, including you.</p></div>
     </div>
-
     <p class="audit">
       Only public match data is collected: champion, result, KDA, CS, gold, items and summoner spells.
       Nothing is read that you could not look up yourself in the client.
@@ -759,47 +1793,21 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
       <p class="eyebrow">Before you run it</p>
       <h2>You are about to run an .exe next to your game. Here is exactly what it does.</h2>
       <p>
-        Overlays have a bad reputation, and often a deserved one. The honest answer to &ldquo;is this safe&rdquo;
-        is not a promise &mdash; it is a description you can go and check, which is the whole reason the source
-        is public.
+        Overlays have a bad reputation, and often a deserved one. The honest answer to &ldquo;is this
+        safe&rdquo; is not a promise &mdash; it is a description you can go and check, which is the whole
+        reason the source is public.
       </p>
     </div>
-
     <div class="trust rise">
-      <div class="item no">
-        <p class="top">Does not</p>
-        <p><strong>Read or write game memory.</strong> No injection, no DLLs, no hooking into the game process.</p>
-      </div>
-      <div class="item no">
-        <p class="top">Does not</p>
-        <p><strong>Touch your credentials.</strong> No login, no account, no password field anywhere in the app.</p>
-      </div>
-      <div class="item no">
-        <p class="top">Does not</p>
-        <p><strong>Modify game files.</strong> Nothing in your League folder is written to or replaced.</p>
-      </div>
-      <div class="item no">
-        <p class="top">Does not</p>
-        <p><strong>Play for you.</strong> No in-game automation, no scripting, no input simulation.</p>
-      </div>
-      <div class="item yes">
-        <p class="top">Does</p>
-        <p><strong>Use the client&rsquo;s own local APIs</strong> &mdash; the interfaces League already runs on your machine for its own UI.</p>
-      </div>
-      <div class="item yes">
-        <p class="top">Does</p>
-        <p><strong>Write your mastery page</strong>, and only when you ask it to. Your existing pages are backed up first.</p>
-      </div>
-      <div class="item yes">
-        <p class="top">Does</p>
-        <p><strong>Send collected match data</strong> to the shared pool, so the stats improve for everyone. You can turn this off.</p>
-      </div>
-      <div class="item yes">
-        <p class="top">Does</p>
-        <p><strong>Build in the open.</strong> The installer comes out of a public CI run you can inspect, not off somebody&rsquo;s laptop.</p>
-      </div>
+      <div class="item no"><p class="top">Does not</p><p><strong>Read or write game memory.</strong> No injection, no DLLs, no hooking into the game process.</p></div>
+      <div class="item no"><p class="top">Does not</p><p><strong>Touch your credentials.</strong> No login, no account, no password field anywhere in the app.</p></div>
+      <div class="item no"><p class="top">Does not</p><p><strong>Modify game files.</strong> Nothing in your League folder is written to or replaced.</p></div>
+      <div class="item no"><p class="top">Does not</p><p><strong>Play for you.</strong> No in-game automation, no scripting, no input simulation.</p></div>
+      <div class="item yes"><p class="top">Does</p><p><strong>Use the client&rsquo;s own local APIs</strong> &mdash; the interfaces League already runs on your machine for its own UI.</p></div>
+      <div class="item yes"><p class="top">Does</p><p><strong>Write your mastery page</strong>, and only when you ask it to. Your existing pages are backed up first.</p></div>
+      <div class="item yes"><p class="top">Does</p><p><strong>Send collected match data</strong> to the shared pool, so the stats improve for everyone. You can turn this off.</p></div>
+      <div class="item yes"><p class="top">Does</p><p><strong>Build in the open.</strong> The installer comes out of a public CI run you can inspect, not off somebody&rsquo;s laptop.</p></div>
     </div>
-
     <p class="audit">
       Rather verify than trust? Clone the repository, then run <code>npm install</code> and <code>npm run build</code>.
       You get the same application, built from the source you just read.
@@ -808,15 +1816,12 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 </section>
 
 <!-- ── Download ───────────────────────────────────────────────────────── -->
-<section class="band closing" id="download">
-  <div class="lattice centred" aria-hidden="true"></div>
+<section class="closing" id="download">
+  <div class="closing-art" aria-hidden="true"><img src="img/champions/splash/23.jpg" alt="" width="640" height="360" /></div>
   <div class="wrap rise">
     <p class="eyebrow">Get AllMid</p>
     <h2>Install it before your next Classic queue.</h2>
-    <p>
-      Windows 10 and 11. It runs alongside the League client &mdash; start it whenever you like and it picks
-      up from there. Free, and it stays free.
-    </p>
+    <p>Windows 10 and 11. It runs alongside the League client &mdash; start it whenever you like and it picks up from there. Free, and it stays free.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://github.com/allmidgg/desktop/releases/latest">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 11 5 5 5-5" /><path d="M4 20h16" /></svg>
@@ -827,7 +1832,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
         Build it yourself
       </a>
     </div>
-    <p class="cta-note">Current data: patch 16.15 &ndash; 16.16 &middot; 112,093 games</p>
+    <p class="cta-note">Current data: patches 16.16 &amp; 16.15 &middot; 120,032 games &middot; 336,247 players</p>
   </div>
 </section>
 
@@ -847,39 +1852,112 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   </div>
 </footer>
 
+<script id="champ-data" type="application/json">{"c":{"1":{"n":"Annie","g":7866,"w":45.6,"l":[["MIDDLE",5075,44.9,56],["SUPPORT",1399,47.5,24],["BOTTOM",662,45.9,42],["TOP",644,46.4,53],["JUNGLE",86,49.1,null]],"b":[[10,58.9,36],[35,58.3,28],[31,57.4,41],[86,56.9,31]],"d":[[30,38.5,71],[4,38.5,128],[27,40,35],[53,40.8,186]]},"2":{"n":"Olaf","g":6659,"w":46.4,"l":[["TOP",3350,46.1,58],["JUNGLE",2941,46.6,40],["MIDDLE",210,48.7,43],["BOTTOM",119,50.4,21],["SUPPORT",39,39,null]],"b":[[31,59.2,100],[18,55.1,29],[38,55,20],[4,54.5,13]],"d":[[23,32.8,306],[10,38.1,85],[37,39.3,8],[44,40,25]]},"4":{"n":"Twisted Fate","g":8903,"w":52.6,"l":[["MIDDLE",5009,51.7,23],["SUPPORT",1365,54.9,2],["BOTTOM",1203,52.5,7],["TOP",1038,54.6,12],["JUNGLE",288,50.3,16]],"b":[[9,65.5,122],[24,61.6,66],[20,61.2,78],[1,60.8,128]],"d":[[59,41.5,21],[72,42.1,18],[37,42.5,86],[62,44.1,39]]},"9":{"n":"Fiddlesticks","g":25254,"w":50.9,"l":[["JUNGLE",13587,50.8,11],["SUPPORT",6317,51.6,7],["MIDDLE",2387,51.8,20],["BOTTOM",1679,49.1,24],["TOP",1284,49.9,31]],"b":[[38,60.3,96],[86,60.3,174],[99,59.7,285],[45,59.3,162]],"d":[[4,31.6,135],[23,40.1,589],[18,45.6,261],[22,45.7,210]]},"10":{"n":"Kayle","g":6769,"w":49.6,"l":[["TOP",3942,48.8,44],["MIDDLE",1020,48.8,42],["JUNGLE",859,50.7,12],["SUPPORT",492,54.7,4],["BOTTOM",456,51.3,13]],"b":[[2,60.6,84],[37,59.1,24],[99,58.9,53],[13,57.9,87]],"d":[[90,39.7,58],[74,39.8,98],[23,41,248],[31,41.2,82]]},"11":{"n":"Master Yi","g":30412,"w":47.3,"l":[["JUNGLE",21680,47.3,35],["MIDDLE",5620,48.5,44],["TOP",2164,46.2,55],["BOTTOM",806,41.3,54],["SUPPORT",142,45.7,40]],"b":[[99,56.1,242],[12,55,89],[1,53.2,134],[2,52.6,313]],"d":[[16,39.4,107],[23,40.4,1047],[25,40.5,128],[40,40.5,17]]},"12":{"n":"Alistar","g":11534,"w":48.2,"l":[["SUPPORT",6603,47.5,25],["TOP",1865,48.8,45],["BOTTOM",1264,47.2,35],["MIDDLE",1160,54.8,8],["JUNGLE",642,43.4,51]],"b":[[86,57.6,79],[38,57.4,34],[84,57.1,143],[21,56.6,125]],"d":[[28,37.8,62],[19,39.6,124],[75,40.1,152],[96,41.2,31]]},"13":{"n":"Ryze","g":13460,"w":48.7,"l":[["MIDDLE",8918,48,47],["TOP",3085,51.6,21],["BOTTOM",757,46.8,37],["JUNGLE",494,50.4,15],["SUPPORT",206,38.5,52]],"b":[[15,56.6,33],[33,56.2,28],[20,56,96],[36,56,80]],"d":[[62,39.1,72],[89,40,25],[53,40.4,74],[29,42.1,106]]},"14":{"n":"Sion","g":21237,"w":46.8,"l":[["TOP",10422,46.4,54],["MIDDLE",3941,47.5,52],["JUNGLE",3920,48.5,29],["BOTTOM",1571,44.1,49],["SUPPORT",1383,47.1,29]],"b":[[1,56.3,115],[2,54.3,236],[99,54.1,224],[63,52.9,133]],"d":[[23,37.9,808],[53,38.7,228],[62,39.4,201],[15,41.1,75]]},"15":{"n":"Sivir","g":9596,"w":50.2,"l":[["BOTTOM",8139,50.7,18],["TOP",795,45.8,59],["MIDDLE",543,51.9,19],["JUNGLE",77,46.4,null],["SUPPORT",42,35.5,null]],"b":[[30,62.5,28],[28,62.1,9],[86,61.8,35],[14,60.9,95]],"d":[[24,37.3,47],[117,38.1,43],[75,42.4,72],[53,42.5,159]]},"16":{"n":"Soraka","g":14722,"w":48.8,"l":[["SUPPORT",9244,48.5,19],["TOP",1723,49.3,39],["MIDDLE",1681,50.4,34],["BOTTOM",1521,47.8,33],["JUNGLE",553,50.1,18]],"b":[[84,62.2,160],[11,60.5,132],[36,58.1,54],[86,58.1,73]],"d":[[85,41.2,48],[53,42.5,1104],[90,43,122],[40,43.1,365]]},"17":{"n":"Teemo","g":21210,"w":49.6,"l":[["TOP",12231,49.9,30],["JUNGLE",3649,48.4,32],["BOTTOM",2185,49.3,23],["MIDDLE",1809,50.2,36],["SUPPORT",1336,49.1,15]],"b":[[86,59.3,545],[99,57.8,160],[54,56.4,317],[45,56.1,153]],"d":[[90,40.2,226],[29,41.9,247],[37,42,80],[4,43.9,94]]},"18":{"n":"Tristana","g":29822,"w":50.9,"l":[["BOTTOM",19218,52.2,8],["MIDDLE",7036,47.9,48],["TOP",2833,51.3,22],["JUNGLE",379,46.9,37],["SUPPORT",356,42.6,47]],"b":[[10,58.2,121],[98,57.8,184],[1,57.6,225],[21,56.1,1932]],"d":[[63,43.9,292],[79,44.8,304],[37,44.9,136],[74,45.3,353]]},"19":{"n":"Warwick","g":37835,"w":53.9,"l":[["JUNGLE",35056,54.1,2],["TOP",2051,52.2,18],["MIDDLE",425,48.5,45],["BOTTOM",153,41,57],["SUPPORT",150,47.1,30]],"b":[[79,65,160],[22,60.7,41],[86,60.2,372],[36,60,385]],"d":[[23,44.4,1577],[4,44.4,34],[53,44.7,65],[81,45.1,62]]},"20":{"n":"Nunu & Willump","g":16855,"w":46.3,"l":[["JUNGLE",10130,47,36],["SUPPORT",2581,46.6,32],["TOP",1879,47.2,52],["MIDDLE",1530,42.6,60],["BOTTOM",735,41.1,56]],"b":[[1,58.2,59],[99,57.7,136],[86,56,139],[98,55.3,206]],"d":[[4,36.6,73],[29,36.7,119],[23,36.8,474],[40,38.5,110]]},"21":{"n":"Miss Fortune","g":21405,"w":44.4,"l":[["BOTTOM",18034,44.4,45],["TOP",1734,46.2,56],["MIDDLE",1096,44.1,58],["SUPPORT",389,39.4,51],["JUNGLE",152,34.9,56]],"b":[[33,58.3,16],[72,58.1,11],[86,57.4,102],[45,55.2,201]],"d":[[30,36.2,60],[40,36.9,83],[19,36.9,45],[74,37.4,178]]},"22":{"n":"Ashe","g":24868,"w":49,"l":[["BOTTOM",20836,49.1,25],["TOP",2038,49.9,34],["MIDDLE",1097,51.7,22],["SUPPORT",687,43.4,46],["JUNGLE",210,40,54]],"b":[[86,64.2,117],[26,58.8,133],[79,56.7,77],[99,55.7,208]],"d":[[28,39,21],[23,39.5,142],[19,40.4,69],[40,42.6,116]]},"23":{"n":"Tryndamere","g":21443,"w":58,"l":[["TOP",11453,57.8,2],["JUNGLE",8499,58.6,1],["MIDDLE",1152,57.5,3],["BOTTOM",272,51.7,9],["SUPPORT",67,43.7,null]],"b":[[45,72.7,90],[2,66.4,307],[99,65,80],[86,64,539]],"d":[[63,41.9,42],[117,42.6,34],[89,45.1,31],[15,45.9,17]]},"24":{"n":"Jax","g":19839,"w":51.4,"l":[["TOP",10475,50,29],["JUNGLE",8296,53.8,3],["MIDDLE",625,50.5,32],["BOTTOM",266,41.3,55],["SUPPORT",177,45.2,41]],"b":[[72,60.7,270],[63,58.7,43],[36,58.1,293],[38,57.6,46]],"d":[[26,42.9,22],[90,43.4,109],[23,44.1,1117],[4,44.2,32]]},"25":{"n":"Morgana","g":25260,"w":49.9,"l":[["SUPPORT",16463,49.7,14],["MIDDLE",3525,54.6,9],["BOTTOM",2965,46.7,38],["TOP",1868,48.9,43],["JUNGLE",439,48.4,31]],"b":[[79,63.5,183],[86,62.1,83],[38,60.3,131],[31,58.6,79]],"d":[[40,41.5,671],[15,42.5,140],[29,44.4,277],[32,44.6,54]]},"26":{"n":"Zilean","g":11169,"w":50.5,"l":[["SUPPORT",6786,51,9],["MIDDLE",2156,52.1,17],["BOTTOM",1157,44.5,44],["TOP",942,50.6,24],["JUNGLE",128,50.7,13]],"b":[[99,59,275],[98,58.8,191],[2,58.3,16],[85,57.6,46]],"d":[[22,42.1,151],[15,43.2,54],[53,43.9,853],[103,44.1,168]]},"27":{"n":"Singed","g":6853,"w":49.9,"l":[["TOP",4213,49.9,32],["JUNGLE",1741,51.3,9],["MIDDLE",494,50.6,31],["BOTTOM",206,46.5,39],["SUPPORT",199,42.5,48]],"b":[[99,67.2,38],[86,62.6,167],[72,60,40],[79,60,60]],"d":[[25,36.7,29],[81,39.2,54],[103,40,40],[23,42.4,310]]},"28":{"n":"Evelynn","g":17323,"w":51.1,"l":[["JUNGLE",16452,51.1,10],["MIDDLE",481,51.3,25],["TOP",237,56.4,7],["SUPPORT",92,47.3,null],["BOTTOM",61,39.5,null]],"b":[[45,61.9,22],[22,61.3,11],[76,61.2,109],[12,60.5,56]],"d":[[23,39.8,625],[34,40,20],[81,41.9,42],[44,43.7,51]]},"29":{"n":"Twitch","g":22498,"w":53.5,"l":[["BOTTOM",17662,53.8,3],["JUNGLE",1799,49.4,22],["TOP",1693,53,17],["MIDDLE",1121,56,6],["SUPPORT",223,46.9,31]],"b":[[99,63.9,174],[2,61.4,50],[38,61.4,68],[76,60.1,143]],"d":[[34,38.1,64],[23,41.8,205],[74,46,182],[19,46.1,325]]},"30":{"n":"Karthus","g":5566,"w":51.2,"l":[["MIDDLE",3122,52.1,18],["JUNGLE",1249,48,34],["TOP",549,53.8,16],["BOTTOM",499,51.3,14],["SUPPORT",147,49.1,17]],"b":[[21,62.9,50],[81,59.6,126],[98,58.7,43],[1,58.7,72]],"d":[[15,37.5,20],[19,39.6,182],[44,41,19],[23,41.1,87]]},"31":{"n":"Cho'Gath","g":8847,"w":47.5,"l":[["TOP",4654,47.6,51],["JUNGLE",2389,46.7,39],["MIDDLE",1081,49.1,40],["SUPPORT",398,46.4,33],["BOTTOM",325,48.1,32]],"b":[[99,58.9,70],[10,56.6,86],[22,56.5,49],[37,56.1,21]],"d":[[2,37.5,100],[23,37.6,336],[40,39.5,18],[74,40.4,121]]},"32":{"n":"Amumu","g":9177,"w":50.2,"l":[["JUNGLE",8334,50.4,14],["SUPPORT",513,46.2,37],["TOP",150,54.1,15],["BOTTOM",105,46.4,40],["MIDDLE",75,48.4,null]],"b":[[54,62.7,31],[99,60,20],[84,58.9,87],[2,57.3,123]],"d":[[40,33.3,19],[27,37.5,84],[89,38.5,45],[67,38.9,34]]},"33":{"n":"Rammus","g":7967,"w":51.8,"l":[["JUNGLE",7129,51.8,6],["TOP",477,54.9,10],["SUPPORT",206,49.1,16],["BOTTOM",87,43.9,null],["MIDDLE",68,48.9,null]],"b":[[86,64.6,62],[76,63.6,35],[44,60,25],[16,58.6,38]],"d":[[21,40,15],[25,42.3,32],[37,43.2,17],[62,43.3,160]]},"34":{"n":"Anivia","g":7153,"w":52.4,"l":[["MIDDLE",5100,52.2,16],["TOP",773,57.3,3],["SUPPORT",683,47.5,23],["BOTTOM",511,51.2,15],["JUNGLE",86,58.5,null]],"b":[[99,60.1,253],[29,59.7,57],[35,59,19],[41,58.5,175]],"d":[[40,34.5,35],[44,41.2,60],[74,42.4,152],[12,43.3,47]]},"35":{"n":"Shaco","g":19615,"w":48,"l":[["JUNGLE",17045,48.5,28],["SUPPORT",1138,44.5,43],["TOP",641,43,63],["MIDDLE",415,47.8,50],["BOTTOM",376,44.2,48]],"b":[[98,60.8,189],[79,59.1,90],[14,56.4,347],[36,55.9,166]],"d":[[63,35,40],[4,39.5,23],[23,39.8,719],[22,40.5,59]]},"36":{"n":"Dr. Mundo","g":7285,"w":45.5,"l":[["TOP",4706,46.2,57],["JUNGLE",1922,43.9,50],["MIDDLE",302,47.8,49],["SUPPORT",227,44.9,42],["BOTTOM",128,43.2,51]],"b":[[1,57.6,13],[38,55,20],[2,54,104],[89,52.9,31]],"d":[[23,36.9,330],[75,38.1,374],[40,38.2,14],[53,39.1,44]]},"37":{"n":"Sona","g":13374,"w":52.5,"l":[["SUPPORT",10252,52.7,5],["BOTTOM",1297,51.4,11],["TOP",1045,50.5,25],["MIDDLE",692,54.2,11],["JUNGLE",88,47.2,null]],"b":[[99,63.9,346],[90,62.8,66],[79,59.7,47],[59,59.6,32]],"d":[[23,40.5,54],[10,42.6,41],[31,44.8,38],[67,45.1,142]]},"38":{"n":"Kassadin","g":8447,"w":46.8,"l":[["MIDDLE",7245,47.3,53],["TOP",806,45.3,60],["BOTTOM",188,41.8,53],["JUNGLE",150,42.4,53],["SUPPORT",58,47.4,null]],"b":[[64,60.4,33],[20,55.7,77],[99,54.6,273],[45,54.5,417]],"d":[[59,34.1,24],[25,37,99],[40,37.1,15],[12,40,35]]},"40":{"n":"Janna","g":9944,"w":55.7,"l":[["SUPPORT",7564,55.8,1],["BOTTOM",938,54.1,2],["TOP",818,55.6,8],["MIDDLE",544,57.3,5],["JUNGLE",80,54,null]],"b":[[64,69.2,32],[32,66.7,19],[99,66.7,214],[45,65,60]],"d":[[15,43.6,35],[10,46.9,44],[18,47,131],[59,47.1,31]]},"41":{"n":"Gangplank","g":26930,"w":47.7,"l":[["TOP",17610,47.7,50],["MIDDLE",3860,48.9,41],["JUNGLE",2887,46.3,42],["BOTTOM",1848,47.1,36],["SUPPORT",725,47.9,20]],"b":[[38,59.7,223],[1,56.2,117],[45,55.5,272],[21,55.2,210]],"d":[[23,40.3,1182],[79,40.9,281],[37,41.2,82],[62,42.3,261]]},"42":{"n":"Corki","g":11113,"w":51.3,"l":[["BOTTOM",9024,51.3,12],["TOP",1005,51.1,23],["MIDDLE",950,51.4,24],["JUNGLE",100,48.3,33],["SUPPORT",34,53.7,null]],"b":[[79,63.4,51],[10,59.6,32],[86,59.1,46],[76,58.3,88]],"d":[[53,40.6,150],[74,41.9,109],[59,42.1,18],[36,43.2,24]]},"44":{"n":"Taric","g":14691,"w":51.2,"l":[["SUPPORT",10331,51.8,6],["TOP",1729,49.6,35],["BOTTOM",1409,48.1,31],["MIDDLE",653,53.8,13],["JUNGLE",569,49.2,24]],"b":[[84,63.4,73],[99,63.1,289],[34,61.4,68],[2,60.3,38]],"d":[[23,36.6,125],[62,37,34],[42,41.6,81],[10,42.3,58]]},"45":{"n":"Veigar","g":14734,"w":46.5,"l":[["MIDDLE",10908,46.4,55],["BOTTOM",1645,45.9,43],["TOP",1309,48.6,47],["SUPPORT",789,46.2,35],["JUNGLE",83,40.8,null]],"b":[[12,57.3,90],[86,55.3,83],[20,55.2,96],[2,55.1,29]],"d":[[23,34,127],[40,36.4,46],[28,38.3,27],[59,41.2,14]]},"53":{"n":"Blitzcrank","g":30909,"w":55,"l":[["SUPPORT",22276,54.7,3],["BOTTOM",3244,53.3,4],["MIDDLE",2941,59.4,2],["TOP",2050,54.5,14],["JUNGLE",398,50,19]],"b":[[99,63.9,785],[36,62.7,82],[1,61.9,245],[14,61,336]],"d":[[28,41.1,36],[59,46.9,93],[23,46.9,159],[29,47.4,303]]},"54":{"n":"Malphite","g":8114,"w":49.2,"l":[["TOP",4589,49.4,38],["JUNGLE",1199,48.4,30],["SUPPORT",1120,51.2,8],["MIDDLE",897,49.2,39],["BOTTOM",309,42.6,52]],"b":[[76,59.8,87],[86,58,185],[44,57.6,72],[2,56.6,79]],"d":[[4,31.4,31],[96,36.8,18],[90,37.5,76],[27,38.5,97]]},"55":{"n":"Katarina","g":23418,"w":50.3,"l":[["MIDDLE",19440,49.5,37],["TOP",2320,58.1,1],["BOTTOM",1011,48.6,27],["JUNGLE",422,49.3,23],["SUPPORT",225,49.8,13]],"b":[[36,59.8,82],[98,58.8,99],[86,58.5,156],[99,58.2,803]],"d":[[16,41.8,176],[9,42.4,284],[12,42.9,143],[53,44,89]]},"59":{"n":"Jarvan IV","g":12892,"w":51.4,"l":[["JUNGLE",11011,51.5,7],["TOP",741,51.6,20],["SUPPORT",441,46,38],["MIDDLE",383,54.8,7],["BOTTOM",316,50.6,20]],"b":[[38,66.7,22],[21,61.8,35],[12,60.8,54],[4,58.3,16]],"d":[[96,41.2,14],[37,41.7,28],[75,43,194],[23,43.1,407]]},"62":{"n":"Wukong","g":8249,"w":53.8,"l":[["JUNGLE",5468,52.8,4],["TOP",1986,55.4,9],["MIDDLE",523,60.8,1],["BOTTOM",179,52.8,6],["SUPPORT",93,38.9,null]],"b":[[76,62.5,60],[44,62,30],[14,60.9,200],[81,60,40]],"d":[[37,40,10],[53,42.6,27],[16,44,30],[98,45.5,125]]},"63":{"n":"Brand","g":10445,"w":48.9,"l":[["MIDDLE",5643,49.4,38],["SUPPORT",2588,48.5,18],["BOTTOM",1157,48.6,26],["TOP",831,48.6,46],["JUNGLE",226,45.1,46]],"b":[[35,66.7,46],[31,57.9,56],[15,57.6,46],[86,56.9,38]],"d":[[28,40.4,27],[72,40.6,12],[64,40.7,39],[29,41.3,118]]},"64":{"n":"Lee Sin","g":18324,"w":47,"l":[["JUNGLE",15691,46.7,38],["TOP",1189,49.5,37],["MIDDLE",650,51.8,21],["SUPPORT",424,46.2,36],["BOTTOM",370,41,58]],"b":[[1,58.2,35],[21,56.6,33],[84,56.3,243],[10,55.7,86]],"d":[[40,30.2,23],[42,37.5,20],[23,38.2,681],[96,40.5,17]]},"67":{"n":"Vayne","g":29248,"w":50.7,"l":[["BOTTOM",23760,50.7,19],["TOP",3563,50.2,28],["MIDDLE",1206,54,12],["JUNGLE",620,48.6,27],["SUPPORT",99,44.5,null]],"b":[[99,66.8,206],[86,61.9,169],[80,60.3,443],[45,58.7,263]],"d":[[40,42.9,113],[23,43.4,247],[4,43.7,186],[26,44.6,146]]},"72":{"n":"Skarner","g":7559,"w":46.3,"l":[["JUNGLE",6863,46.1,44],["TOP",450,48.1,49],["SUPPORT",93,46,null],["MIDDLE",92,58,null],["BOTTOM",61,40.7,null]],"b":[[30,60,30],[63,58.8,14],[12,57.8,25],[86,57.4,48]],"d":[[23,38.6,275],[24,39,270],[55,40,20],[9,41.5,399]]},"74":{"n":"Heimerdinger","g":12136,"w":53.9,"l":[["MIDDLE",5253,52.9,15],["TOP",3447,56.7,6],["BOTTOM",1634,54.6,1],["JUNGLE",1300,51.4,8],["SUPPORT",502,50.2,11]],"b":[[86,69.1,142],[21,62.9,155],[31,62.6,127],[85,60.1,118]],"d":[[53,43.2,98],[23,43.9,285],[90,44.4,331],[33,44.9,49]]},"75":{"n":"Nasus","g":20415,"w":54.3,"l":[["TOP",16848,54.6,13],["JUNGLE",2319,52,5],["MIDDLE",898,57.4,4],["BOTTOM",226,51.2,16],["SUPPORT",124,43.8,45]],"b":[[36,61.7,374],[86,59.4,648],[99,59,63],[63,58.9,70]],"d":[[37,42.6,27],[33,44,80],[40,44.2,23],[62,45.1,213]]},"76":{"n":"Nidalee","g":13587,"w":48.1,"l":[["MIDDLE",6391,48.4,46],["TOP",2644,50.3,27],["SUPPORT",2419,47.4,26],["JUNGLE",1099,45.8,45],["BOTTOM",1034,44.2,47]],"b":[[27,56.2,69],[26,55,120],[99,54.8,354],[12,54.7,128]],"d":[[29,37.1,112],[23,38.3,257],[62,38.6,68],[33,39.3,41]]},"79":{"n":"Gragas","g":10287,"w":50.8,"l":[["MIDDLE",6417,50.8,30],["TOP",2052,54.8,11],["JUNGLE",925,44.6,49],["SUPPORT",499,47.6,22],["BOTTOM",394,48.6,28]],"b":[[85,63.2,116],[41,61.1,330],[2,60.8,54],[99,59.2,289]],"d":[[25,34.8,138],[37,37,34],[19,40.8,186],[53,41.2,94]]},"80":{"n":"Pantheon","g":26332,"w":48.8,"l":[["TOP",12689,49.1,41],["JUNGLE",5192,48.7,26],["MIDDLE",4154,51,27],["SUPPORT",2292,45.9,39],["BOTTOM",2005,46.1,41]],"b":[[1,57.1,136],[38,55.1,234],[14,54.1,849],[12,53.7,196]],"d":[[37,41,153],[29,41.3,263],[67,41.8,365],[40,42.2,115]]},"81":{"n":"Ezreal","g":37920,"w":49.7,"l":[["BOTTOM",29788,49.8,22],["MIDDLE",4031,50.5,33],["TOP",3455,49.3,40],["JUNGLE",386,46.6,41],["SUPPORT",260,41.4,50]],"b":[[86,61.8,150],[99,60.7,379],[36,59.8,97],[35,57.8,89]],"d":[[62,40.7,71],[30,41.4,137],[53,42.4,546],[40,43.1,147]]},"84":{"n":"Akali","g":21651,"w":47.8,"l":[["MIDDLE",13311,47.5,51],["TOP",5748,49.5,36],["JUNGLE",1726,46.2,43],["BOTTOM",662,43.3,50],["SUPPORT",204,43.8,44]],"b":[[21,55.7,95],[86,55.6,284],[13,54.2,653],[10,54.1,152]],"d":[[23,38,435],[40,38.8,29],[16,39.9,128],[29,40.2,102]]},"85":{"n":"Kennen","g":8240,"w":49.9,"l":[["TOP",3314,50.4,26],["MIDDLE",2513,50.9,28],["BOTTOM",1520,47.5,34],["JUNGLE",637,49.8,20],["SUPPORT",256,47.8,21]],"b":[[21,57.7,129],[64,57.4,81],[16,56.9,31],[86,56.3,115]],"d":[[74,38.9,111],[33,40.8,29],[79,41.3,106],[62,42.7,62]]},"86":{"n":"Garen","g":10467,"w":43.8,"l":[["TOP",7916,44.3,61],["JUNGLE",1659,42.9,52],["MIDDLE",533,46.7,54],["BOTTOM",225,37.1,60],["SUPPORT",134,34.4,53]],"b":[[38,58.3,40],[79,55.2,67],[13,53.4,111],[32,51.3,56]],"d":[[74,31.3,111],[33,33.7,63],[23,36.2,533],[27,36.9,167]]},"89":{"n":"Leona","g":18728,"w":49.7,"l":[["SUPPORT",15028,49.9,12],["BOTTOM",1763,48.5,29],["TOP",1030,49,42],["MIDDLE",700,50.4,35],["JUNGLE",207,44.9,48]],"b":[[32,60.6,46],[38,60,40],[21,59.3,189],[11,57.1,71]],"d":[[19,36.7,59],[23,41.1,70],[15,42,61],[30,43.5,26]]},"90":{"n":"Malzahar","g":16494,"w":54.1,"l":[["MIDDLE",11757,54.5,10],["TOP",2138,56.9,5],["BOTTOM",1615,51.6,10],["JUNGLE",659,48.7,25],["SUPPORT",325,46.4,34]],"b":[[10,66.7,88],[54,65,103],[86,63.9,102],[24,61.9,161]],"d":[[37,38.6,50],[40,40.7,34],[53,41.1,87],[33,41.9,23]]},"96":{"n":"Kog'Maw","g":7937,"w":52.8,"l":[["BOTTOM",6213,53,5],["MIDDLE",905,53.3,14],["TOP",662,52.1,19],["JUNGLE",97,44.4,null],["SUPPORT",60,50,null]],"b":[[72,64.3,8],[54,62.5,28],[21,59.4,536],[45,57.5,93]],"d":[[40,39,21],[62,40,15],[19,42.6,27],[35,44.4,16]]},"98":{"n":"Shen","g":15504,"w":47.2,"l":[["TOP",7144,48.6,48],["SUPPORT",4441,47.1,28],["JUNGLE",2300,45.1,47],["MIDDLE",823,44.4,57],["BOTTOM",796,44.2,46]],"b":[[54,54.3,177],[62,53,129],[80,52.7,506],[11,52.2,269]],"d":[[40,39.2,174],[29,39.9,118],[26,40.1,172],[4,40.6,81]]},"99":{"n":"Lux","g":17249,"w":42.6,"l":[["MIDDLE",8644,43.7,59],["SUPPORT",5596,42,49],["BOTTOM",1646,39.6,59],["TOP",1232,43,62],["JUNGLE",131,36.4,55]],"b":[[36,56.7,47],[2,55.6,16],[86,54.2,63],[1,52.6,254]],"d":[[23,32.5,143],[40,34.1,200],[67,34.6,214],[32,34.9,23]]},"103":{"n":"Ahri","g":17279,"w":51.4,"l":[["MIDDLE",14627,50.9,29],["TOP",1481,56.9,4],["BOTTOM",663,51.1,17],["SUPPORT",323,47.2,27],["JUNGLE",185,50.2,17]],"b":[[21,60.2,93],[31,59.6,116],[24,59.2,105],[86,57.9,87]],"d":[[44,38.7,42],[25,42.8,244],[53,42.9,106],[117,43.5,65]]},"117":{"n":"Lulu","g":11041,"w":50.2,"l":[["SUPPORT",7635,50.5,10],["BOTTOM",1160,48.3,30],["TOP",1123,49.9,33],["MIDDLE",982,51.2,26],["JUNGLE",141,49.7,21]],"b":[[15,62.5,44],[64,57.9,37],[99,57.9,215],[86,56.5,49]],"d":[[74,41.2,65],[29,42.4,112],[96,44,30],[53,44.8,915]]}},"r":{"1":["Annie","img/champions/icon/1.png","img/champions/splash/1.jpg"],"2":["Olaf","img/champions/icon/2.png","img/champions/splash/2.jpg"],"4":["Twisted Fate","img/champions/icon/4.png","img/champions/splash/4.jpg"],"9":["Fiddlesticks","img/champions/icon/9.png","img/champions/splash/9.jpg"],"10":["Kayle","img/champions/icon/10.png","img/champions/splash/10.jpg"],"11":["Master Yi","img/champions/icon/11.png","img/champions/splash/11.jpg"],"12":["Alistar","img/champions/icon/12.png","img/champions/splash/12.jpg"],"13":["Ryze","img/champions/icon/13.png","img/champions/splash/13.jpg"],"14":["Sion","img/champions/icon/14.png","img/champions/splash/14.jpg"],"15":["Sivir","img/champions/icon/15.png","img/champions/splash/15.jpg"],"16":["Soraka","img/champions/icon/16.png","img/champions/splash/16.jpg"],"17":["Teemo","img/champions/icon/17.png","img/champions/splash/17.jpg"],"18":["Tristana","img/champions/icon/18.png","img/champions/splash/18.jpg"],"19":["Warwick","img/champions/icon/19.png","img/champions/splash/19.jpg"],"20":["Nunu & Willump","img/champions/icon/20.png","img/champions/splash/20.jpg"],"21":["Miss Fortune","img/champions/icon/21.png","img/champions/splash/21.jpg"],"22":["Ashe","img/champions/icon/22.png","img/champions/splash/22.jpg"],"23":["Tryndamere","img/champions/icon/23.png","img/champions/splash/23.jpg"],"24":["Jax","img/champions/icon/24.png","img/champions/splash/24.jpg"],"25":["Morgana","img/champions/icon/25.png","img/champions/splash/25.jpg"],"26":["Zilean","img/champions/icon/26.png","img/champions/splash/26.jpg"],"27":["Singed","img/champions/icon/27.png","img/champions/splash/27.jpg"],"28":["Evelynn","img/champions/icon/28.png","img/champions/splash/28.jpg"],"29":["Twitch","img/champions/icon/29.png","img/champions/splash/29.jpg"],"30":["Karthus","img/champions/icon/30.png","img/champions/splash/30.jpg"],"31":["Cho'Gath","img/champions/icon/31.png","img/champions/splash/31.jpg"],"32":["Amumu","img/champions/icon/32.png","img/champions/splash/32.jpg"],"33":["Rammus","img/champions/icon/33.png","img/champions/splash/33.jpg"],"34":["Anivia","img/champions/icon/34.png","img/champions/splash/34.jpg"],"35":["Shaco","img/champions/icon/35.png","img/champions/splash/35.jpg"],"36":["Dr. Mundo","img/champions/icon/36.png","img/champions/splash/36.jpg"],"37":["Sona","img/champions/icon/37.png","img/champions/splash/37.jpg"],"38":["Kassadin","img/champions/icon/38.png","img/champions/splash/38.jpg"],"40":["Janna","img/champions/icon/40.png","img/champions/splash/40.jpg"],"41":["Gangplank","img/champions/icon/41.png","img/champions/splash/41.jpg"],"42":["Corki","img/champions/icon/42.png","img/champions/splash/42.jpg"],"44":["Taric","img/champions/icon/44.png","img/champions/splash/44.jpg"],"45":["Veigar","img/champions/icon/45.png","img/champions/splash/45.jpg"],"53":["Blitzcrank","img/champions/icon/53.png","img/champions/splash/53.jpg"],"54":["Malphite","img/champions/icon/54.png","img/champions/splash/54.jpg"],"55":["Katarina","img/champions/icon/55.png","img/champions/splash/55.jpg"],"59":["Jarvan IV","img/champions/icon/59.png","img/champions/splash/59.jpg"],"62":["Wukong","img/champions/icon/62.png","img/champions/splash/62.jpg"],"63":["Brand","img/champions/icon/63.png","img/champions/splash/63.jpg"],"64":["Lee Sin","img/champions/icon/64.png","img/champions/splash/64.jpg"],"67":["Vayne","img/champions/icon/67.png","img/champions/splash/67.jpg"],"72":["Skarner","img/champions/icon/72.png","img/champions/splash/72.jpg"],"74":["Heimerdinger","img/champions/icon/74.png","img/champions/splash/74.jpg"],"75":["Nasus","img/champions/icon/75.png","img/champions/splash/75.jpg"],"76":["Nidalee","img/champions/icon/76.png","img/champions/splash/76.jpg"],"79":["Gragas","img/champions/icon/79.png","img/champions/splash/79.jpg"],"80":["Pantheon","img/champions/icon/80.png","img/champions/splash/80.jpg"],"81":["Ezreal","img/champions/icon/81.png","img/champions/splash/81.jpg"],"84":["Akali","img/champions/icon/84.png","img/champions/splash/84.jpg"],"85":["Kennen","img/champions/icon/85.png","img/champions/splash/85.jpg"],"86":["Garen","img/champions/icon/86.png","img/champions/splash/86.jpg"],"89":["Leona","img/champions/icon/89.png","img/champions/splash/89.jpg"],"90":["Malzahar","img/champions/icon/90.png","img/champions/splash/90.jpg"],"96":["Kog'Maw","img/champions/icon/96.png","img/champions/splash/96.jpg"],"98":["Shen","img/champions/icon/98.png","img/champions/splash/98.jpg"],"99":["Lux","img/champions/icon/99.png","img/champions/splash/99.jpg"],"103":["Ahri","img/champions/icon/103.png","img/champions/splash/103.jpg"],"117":["Lulu","img/champions/icon/117.png","img/champions/splash/117.jpg"]}}</script>
+
 <script>
-  // Randje onder de kop zodra je scrolt, zodat hij loskomt van de hero.
+(() => {
+  "use strict";
+
+  const LANE_LABEL = { TOP: "Top", JUNGLE: "Jungle", MIDDLE: "Mid", BOTTOM: "Bot", SUPPORT: "Support" };
+  const data = JSON.parse(document.getElementById("champ-data").textContent);
+
+  const num = (v) => Number(v).toLocaleString("en-US");
+  const pct = (v) => Number(v).toFixed(1);
+  const barW = (wr) => Math.max(2, Math.min(100, ((wr - 50) / 12) * 100));
+  const wrClass = (wr) => (wr >= 54 ? "wr-hi" : wr >= 50 ? "wr-ok" : wr >= 46 ? "wr-lo" : "wr-bad");
+
+  /* ── Randje onder de kop zodra je scrolt ── */
   const bar = document.getElementById("top-bar");
   const onScroll = () => bar.classList.toggle("stuck", window.scrollY > 8);
   onScroll();
   addEventListener("scroll", onScroll, { passive: true });
 
-  // Eén opbouw: elk blok komt omhoog zodra het in beeld schuift.
-  const risers = document.querySelectorAll(".rise");
-  const showAll = () => risers.forEach((el) => el.classList.add("in"));
+  /* ── Lane-tabs ── */
+  const tabs = [...document.querySelectorAll(".lane-tabs button")];
+  const panes = [...document.querySelectorAll(".tier-pane")];
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      tabs.forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
+      panes.forEach((p) => p.classList.toggle("is-open", p.id === "lane-" + tab.dataset.lane));
+    });
+  });
+
+  /* ── Champion-verkenner ── */
+  const el = (id) => document.getElementById(id);
+  const buttons = [...document.querySelectorAll(".portrait")];
+
+  function matchupRow(entry, dir) {
+    const [id, wr, games] = entry;
+    const r = data.r[id];
+    if (!r) return "";
+    const li = document.createElement("li");
+    li.innerHTML =
+      '<img src="' + r[1] + '" alt="" width="128" height="128" loading="lazy" />' +
+      '<span class="m-name"></span>' +
+      '<span class="m-games">' + num(games) + "g</span>" +
+      '<span class="m-wr ' + (dir === "up" ? "wr-hi" : "wr-bad") + '">' + pct(wr) + "<small>%</small></span>";
+    li.querySelector(".m-name").textContent = r[0];
+    return li.outerHTML;
+  }
+
+  function show(id) {
+    const c = data.c[id];
+    const r = data.r[id];
+    if (!c || !r) return;
+
+    el("detail-name").textContent = r[0];
+    el("detail-icon").src = r[1];
+    el("detail-splash").src = r[2];
+    el("detail-sub").innerHTML =
+      c.g ? num(c.g) + " games &middot; " + pct(c.w) + "% overall" : "&nbsp;";
+
+    el("detail-lane-rows").innerHTML = c.l.length
+      ? c.l
+          .map(([lane, games, wr, rank]) =>
+            "<tr><th scope=\"row\">" + (LANE_LABEL[lane] || lane) + "</th>" +
+            '<td class="c-rank">' + (rank ? "#" + rank : "&mdash;") + "</td>" +
+            '<td class="c-bar"><span style="width:' + barW(wr).toFixed(1) + '%"></span></td>' +
+            '<td class="c-wr ' + wrClass(wr) + '">' + pct(wr) + "<small>%</small></td>" +
+            '<td class="c-games">' + num(games) + "</td></tr>",
+          )
+          .join("")
+      : '<tr><td colspan="5" class="c-empty">No lane data yet.</td></tr>';
+
+    const none = '<li class="c-empty">Not enough games.</li>';
+    el("detail-beats").innerHTML = c.b.map((m) => matchupRow(m, "up")).join("") || none;
+    el("detail-loses").innerHTML = c.d.map((m) => matchupRow(m, "down")).join("") || none;
+
+    buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.champ === String(id))));
+  }
+
+  buttons.forEach((b) => b.addEventListener("click", () => show(b.dataset.champ)));
+  const seed = el("detail")?.dataset.seed;
+  if (seed) buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.champ === seed)));
+
+  /* ── Opbouw ── */
+  const risers = [...document.querySelectorAll(".rise")];
+  const showAll = () => risers.forEach((r) => r.classList.add("in"));
 
   if (!document.documentElement.classList.contains("reveal")) {
-    // Nooit verborgen, dus ook niets te onthullen.
+    // Nooit verborgen, dus niets te onthullen.
   } else if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
     showAll();
   } else {
     const io = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          const delay = Number(entry.target.dataset.delay || 0);
-          setTimeout(() => entry.target.classList.add("in"), delay);
-          io.unobserve(entry.target);
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          e.target.classList.add("in");
+          io.unobserve(e.target);
         }
       },
-      { rootMargin: "0px 0px -12% 0px", threshold: 0.08 },
+      { rootMargin: "0px 0px -10% 0px", threshold: 0.05 },
     );
-    risers.forEach((el) => io.observe(el));
-
-    // Vangnet. Een animatie die niet afgaat mag nooit betekenen dat de tekst
-    // wegblijft, dus na drie seconden gaat alles hoe dan ook aan.
+    risers.forEach((r) => io.observe(r));
+    // Vangnet: een animatie die niet afgaat mag nooit de tekst kosten.
     setTimeout(showAll, 3000);
   }
+})();
 </script>
 
 </body>
