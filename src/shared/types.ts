@@ -206,6 +206,8 @@ export interface AppSnapshot {
   recentGames: RecentGameSummary[];
   database: DatabaseStatus;
   settings: Settings;
+  /** Stand van het delen met de gedeelde server. */
+  upload: UploadStatus;
   /** Laatste melding van de automatische mastery-setter. */
   autoMasteryStatus: string | null;
 }
@@ -253,8 +255,45 @@ export interface ChampionDetail {
   weakAgainst: MatchupEntry[];
 }
 
+/**
+ * De instellingen zoals de interface ze kent.
+ *
+ * Spiegelt bewust alleen de publieke helft van `StoredSettings` in
+ * core/services/settings.ts: de uploadsleutel hoort in het main-proces te
+ * blijven en staat daarom niet in deze vorm. Zie daar waarom.
+ */
 export interface Settings {
   autoMasteries: boolean;
+  shareMatches: boolean;
+  uploadServer: string;
+}
+
+/**
+ * Wat er van het delen te zien is.
+ *
+ * Alles wat hier in staat is er omdat een gebruiker het hoort te kunnen
+ * controleren: staat het aan, waar gaat het heen, wanneer is er voor het laatst
+ * iets verstuurd, hoeveel, en wat ging er mis. Een upload die alleen in een
+ * logbestand zichtbaar is telt niet als zichtbaar.
+ */
+export interface UploadStatus {
+  enabled: boolean;
+  /** Het adres waar de games heen gaan; leeg betekent nergens heen. */
+  server: string;
+  /** Nu bezig met versturen. */
+  busy: boolean;
+  /** Einde van de laatste poging, ms sinds epoch. Null als er nog geen was. */
+  lastRunAt: number | null;
+  /** Games die de server aantoonbaar heeft gekregen vanuit deze installatie. */
+  shared: number;
+  /** Games die nog aangeboden moeten worden. */
+  pending: number;
+  /** Wat de laatste ronde nieuw op de server zette. */
+  lastUploaded: number;
+  /** Totaal aantal games op de server, voor zover die het meldde. */
+  serverTotal: number | null;
+  /** Laatste foutmelding; null als de laatste ronde goed ging. */
+  error: string | null;
 }
 
 export interface ApplyResult {

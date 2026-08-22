@@ -87,6 +87,17 @@ export class MatchUploader {
     private readonly store: MatchStore,
   ) {}
 
+  /**
+   * Hoeveel games er aantoonbaar op de server staan.
+   *
+   * Alleen om te tonen. Dit is dezelfde afvinklijst die `sync()` bijhoudt, en
+   * die groeit uitsluitend als de server bevestigd heeft -- dus dit getal liegt
+   * niet over wat er gedeeld is.
+   */
+  get confirmedCount(): number {
+    return this.uploaded.size;
+  }
+
   async loadState(path: string): Promise<void> {
     this.statePath = path;
     if (!existsSync(path)) return;

@@ -147,6 +147,12 @@ function registerIpc(): void {
   ipcMain.handle("settings:update", (_event, patch: Record<string, unknown>) =>
     service?.updateSettings(patch as never),
   );
+  // Handmatig delen. Geeft de momentopname terug zodat de knop meteen de nieuwe
+  // stand toont, ook als het misging -- juist dan.
+  ipcMain.handle("upload:now", async () => {
+    await service?.uploadNow();
+    return service?.getSnapshot();
+  });
   ipcMain.handle("masteries:auto", (_event, championId: number | null) =>
     service?.autoApplyMasteries(championId),
   );

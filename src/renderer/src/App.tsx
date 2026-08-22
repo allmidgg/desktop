@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import type { AppSnapshot } from "../../shared/types";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import type { AppSnapshot, UploadStatus } from "../../shared/types";
 import { LiveView } from "./views/LiveView";
 import { ProfileView } from "./views/ProfileView";
 import { RunesView } from "./views/RunesView";
@@ -143,6 +144,7 @@ function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
             {database.matches.toLocaleString("en-US")} games{database.crawling ? " · syncing" : ""}
           </span>
         ) : null}
+        {snapshot ? <SharingBadge upload={snapshot.upload} /> : null}
         <div className="flex items-center gap-2 text-[11px] text-ink-500">
           <span
             className={`h-1.5 w-1.5 rounded-full ${
@@ -159,6 +161,180 @@ function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
       </div>
     </header>
   );
+}
+
+/**
+ * The sharing indicator, and the switch behind it.
+ *
+ * It sits in the title bar of every screen on purpose. The app sends match data
+ * to a shared server, and the one thing people rightly hate about software like
+ * this is that it does so quietly. So the state is always on screen — on or off,
+ * how much has gone out, when it last ran, and what went wrong if anything did.
+ *
+ * The details, including the off switch, are one click away rather than always
+ * expanded: permanently visible, never in the way.
+ */
+function SharingBadge({ upload }: { upload: UploadStatus }): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+
+  // Clicking anywhere else closes it, the way a menu is expected to behave.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: MouseEvent): void => {
+      if (!box.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  async function toggle(): Promise<void> {
+    setBusy(true);
+    await window.jade.updateSettings({ shareMatches: !upload.enabled });
+    setBusy(false);
+  }
+
+  async function shareNow(): Promise<void> {
+    setBusy(true);
+    await window.jade.uploadNow();
+    setBusy(false);
+  }
+
+  const failing = Boolean(upload.error) && upload.enabled;
+  const dot = !upload.enabled
+    ? "bg-ink-700"
+    : upload.busy
+      ? "animate-pulse-ring bg-gold-400"
+      : failing
+        ? "bg-loss-500"
+        : "bg-jade-500";
+
+  return (
+    <div className="no-drag relative" ref={box}>
+      <button
+        onClick={() => setOpen(!open)}
+        title="Match data sharing"
+        className={`flex items-center gap-2 rounded-lg px-2 py-1 text-[11px] transition-colors ${
+          open ? "bg-white/8 text-ink-100" : "text-ink-500 hover:bg-white/5 hover:text-ink-300"
+        }`}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+        <span>
+          {!upload.enabled
+            ? "not sharing"
+            : upload.busy
+              ? "sharing..."
+              : failing
+                ? "sharing paused"
+                : "sharing"}
+        </span>
+        {upload.enabled && upload.shared > 0 ? (
+          <span className="num text-ink-700">{upload.shared.toLocaleString("en-US")}</span>
+        ) : null}
+      </button>
+
+      {open ? (
+        <div className="panel absolute top-[calc(100%+8px)] right-0 z-30 w-[340px] p-4 text-left">
+          <label
+            className={`flex cursor-pointer items-start gap-2.5 ${busy ? "opacity-60" : ""}`}
+          >
+            <input
+              type="checkbox"
+              checked={upload.enabled}
+              onChange={() => void toggle()}
+              disabled={busy}
+              className="mt-0.5 h-3.5 w-3.5 accent-gold-400"
+            />
+            <span>
+              <span className="text-[12px] font-medium text-ink-100">Share collected matches</span>
+              <span className="mt-1 block text-[11px] leading-relaxed text-ink-500">
+                Games the crawler finds are sent to the shared pool, so everyone&rsquo;s stats get
+                better. Only match results — the same ones all ten players see after the game.
+              </span>
+            </span>
+          </label>
+
+          <dl className="mt-3.5 space-y-1.5 border-t border-line pt-3 text-[11px]">
+            <Row label="Shared so far">
+              <span className="num">{upload.shared.toLocaleString("en-US")} games</span>
+            </Row>
+            <Row label="Waiting to go out">
+              <span className="num">{upload.pending.toLocaleString("en-US")} games</span>
+            </Row>
+            <Row label="Last run">
+              {upload.busy ? (
+                <span className="text-gold-300">right now</span>
+              ) : (
+                <span>{relativeTime(upload.lastRunAt)}</span>
+              )}
+            </Row>
+            {upload.lastUploaded > 0 ? (
+              <Row label="Added last run">
+                <span className="num text-jade-400">
+                  +{upload.lastUploaded.toLocaleString("en-US")}
+                </span>
+              </Row>
+            ) : null}
+            {upload.serverTotal !== null ? (
+              <Row label="Pool size">
+                <span className="num">{upload.serverTotal.toLocaleString("en-US")} games</span>
+              </Row>
+            ) : null}
+            <Row label="Server">
+              <span className="truncate text-ink-300" title={upload.server || "not set"}>
+                {upload.server || "not set"}
+              </span>
+            </Row>
+          </dl>
+
+          {/* A server that is down is not an error the user has to act on: nothing
+              is lost, it simply goes out later. So it reads as a note, not an alarm. */}
+          {upload.error && upload.enabled ? (
+            <p className="mt-3 rounded-lg border border-loss-500/30 bg-loss-500/8 px-2.5 py-2 text-[11px] leading-relaxed text-loss-400">
+              {upload.error} Nothing is lost — it will be offered again automatically.
+            </p>
+          ) : null}
+
+          {upload.enabled ? (
+            <button
+              onClick={() => void shareNow()}
+              disabled={busy || upload.busy}
+              className="mt-3 w-full rounded-lg border border-white/10 py-1.5 text-[11px] font-medium text-ink-300 transition-colors hover:border-white/20 hover:text-ink-100 disabled:opacity-50"
+            >
+              {upload.busy ? "Sharing..." : "Share now"}
+            </button>
+          ) : (
+            <p className="mt-3 text-[11px] leading-relaxed text-ink-700">
+              Off — nothing leaves your machine. The stats you see stay whatever your own crawler
+              collected.
+            </p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Row({ label, children }: { label: string; children: ReactNode }): JSX.Element {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="shrink-0 text-ink-700">{label}</dt>
+      <dd className="min-w-0 text-right text-ink-300">{children}</dd>
+    </div>
+  );
+}
+
+/** Short, human times: "4 min ago" says more here than a timestamp. */
+function relativeTime(at: number | null): string {
+  if (at === null) return "not yet";
+  const seconds = Math.max(0, Math.round((Date.now() - at) / 1000));
+  if (seconds < 45) return "just now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  return new Date(at).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
 function WindowButton({

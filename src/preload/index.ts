@@ -29,6 +29,7 @@ const api = {
     ipcRenderer.invoke("masteries:auto", championId),
   updateSettings: (patch: Partial<Settings>): Promise<Settings> =>
     ipcRenderer.invoke("settings:update", patch),
+  uploadNow: (): Promise<AppSnapshot> => ipcRenderer.invoke("upload:now"),
   lookupPlayer: (riotId: string): Promise<PlayerProfile | null> =>
     ipcRenderer.invoke("player:lookup", riotId),
   getTierList: (position: Position, minGames?: number): Promise<TierEntry[]> =>

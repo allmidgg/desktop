@@ -31,15 +31,50 @@ import {
 import { MatchStore, defaultStorePath, type Position } from "../core/services/matchStore";
 import { MatchCrawler } from "../core/services/crawler";
 import { JadeStats, likelyPosition, MIN_MATCHUP_GAMES, type ChampionStat } from "../core/services/stats";
-import { SettingsStore, defaultSettingsPath, type Settings } from "../core/services/settings";
+import {
+  SettingsStore, defaultSettingsPath, publicSettings, DEFAULT_SETTINGS, type Settings,
+} from "../core/services/settings";
+import { MatchUploader, defaultUploadStatePath } from "../core/services/uploader";
 import type {
   AppSnapshot, ApplyResult, ChampSelectSnapshot, ChampionSummary, GameflowPhase, LaneAnalysis,
   ChampionDetail, ChampionPlan, ItemEntry, MasteryTreeInfo, MatchupEntry, RecentGameSummary,
-  RuneInfo, RunePlanSummary, ScoutEntry, TierEntry,
+  RuneInfo, RunePlanSummary, ScoutEntry, TierEntry, UploadStatus,
 } from "../shared/types";
 
 const RECONNECT_DELAY_MS = 3_000;
 const LANES: Position[] = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "SUPPORT"];
+
+/**
+ * Wanneer we delen.
+ *
+ * Het natuurlijke moment is het einde van een crawlronde: dat is precies waar
+ * nieuwe games vandaan komen, dus dan is er ook echt iets te sturen. Alleen
+ * daarop wachten is te weinig -- een gebruiker die de app open laat staan zonder
+ * te spelen crawlt niet -- dus tikt er daarnaast een timer mee die hetzelfde
+ * doet.
+ *
+ * Zonder rem zou dat de server platleggen: crawlrondes starten bij elke overgang
+ * naar EndOfGame of None, en tien minuten lobbyen levert er zo een handvol op.
+ * Vandaar de ondergrens: hoe vaak er ook een aanleiding is, er gaat hooguit eens
+ * per kwartier verkeer uit. Dat kost weinig, want de uploader vraagt eerst welke
+ * game-ID's de server mist -- is er niets nieuws, dan is een ronde één lijstje
+ * nummers.
+ *
+ * De vertraging bij het opstarten houdt de eerste minuut vrij voor waar de
+ * gebruiker op wacht: verbinden, catalogi laden, zijn eigen profiel.
+ */
+const UPLOAD_TICK_MS = 5 * 60_000;
+const UPLOAD_MIN_INTERVAL_MS = 15 * 60_000;
+const UPLOAD_START_DELAY_MS = 60_000;
+
+/**
+ * Fases waarin we niets versturen. Zelfde redenering als bij de crawler: als jij
+ * in champ select of in een game zit, hoort deze app geen bandbreedte en geen
+ * aandacht op te eisen. Wat blijft liggen gaat gewoon in de volgende ronde mee.
+ */
+const UPLOAD_BUSY_PHASES: GameflowPhase[] = [
+  "ReadyCheck", "ChampSelect", "GameStart", "InProgress", "Reconnect",
+];
 
 /** De client noemt de support-positie "utility"; wij houden het bij SUPPORT. */
 function normalizePosition(assigned: string | undefined): Position | null {
@@ -84,13 +119,39 @@ export class JadeService extends EventEmitter {
   /** Voorkomt dat losse gebeurtenissen tegelijk een herverbinding starten. */
   private starting = false;
 
+  /**
+   * De uploader wordt pas gemaakt als er echt gedeeld gaat worden, en opnieuw
+   * gemaakt zodra het adres of de sleutel verandert -- die zitten vast in het
+   * object. De handtekening onthoudt waarvoor de huidige gemaakt is.
+   */
+  private uploader: MatchUploader | null = null;
+  private uploaderSignature = "";
+  private uploading = false;
+  private uploadTimer: NodeJS.Timeout | null = null;
+  private uploadStartTimer: NodeJS.Timeout | null = null;
+  /** Begin van de laatste poging; de ondergrens tussen rondes rekent hiermee. */
+  private lastUploadAt = 0;
+  /**
+   * Wat er van de laatste ronde te melden valt. `at` blijft null zolang er niet
+   * echt verkeer geweest is: een tik die overgeslagen wordt mag niet als "zojuist
+   * gedeeld" in beeld komen, want dan zegt de teller iets anders dan er gebeurde.
+   */
+  private lastUpload: {
+    at: number | null;
+    uploaded: number;
+    serverTotal: number | null;
+    error: string | null;
+  } | null = null;
+
   private readonly backupDir: string;
+  private readonly uploadStatePath: string;
 
   constructor(dataRoot: string) {
     super();
     this.store = new MatchStore(defaultStorePath(dataRoot));
     this.settings = new SettingsStore(defaultSettingsPath(dataRoot));
     this.backupDir = join(dataRoot, "data", "backups");
+    this.uploadStatePath = defaultUploadStatePath(dataRoot);
   }
 
   private snapshot: AppSnapshot = {
@@ -107,7 +168,18 @@ export class JadeService extends EventEmitter {
     runePages: [],
     recentGames: [],
     database: { matches: 0, players: 0, usableMatchups: 0, crawling: false },
-    settings: { autoMasteries: false },
+    settings: publicSettings(DEFAULT_SETTINGS),
+    upload: {
+      enabled: DEFAULT_SETTINGS.shareMatches,
+      server: DEFAULT_SETTINGS.uploadServer,
+      busy: false,
+      lastRunAt: null,
+      shared: 0,
+      pending: 0,
+      lastUploaded: 0,
+      serverTotal: null,
+      error: null,
+    },
     autoMasteryStatus: null,
   };
 
@@ -125,10 +197,12 @@ export class JadeService extends EventEmitter {
     if (this.starting) return;
     this.starting = true;
     try {
-      this.update({ settings: await this.settings.load() });
+      await this.settings.load();
+      this.update({ settings: this.settings.shared });
       await this.store.load();
       this.stats = JadeStats.from(this.store.all());
       this.publishDatabaseStatus();
+      this.startUploadSchedule();
 
       this.client = await LcuClient.connect();
       await this.onConnected();
@@ -205,6 +279,10 @@ export class JadeService extends EventEmitter {
     await this.crawler.run(playersPerRun);
     this.stats = JadeStats.from(this.store.all());
     this.publishDatabaseStatus();
+    // Net binnengekomen games zijn de enige reden dat er iets te delen is, dus
+    // dit is het moment om het aan te bieden. De ondergrens in syncUploads()
+    // zorgt dat een reeks korte rondes niet een reeks uploads wordt.
+    void this.syncUploads().catch(reportBackgroundError);
   }
 
   private publishDatabaseStatus(): void {
@@ -216,6 +294,156 @@ export class JadeService extends EventEmitter {
         crawling: this.crawler?.isRunning ?? false,
       },
     });
+  }
+
+  /**
+   * Zet de klok neer die het delen op gang houdt.
+   *
+   * Eén keer, ook als start() na een herverbinding opnieuw langskomt: anders
+   * krijg je bij elke herstart van de client een timer erbij en gaat de frequentie
+   * ongemerkt omhoog.
+   */
+  private startUploadSchedule(): void {
+    this.publishUploadStatus();
+    // De afvinklijst meteen inlezen, anders meldt de teller "0 gedeeld" tot de
+    // eerste ronde langskomt -- en dat is een leugen tegen iemand die juist
+    // controleert wat er al weg is. Kost alleen een bestand van schijf.
+    if (this.settings.value.shareMatches) {
+      void this.ensureUploader()
+        .then(() => this.publishUploadStatus())
+        .catch(reportBackgroundError);
+    }
+    if (this.uploadTimer) return;
+
+    this.uploadStartTimer = setTimeout(() => {
+      void this.syncUploads().catch(reportBackgroundError);
+    }, UPLOAD_START_DELAY_MS);
+    this.uploadTimer = setInterval(() => {
+      void this.syncUploads().catch(reportBackgroundError);
+    }, UPLOAD_TICK_MS);
+
+    // Deze twee mogen het proces nooit in leven houden; het venster bepaalt of
+    // de app draait, niet onze klok.
+    this.uploadStartTimer.unref?.();
+    this.uploadTimer.unref?.();
+  }
+
+  /** Zet de laatst bekende stand van het delen in de momentopname. */
+  private publishUploadStatus(): void {
+    const settings = this.settings.value;
+    const shared = this.uploader?.confirmedCount ?? 0;
+    this.update({
+      upload: {
+        enabled: settings.shareMatches,
+        server: this.serverUrl(),
+        busy: this.uploading,
+        lastRunAt: this.lastUpload?.at ?? null,
+        shared,
+        pending: Math.max(0, this.store.size - shared),
+        lastUploaded: this.lastUpload?.uploaded ?? 0,
+        serverTotal: this.lastUpload?.serverTotal ?? null,
+        error: this.lastUpload?.error ?? null,
+      },
+    });
+  }
+
+  /**
+   * Het adres waar we heen sturen. De omgevingsvariabele wint van het bestand,
+   * zodat je een testserver kunt aanwijzen zonder de instellingen van de
+   * gebruiker te overschrijven.
+   */
+  private serverUrl(): string {
+    return (process.env.ALLMID_SERVER ?? this.settings.value.uploadServer).trim();
+  }
+
+  /**
+   * De uploader voor het huidige adres en de huidige sleutel.
+   *
+   * Hij houdt zelf bij wat er al verstuurd is, dus we hergebruiken hem zolang
+   * die twee niet wijzigen. Verandert er één, dan is de oude afvinklijst niet
+   * meer waar -- een andere server heeft onze games niet -- en beginnen we met
+   * een nieuwe uploader die zijn staat opnieuw inleest.
+   */
+  private async ensureUploader(): Promise<MatchUploader | null> {
+    const server = this.serverUrl();
+    if (!server) return null;
+
+    const key = process.env.ALLMID_KEY ?? this.settings.value.uploadKey;
+    const signature = JSON.stringify([server, key]);
+    if (this.uploader && this.uploaderSignature === signature) return this.uploader;
+
+    const uploader = new MatchUploader(server, key, this.store);
+    await uploader.loadState(this.uploadStatePath);
+    this.uploader = uploader;
+    this.uploaderSignature = signature;
+    return uploader;
+  }
+
+  /**
+   * Biedt de verzamelde games aan bij de gedeelde server.
+   *
+   * `force` overslaat alleen de wachttijd tussen rondes, niet de fasecontrole:
+   * ook wie zelf op de knop drukt wil niet dat er midden in champ select verkeer
+   * uitgaat. Dat het wacht is dan wél te zien, want het staat in de momentopname.
+   *
+   * Deze functie gooit nooit. Een server die plat ligt is een normale toestand
+   * voor een app die naast een game draait: het verzamelen gaat door, de melding
+   * komt in beeld, en de volgende ronde probeert het opnieuw met precies dezelfde
+   * wachtrij -- MatchUploader vinkt immers alleen af wat bevestigd is.
+   */
+  async syncUploads(force = false): Promise<void> {
+    if (!this.settings.value.shareMatches || this.uploading) return;
+
+    if (UPLOAD_BUSY_PHASES.includes(this.snapshot.phase)) {
+      this.lastUpload = {
+        ...(this.lastUpload ?? { at: null, uploaded: 0, serverTotal: null }),
+        error: "Paused while you are in a game — it goes out afterwards.",
+      };
+      this.publishUploadStatus();
+      return;
+    }
+    if (!force && Date.now() - this.lastUploadAt < UPLOAD_MIN_INTERVAL_MS) return;
+
+    const uploader = await this.ensureUploader();
+    if (!uploader) {
+      this.lastUpload = {
+        ...(this.lastUpload ?? { at: null, uploaded: 0, serverTotal: null }),
+        error: "No server address set, so nothing is being shared.",
+      };
+      this.publishUploadStatus();
+      return;
+    }
+
+    this.lastUploadAt = Date.now();
+    this.uploading = true;
+    this.publishUploadStatus();
+    try {
+      const result = await uploader.sync();
+      this.lastUpload = {
+        at: Date.now(),
+        uploaded: result.uploaded,
+        serverTotal: result.serverTotal,
+        error: result.error ? `Could not reach the server (${result.error}).` : null,
+      };
+    } catch (err) {
+      // sync() vangt zijn eigen fouten af, dus hier komt alleen het onverwachte
+      // terecht -- een kapotte staatsmap bijvoorbeeld. Ook dat mag de app niet
+      // meeslepen.
+      this.lastUpload = {
+        at: Date.now(),
+        uploaded: 0,
+        serverTotal: this.lastUpload?.serverTotal ?? null,
+        error: `Sharing failed (${(err as Error).message}).`,
+      };
+    } finally {
+      this.uploading = false;
+      this.publishUploadStatus();
+    }
+  }
+
+  /** Handmatig delen vanuit de UI; slaat de wachttijd over, de rest niet. */
+  async uploadNow(): Promise<void> {
+    await this.syncUploads(true);
   }
 
   private listen(): void {
@@ -674,8 +902,13 @@ export class JadeService extends EventEmitter {
     };
   }
 
+  /**
+   * Neemt alleen `Settings` aan, niet `StoredSettings`: de uploadsleutel komt uit
+   * settings.json of uit de omgeving, nooit uit een venster.
+   */
   async updateSettings(patch: Partial<Settings>): Promise<Settings> {
-    const next = await this.settings.update(patch);
+    await this.settings.update(patch);
+    const next = this.settings.shared;
     this.update({ settings: next });
     // Meteen toepassen als het net aangezet wordt terwijl je al gepickt hebt.
     if (patch.autoMasteries) {
@@ -685,6 +918,14 @@ export class JadeService extends EventEmitter {
         void this.syncAutoMasteries(select.localChampionId, select.localPlan?.position ?? null)
           .catch(reportBackgroundError);
       }
+    }
+    // Wie de schakelaar omzet wil zien dat er iets gebeurt, niet een kwartier
+    // wachten op de volgende ronde. Bij uitzetten is de stand meteen goed.
+    if (patch.shareMatches === true || (patch.uploadServer !== undefined && next.shareMatches)) {
+      this.lastUpload = null;
+      void this.syncUploads(true).catch(reportBackgroundError);
+    } else {
+      this.publishUploadStatus();
     }
     return next;
   }
@@ -779,6 +1020,10 @@ export class JadeService extends EventEmitter {
     this.crawler?.stop();
     this.stopChampSelect?.();
     this.stream?.close();
+    if (this.uploadTimer) clearInterval(this.uploadTimer);
+    if (this.uploadStartTimer) clearTimeout(this.uploadStartTimer);
+    this.uploadTimer = null;
+    this.uploadStartTimer = null;
   }
 }
 
