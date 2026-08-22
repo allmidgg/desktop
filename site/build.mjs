@@ -301,6 +301,19 @@ function detailPanel() {
     })
     .join("");
 
+  /**
+   * "Not enough games" is niet hetzelfde als "wint van niemand".
+   *
+   * Tryndamere staat op 58% in top en verliest van geen enkele tegenstander die
+   * hij regelmatig tegenkomt -- 19 stuks halen de eis, alle 19 boven de 50%. Daar
+   * "Not enough games" onder zetten is gewoon onwaar: er zijn 12.372 games. Alleen
+   * als er aan BEIDE kanten niets staat is er echt te weinig.
+   */
+  const leegTekst = (dezeKant, andereKant) =>
+    `<li class="c-empty">${
+      andereKant.length ? `No ${dezeKant} matchup in this lane.` : "Not enough games."
+    }</li>`;
+
   const matchup = (m, dir) => `
       <li>
         <img src="${iconOf(m.baseId)}" alt="" width="128" height="128" loading="lazy" />
@@ -344,12 +357,13 @@ function detailPanel() {
         </div>
         <div>
           <p class="block-label">Wins into</p>
-          <ul class="matchups" id="detail-beats">${beats.map((m) => matchup(m, "up")).join("") || `<li class="c-empty">Not enough games.</li>`}</ul>
+          <ul class="matchups" id="detail-beats">${beats.map((m) => matchup(m, "up")).join("") || leegTekst("winning", loses)}</ul>
         </div>
         <div>
           <p class="block-label">Loses to</p>
-          <ul class="matchups" id="detail-loses">${loses.map((m) => matchup(m, "down")).join("") || `<li class="c-empty">Not enough games.</li>`}</ul>
+          <ul class="matchups" id="detail-loses">${loses.map((m) => matchup(m, "down")).join("") || leegTekst("losing", beats)}</ul>
         </div>
+        <p class="mu-note">Opponents holding at least 1% of this lane, so these are picks you actually run into.</p>
       </div>
     </div>`;
 }
@@ -1060,6 +1074,7 @@ nav.links a:hover { color: var(--ink); }
 .mu-kop .block-label { margin: 0; }
 .mu-schakel { margin-left: 0; }
 .mu-schakel button { padding: 0.26rem 0.5rem; font-size: 0.62rem; }
+.mu-note { margin: 0; font-size: 0.7rem; line-height: 1.45; color: var(--dim); }
 
 /* border-collapse zodat de rand om de meest gespeelde lane een rechthoek is en
    geen losse stukjes per cel. De binnenmarge staat op alle regels, ook zonder
@@ -1863,9 +1878,16 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     const perLane = c.m ? c.m[huidigeLane] : null;
     const overall = matchupBron === "overall" || !perLane;
     const bron = overall ? { b: c.b, d: c.d } : perLane;
-    const leeg = '<li class="c-empty">Not enough games.</li>';
-    el("detail-beats").innerHTML = (bron.b || []).map((m) => matchupRow(m, "up")).join("") || leeg;
-    el("detail-loses").innerHTML = (bron.d || []).map((m) => matchupRow(m, "down")).join("") || leeg;
+    // Zie leegTekst() in detailPanel: aan een kant niets betekent dat die kant er
+    // niet is, niet dat er te weinig data is. Alleen als het aan beide kanten
+    // leeg blijft, is er echt te weinig.
+    const wint = bron.b || [], verliest = bron.d || [];
+    const leeg = (dezeKant, andereKant) =>
+      '<li class="c-empty">' +
+      (andereKant.length ? "No " + dezeKant + " matchup in this lane." : "Not enough games.") +
+      "</li>";
+    el("detail-beats").innerHTML = wint.map((m) => matchupRow(m, "up")).join("") || leeg("winning", verliest);
+    el("detail-loses").innerHTML = verliest.map((m) => matchupRow(m, "down")).join("") || leeg("losing", wint);
     for (const btn of document.querySelectorAll("#mu-schakel button[data-mu]")) {
       btn.setAttribute("aria-selected", String(btn.dataset.mu === (overall ? "overall" : "lane")));
     }
