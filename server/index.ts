@@ -189,8 +189,29 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
   if (rateLimited(ip)) return send(res, 429, { error: "te veel verzoeken" });
 
-  // Alles behalve health vereist de sleutel.
-  if (API_KEY && req.headers["x-allmid-key"] !== API_KEY) {
+  /**
+   * Uploaden mag ZONDER sleutel.
+   *
+   * Eerder gold de sleutel voor alles behalve /health. Dat werkte niet: de app
+   * van een gebruiker heeft die sleutel niet, dus die kreeg een 401 op elke
+   * upload -- terwijl het hele idee is dat iedereen die AllMid draait meebouwt
+   * aan de database. En een sleutel die je in tienduizend installaties zet is
+   * geen sleutel meer; die peutert iemand binnen een minuut uit de .exe.
+   *
+   * Wat uploads afschermt is dus niet een geheim maar de controle zelf:
+   * isValidMatch() weigert alles wat er niet uitziet als een echte Classic-game,
+   * de ontdubbeling op gameId maakt herhaald opsturen zinloos, en RATE_LIMIT
+   * begrenst hoeveel een IP per minuut mag.
+   *
+   * De sleutel blijft voor wat wel afgeschermd hoort: de opgetelde statistiek.
+   * Die is duur om te berekenen en hoeft niet door vreemden opgevraagd te
+   * kunnen worden.
+   */
+  const openbaar =
+    req.method === "POST" &&
+    (url.pathname === "/api/v1/matches" || url.pathname === "/api/v1/matches/known");
+
+  if (!openbaar && API_KEY && req.headers["x-allmid-key"] !== API_KEY) {
     return send(res, 401, { error: "ongeldige sleutel" });
   }
 
