@@ -31,24 +31,32 @@
    ─────────────────────────────────────────────────────────────────────────── */
 
 :root {
-  --ground:   #06080c;
-  --surface:  #0d1117;
-  --raised:   #131a23;
-  --line:     #1c242f;
-  --line-lit: #2a3644;
+  --ground:   #070810;
+  --surface:  #11141f;
+  --raised:   #161a27;
+  --raised-2: #1c2130;
+  --line:     #232838;
+  --line-lit: #2f3648;
 
-  --ink:   #e9eef4;
-  --muted: #7d8b9c;
-  --dim:   #55616f;
+  --ink:   #e9edf7;
+  --muted: #9aa4bd;
+  --dim:   #6d768f;
 
-  --jade:     #2fd696;
-  --jade-dim: #1a8f63;
-  --gold:     #c9a05a;
+  /* Goud is de identiteit. De winratekleuren staan daar bewust los van: groen
+     en rood betekenen iets, goud betekent niets. Haal je die door elkaar, dan
+     lees je in een tabel niet meer of een kleur een waarde of een merk is. */
+  --gold:     #e7c76e;
+  --gold-lit: #f4e0a6;
+  --gold-dim: #9a7f38;
 
-  --wr-hi:  #2fd696;
+  --wr-hi:  #3ad9a4;
   --wr-ok:  #8fc98a;
-  --wr-lo:  #d5a95e;
-  --wr-bad: #d9556b;
+  --wr-lo:  #ffb454;
+  --wr-bad: #ff5f72;
+
+  --radius:   14px;
+  --radius-s: 9px;
+  --shadow:   0 18px 50px -18px rgba(0, 0, 0, 0.85);
 
   --display: "Archivo", "Segoe UI", system-ui, sans-serif;
   --body:    "Public Sans", "Segoe UI", system-ui, sans-serif;
@@ -87,7 +95,7 @@ a { color: inherit; }
 img { max-width: 100%; display: block; }
 table { border-collapse: collapse; width: 100%; }
 
-:focus-visible { outline: 2px solid var(--jade); outline-offset: 3px; border-radius: 2px; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 2px; }
 
 .wrap { width: 100%; max-width: var(--max); margin-inline: auto; padding-inline: var(--gutter); }
 .mono { font-family: var(--mono); }
@@ -97,7 +105,7 @@ table { border-collapse: collapse; width: 100%; }
   font-size: 0.7rem;
   letter-spacing: 0.17em;
   text-transform: uppercase;
-  color: var(--jade);
+  color: var(--gold);
   margin: 0 0 1.1rem;
 }
 
@@ -129,9 +137,9 @@ header .wrap { display: flex; align-items: center; gap: 2rem; min-height: 66px; 
 }
 .brand .mark { width: 22px; height: 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; flex: none; }
 .brand .mark i { background: var(--line-lit); border-radius: 1px; }
-.brand .mark i:nth-child(2), .brand .mark i:nth-child(4), .brand .mark i:nth-child(9) { background: var(--jade); }
+.brand .mark i:nth-child(2), .brand .mark i:nth-child(4), .brand .mark i:nth-child(9) { background: var(--gold); }
 .brand-name { white-space: nowrap; }
-.brand em { font-style: normal; color: var(--jade); }
+.brand em { font-style: normal; color: var(--gold); }
 
 nav.links { display: flex; gap: 1.6rem; }
 nav.links a { text-decoration: none; color: var(--muted); font-size: 0.9rem; font-weight: 500; transition: color 0.18s ease; }
@@ -147,8 +155,8 @@ nav.links a:hover { color: var(--ink); }
   transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease;
 }
 .btn:hover { transform: translateY(-1px); }
-.btn-primary { background: var(--jade); color: #04140d; }
-.btn-primary:hover { background: #45e2a8; }
+.btn-primary { background: var(--gold); color: #1a1405; }
+.btn-primary:hover { background: var(--gold-lit); }
 .btn-ghost { border-color: var(--line-lit); color: var(--ink); }
 .btn-ghost:hover { border-color: var(--muted); background: var(--surface); }
 .btn-sm { padding: 0.52rem 1rem; font-size: 0.86rem; }
@@ -156,7 +164,43 @@ nav.links a:hover { color: var(--ink); }
 .cta-row { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center; }
 
 /* ── Hero ──────────────────────────────────────────────────────────────── */
-.hero { padding-block: clamp(3rem, 6vw, 5.5rem) clamp(2rem, 4vw, 3rem); }
+.hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  padding-block: clamp(3rem, 6vw, 5.5rem) clamp(2rem, 4vw, 3rem);
+}
+
+/* Splash-art achter de hero, opgelicht in plaats van gedimd. */
+.mosaic {
+  position: absolute; inset: -40px -3% auto -3%; height: 900px; z-index: -2;
+  display: grid; grid-template-columns: repeat(9, 1fr); grid-auto-rows: 158px; gap: 6px;
+  transform: rotate(-3deg) scale(1.12); transform-origin: 50% 0;
+}
+.mosaic img {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 5px;
+  filter: saturate(1.1) contrast(1.02) brightness(1.22);
+}
+
+/* De sluier is gevormd: twee radiale vlekken staan precies onder de kop en
+   onder de verkenner, zodat daar contrast is en de rest helder blijft. */
+.mosaic-veil {
+  position: absolute; inset: 0; z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(7, 8, 16, 0.55) 0%, rgba(7, 8, 16, 0.72) 34%, rgba(7, 8, 16, 0.9) 62%, var(--ground) 88%),
+    radial-gradient(90% 70% at 22% 34%, rgba(7, 8, 16, 0.86) 0%, rgba(7, 8, 16, 0.5) 46%, transparent 74%),
+    radial-gradient(70% 60% at 78% 30%, rgba(7, 8, 16, 0.78) 0%, rgba(7, 8, 16, 0.35) 52%, transparent 80%);
+}
+@media (max-width: 1040px) {
+  .mosaic { height: 620px; grid-auto-rows: 120px; }
+}
+
+/* Het modelabel naast het merk. */
+.badge {
+  font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--gold); border: 1px solid var(--gold-dim); background: rgba(231, 199, 110, 0.08);
+  padding: 0.24rem 0.46rem; border-radius: 4px; flex: none; line-height: 1;
+}
 .hero .wrap {
   display: grid;
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
@@ -166,7 +210,7 @@ nav.links a:hover { color: var(--ink); }
 @media (max-width: 1040px) { .hero .wrap { grid-template-columns: 1fr; } }
 
 .hero h1 { font-size: clamp(2.5rem, 5.4vw, 4.15rem); margin-bottom: 1.35rem; }
-.hero h1 em { font-style: normal; color: var(--jade); }
+.hero h1 em { font-style: normal; color: var(--gold); }
 .hero .lede { font-size: clamp(1.02rem, 0.98rem + 0.35vw, 1.16rem); color: var(--muted); max-width: 46ch; margin: 0 0 1.9rem; }
 .hero .lede strong { color: var(--ink); font-weight: 600; }
 .cta-note { font-family: var(--mono); font-size: 0.73rem; color: var(--dim); margin: 1.05rem 0 0; }
@@ -189,15 +233,16 @@ nav.links a:hover { color: var(--ink); }
   border: 1px solid var(--line); color: var(--dim);
 }
 .coverage span::before { content: "\00d7"; color: var(--wr-bad); font-weight: 700; }
-.coverage span.yes { color: var(--ink); border-color: var(--jade-dim); background: rgba(47, 214, 150, 0.08); }
-.coverage span.yes::before { content: "\2713"; color: var(--jade); }
+.coverage span.yes { color: var(--ink); border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.08); }
+.coverage span.yes::before { content: "\2713"; color: var(--gold); }
 
 /* ── Verkenner: portretten op volle kleur ──────────────────────────────── */
 .explorer {
-  border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
-  overflow: hidden;
+  border: 1px solid var(--line-lit); border-radius: var(--radius); background: var(--surface);
+  overflow: hidden; box-shadow: var(--shadow);
 }
 .explorer-head {
+  background: var(--raised);
   display: flex; align-items: center; gap: 0.75rem;
   padding: 0.85rem 1rem; border-bottom: 1px solid var(--line);
 }
@@ -216,7 +261,7 @@ nav.links a:hover { color: var(--ink); }
 }
 .portrait img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; }
 .portrait:hover { transform: translateY(-2px); border-color: var(--line-lit); }
-.portrait[aria-pressed="true"] { border-color: var(--jade); box-shadow: 0 0 0 1px var(--jade); }
+.portrait[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
 .portrait-name {
   position: absolute; inset: auto 0 0 0;
   font-family: var(--mono); font-size: 0.52rem; line-height: 1.5;
@@ -231,7 +276,7 @@ nav.links a:hover { color: var(--ink); }
   display: grid;
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.1fr) minmax(0, 1.05fr);
   gap: 1px; background: var(--line);
-  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
 }
 @media (max-width: 1040px) { .detail { grid-template-columns: 1fr; } }
 
@@ -262,7 +307,7 @@ nav.links a:hover { color: var(--ink); }
 .c-wr { font-weight: 700; }
 .c-wr small, .t-wr small, .m-wr small { font-size: 0.68em; opacity: 0.62; margin-left: 1px; }
 .c-bar { width: 34%; padding-inline: 0.6rem; }
-.c-bar span, .t-bar span { display: block; height: 4px; border-radius: 2px; background: var(--jade-dim); }
+.c-bar span, .t-bar span { display: block; height: 4px; border-radius: 2px; background: var(--wr-hi); opacity: 0.75; }
 .c-empty { color: var(--dim); font-size: 0.8rem; font-style: italic; }
 
 .matchups { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
@@ -295,14 +340,14 @@ nav.links a:hover { color: var(--ink); }
   font-size: clamp(1.3rem, 1rem + 1.4vw, 2.05rem);
   font-variant-numeric: tabular-nums; line-height: 1.1;
 }
-.figures .n .unit { color: var(--jade); }
+.figures .n .unit { color: var(--gold); }
 .figures .k { font-family: var(--mono); font-size: 0.63rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--dim); margin-top: 0.5rem; }
 @media (max-width: 860px) { .figures .wrap { grid-template-columns: repeat(2, 1fr); } }
 
 /* ── Roster: 63 portretten, volle breedte, volle kleur ─────────────────── */
 .roster { padding-block: clamp(2.5rem, 5vw, 4rem); overflow: hidden; }
 .roster .rl { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 1rem; margin: 0 0 1.1rem; }
-.roster .rl b { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--jade); font-weight: 500; }
+.roster .rl b { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); font-weight: 500; }
 .roster .rl span { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--dim); }
 .roster-row { display: flex; gap: 4px; margin-bottom: 4px; }
 .roster-row img {
@@ -327,16 +372,17 @@ nav.links a:hover { color: var(--ink); }
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 .lane-tabs button:hover { color: var(--ink); border-color: var(--line-lit); }
-.lane-tabs button[aria-selected="true"] { color: var(--jade); border-color: var(--jade-dim); background: rgba(47, 214, 150, 0.08); }
+.lane-tabs button[aria-selected="true"] { color: var(--gold); border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.08); }
 
-.table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.table-scroll { overflow-x: auto; border: 1px solid var(--line-lit); border-radius: var(--radius-s); background: var(--surface); box-shadow: var(--shadow); }
 .tier-table th, .tier-table td { padding: 0.6rem 0.85rem; text-align: right; white-space: nowrap; }
 .tier-table thead th {
+  background: var(--raised);
   font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.11em; text-transform: uppercase;
   color: var(--dim); font-weight: 400; border-bottom: 1px solid var(--line);
 }
 .tier-table tbody tr + tr td { border-top: 1px solid rgba(28, 36, 47, 0.7); }
-.tier-table tbody tr:hover td { background: rgba(47, 214, 150, 0.04); }
+.tier-table tbody tr:hover td { background: rgba(231, 199, 110, 0.04); }
 .t-rank { font-family: var(--mono); color: var(--dim); font-size: 0.78rem; width: 1%; }
 .t-champ { text-align: left; }
 .t-champ { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; }
@@ -353,7 +399,7 @@ nav.links a:hover { color: var(--ink); }
 .footnote code { font-family: var(--mono); font-size: 0.9em; color: var(--muted); }
 .fn-mark {
   display: inline-grid; place-items: center; width: 15px; height: 15px; margin-right: 0.35rem;
-  border-radius: 3px; background: rgba(47, 214, 150, 0.14); color: var(--jade);
+  border-radius: 3px; background: rgba(231, 199, 110, 0.14); color: var(--gold);
   font-family: var(--mono); font-size: 0.62rem; vertical-align: 1px;
 }
 
@@ -362,9 +408,9 @@ nav.links a:hover { color: var(--ink); }
 .finding + .finding { margin-top: clamp(2.5rem, 5vw, 4rem); }
 .finding:nth-child(even) .finding-art { order: 2; }
 @media (max-width: 900px) { .finding { grid-template-columns: 1fr; } .finding:nth-child(even) .finding-art { order: 0; } }
-.finding-art { border-radius: 9px; overflow: hidden; border: 1px solid var(--line); background: var(--raised); }
+.finding-art { border-radius: var(--radius-s); overflow: hidden; border: 1px solid var(--line); background: var(--raised); }
 .finding-art img { width: 100%; height: auto; }
-.f-num { font-size: 0.66rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--jade); margin: 0 0 0.7rem; }
+.f-num { font-size: 0.66rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin: 0 0 0.7rem; }
 .finding-copy h3 { font-size: clamp(1.3rem, 1.05rem + 1vw, 1.75rem); margin-bottom: 0.8rem; }
 .finding-copy p { color: var(--muted); margin: 0; max-width: 50ch; }
 .finding-copy strong { color: var(--ink); font-weight: 700; font-family: var(--mono); }
@@ -379,11 +425,11 @@ nav.links a:hover { color: var(--ink); }
 
 .ticks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55rem; }
 .ticks li { display: grid; grid-template-columns: 1rem 1fr; gap: 0.7rem; align-items: start; font-size: 0.93rem; color: var(--muted); }
-.ticks li::before { content: ""; width: 6px; height: 6px; margin-top: 0.55rem; background: var(--jade); border-radius: 1px; transform: rotate(45deg); }
+.ticks li::before { content: ""; width: 6px; height: 6px; margin-top: 0.55rem; background: var(--gold); border-radius: 1px; transform: rotate(45deg); }
 .ticks li b { color: var(--ink); font-weight: 600; }
 
 /* Vensterlijst om de schermafbeeldingen, zodat ze niet in de pagina wegzakken. */
-.window { border: 1px solid var(--line-lit); border-radius: 9px; overflow: hidden; background: var(--surface); box-shadow: 0 30px 70px -34px rgba(0, 0, 0, 0.95); }
+.window { border: 1px solid var(--line-lit); border-radius: var(--radius-s); overflow: hidden; background: var(--surface); box-shadow: 0 30px 70px -34px rgba(0, 0, 0, 0.95); }
 .window figcaption {
   font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.13em; text-transform: uppercase;
   color: var(--dim); padding: 0.6rem 0.85rem; border-top: 1px solid var(--line); background: var(--ground);
@@ -391,20 +437,20 @@ nav.links a:hover { color: var(--ink); }
 .window img { width: 100%; height: auto; }
 
 /* ── Keten ─────────────────────────────────────────────────────────────── */
-.chain { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.chain { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden; }
 @media (max-width: 900px) { .chain { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 540px) { .chain { grid-template-columns: 1fr; } }
 .step { background: var(--surface); padding: clamp(1.4rem, 2.6vw, 1.9rem); }
-.step .num { display: block; font-family: var(--mono); font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em; color: var(--jade); margin-bottom: 0.9rem; }
+.step .num { display: block; font-family: var(--mono); font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em; color: var(--gold); margin-bottom: 0.9rem; }
 .step h4 { font-family: var(--display); font-weight: 700; font-stretch: 108%; font-size: 1.02rem; letter-spacing: -0.015em; margin: 0 0 0.55rem; }
 .step p { margin: 0; font-size: 0.88rem; color: var(--muted); line-height: 1.6; }
 
 /* ── Veiligheid ────────────────────────────────────────────────────────── */
-.trust { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 246px), 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.trust { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 246px), 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden; }
 .trust .item { background: var(--surface); padding: clamp(1.3rem, 2.6vw, 1.8rem); }
 .trust .item .top { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.11em; text-transform: uppercase; margin: 0 0 0.7rem; }
 .trust .no .top { color: var(--wr-bad); }
-.trust .yes .top { color: var(--jade); }
+.trust .yes .top { color: var(--gold); }
 .trust .item p { margin: 0; font-size: 0.9rem; color: var(--muted); }
 .trust .item strong { color: var(--ink); font-weight: 600; }
 .audit { margin: 1.5rem 0 0; font-size: 0.9rem; color: var(--muted); max-width: 66ch; }
@@ -453,7 +499,9 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 <header id="top-bar">
   <div class="wrap">
     <a class="brand" href="#">
-      <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>    </a>
+      <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
+      <span class="badge">Classic</span>
+    </a>
     <nav class="links">
       <a href="#tiers">Tier lists</a>
       <a href="#findings">Findings</a>
@@ -467,6 +515,8 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 
 <!-- ── Hero ───────────────────────────────────────────────────────────── -->
 <section class="hero">
+  <div class="mosaic" aria-hidden="true"><img src="img/champions/splash/1.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/29.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/72.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/12.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/35.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/81.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/18.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/42.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/96.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/24.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/59.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/2.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/30.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/74.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/13.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/36.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/84.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/19.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/44.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/98.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/25.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/62.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/4.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/31.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/75.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/14.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/37.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/85.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/20.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/45.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/99.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/26.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/63.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/9.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/32.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/76.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/15.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/38.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/86.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/21.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/53.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/103.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/27.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/64.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/10.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/33.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/79.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/16.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/40.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/89.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/22.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/54.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/117.jpg" alt="" width="640" height="360" /><img src="img/champions/splash/28.jpg" alt="" width="640" height="360" /></div>
+  <div class="mosaic-veil" aria-hidden="true"></div>
   <div class="wrap">
     <div class="rise">
       <p class="eyebrow">Free &middot; Open source &middot; MIT &middot; Windows</p>
