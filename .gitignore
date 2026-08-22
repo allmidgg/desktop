@@ -15,13 +15,18 @@ manager/dist/
 # backups van je eigen rune- en masterypagina's met je account-id's erin. Dat
 # hoort thuis op de machine van de gebruiker, niet in versiebeheer.
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-data/
-
-# ...maar de datamomentopname van de site hoort er wel bij: 'data/' hierboven
-# matcht ook site/data/, en dan wordt de site zonder cijfers gepubliceerd.
-!site/data/
-!site/data/**
-server-data/
+#
+# LET OP de schuine streep vooraan. Zonder die streep matcht 'data/' ELKE map
+# die zo heet, op elk niveau -- en dat is twee keer misgegaan. Eerst verdween
+# site/data/ met de cijfers van de website, later manager/src/main/data/ met
+# browser.ts en writeQueue.ts erin. Dat laatste kwam pas aan het licht toen de
+# CI de repo van een schone kloon probeerde te typechecken: die twee bestanden
+# stonden wel op de machine van de bouwer en nergens anders.
+#
+# '/data/' is verankerd aan de wortel van de repo en raakt dus alleen de
+# matchdatabase, niet een bronmap die toevallig dezelfde naam heeft.
+/data/
+/server-data/
 *.jsonl
 *.jsonl.lock
 *.jsonl.tmp-*
