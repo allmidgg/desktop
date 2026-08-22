@@ -39,6 +39,16 @@ settings.json
 *.key
 *.pem
 
+# Certificaten met een private sleutel erin. Een Cloudflare Origin Certificate hoort
+# NOOIT in deze repo: site/ wordt met robocopy /MIR naar de webroot gespiegeld, en
+# deploy/bootstrap.ps1 neemt daarom alleen een PAD naar een .pfx aan die ergens anders
+# staat (C:\certs\ bijvoorbeeld). Deze regels zijn de tweede lijn, voor het geval
+# iemand er toch een neerzet.
+*.pfx
+*.p12
+*.pkcs12
+*.jks
+
 # Logs en tijdelijke bestanden
 *.log
 sniff.log

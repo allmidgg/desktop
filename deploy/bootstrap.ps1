@@ -177,6 +177,11 @@ $script:EindmetingGedaan = $false
 # uit mogen zetten: een schakelaar die al aan stond is de beslissing van iemand anders.
 $script:ProxyDoorOnsAan = $false
 
+# Heeft de zelftest ooit BEWEZEN dat de beschermregel vuurt? Zolang dit onwaar is
+# en wij de proxy in deze run hebben aangezet, staat er een forward proxy open
+# waarvan niemand weet of hij dicht zit. De vangnetten onderaan gaan hierop af.
+$script:ProxyBewezen = $false
+
 # Wat er in deze run over de commit te melden viel. Wordt getoond EN gelogd, ook met
 # -Force -- juist bij een onbeheerde run wil je terug kunnen vinden wat er draaide.
 $script:CommitRegel = ''
@@ -2849,6 +2854,7 @@ if ($DryRun) {
     $isOpenProxy = ($pt.Status -eq 502 -or $pt.Status -eq 504)
 
     if ($vanOnzeRegel) {
+        $script:ProxyBewezen = $true
         Meld-Controle -Wat 'absolute URI wordt geweigerd' -Ok $true -Detail "$($pt.Regel)"
     } elseif ($isOpenProxy) {
         Meld-Controle -Wat 'absolute URI wordt geweigerd' -Ok $false `
@@ -3258,6 +3264,32 @@ Write-Host ''
     Write-Host '  GESTOPT' -ForegroundColor White -BackgroundColor DarkRed
     Write-Host ''
     Fout $_.Exception.Message
+
+    <#
+        De ARR-proxy gaat aan in stap 8, maar de zelftest die bewijst dat de
+        beschermregel vuurt staat in stap 9 -- met de drie deploy-scripts ertussen.
+        Breekt de run daar af, dan is die test nooit gedraaid en blijft er een
+        forward proxy aan staan waarvan niemand weet of hij dicht zit.
+
+        Vandaar dit vangnet. Hebben WIJ hem aangezet en is er geen bewijs, dan gaat
+        hij hier uit. /api/ werkt dan niet, en dat is de goede kant om fout te gaan.
+    #>
+    if ($script:ProxyDoorOnsAan -and -not $script:ProxyBewezen) {
+        Fout 'De run is afgebroken voordat bewezen was dat de proxybescherming vuurt.'
+        Fout 'Wij hebben de ARR-proxy in deze run aangezet, dus ik zet hem nu uit.'
+        try {
+            Disable-ArrProxy
+            Fout 'ARR-proxy uitgezet. /api/ werkt hierdoor niet tot je opnieuw draait.'
+            $script:Terugdraaiingen += 'ARR-proxy uitgezet: de run brak af voordat de zelftest bewijs had'
+            $script:ProxyDoorOnsAan = $false
+        } catch {
+            Fout "Uitzetten is NIET gelukt: $($_.Exception.Message)"
+            Fout 'DOE DIT NU met de hand:'
+            Fout "  Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'enabled' -Value `$false"
+            $script:OpenProxy = $true
+        }
+        Write-Host ''
+    }
 
     # Regelnummer alleen bij een ONVERWACHTE fout. Bij een bewuste blokkade wijst dat
     # naar de throw in Blokkeer, en dat is voor de lezer niets dan ruis: de uitleg

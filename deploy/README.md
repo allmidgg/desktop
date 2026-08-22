@@ -25,7 +25,7 @@ Windows Server 2019/2022 helemaal niet bestaat.
 |---|---|---|
 | **Windows Server, x64** | — | op werkstation-Windows ontbreken IIS-onderdelen en gedraagt een geplande taak zich anders |
 | **PowerShell 5.1**, als Administrator | zit in Windows | de scripts wijzigen IIS-configuratie en registreren een taak als SYSTEM |
-| **IIS 10** + beheerscripts | `Install-WindowsFeature Web-Server -IncludeManagementTools` en `Install-WindowsFeature Web-Scripting-Tools` | zonder de module `WebAdministration` kan er niets aan IIS gecontroleerd of toegevoegd worden |
+| **IIS 10** + beheerscripts | `Install-WindowsFeature Web-Server -IncludeManagementTools` en `Install-WindowsFeature Web-Scripting-Tools` | zonder de module `WebAdministration` kan er niets aan IIS gecontroleerd of toegevoegd worden. Er wordt ook `%windir%\system32\inetsrv\Microsoft.Web.Administration.dll` geladen — die hoort bij IIS zelf en is nodig om de IIS-wijzigingen tot één schrijfactie te bundelen |
 | **URL Rewrite** | <https://www.iis.net/downloads/microsoft/url-rewrite> | zonder deze module geeft IIS een **500** op onze `web.config` |
 | **Application Request Routing** | <https://www.iis.net/downloads/microsoft/application-request-routing> | zonder ARR komt `/api/` nergens: dat is de module die doorstuurt |
 | **Node 20 of nieuwer** | <https://nodejs.org/en/download> (Windows Installer .msi, x64) | de verzamelserver draait hierop. Staat er al een Node op deze machine waar iets anders van afhangt, dan blijft die met rust — het script vervangt hem niet |
@@ -83,10 +83,21 @@ wel.
 | | |
 |---|---|
 | `-DryRun` | alle controles echt doen, niets wijzigen |
-| `-Force` | de bevestigingsvragen overslaan (voor onbeheerde runs). Slaat géén controles over |
+| `-Force` | de bevestigings**vragen** overslaan (voor onbeheerde runs). Slaat géén controles over, en slaat ook het **tonen en loggen** van de uit te voeren commit niet over |
 | `-ApiKey` | je eigen sleutel meegeven |
 | `-NewApiKey` | een nieuwe sleutel afdwingen — **alle al ingerichte clients moeten daarna opnieuw ingesteld worden** |
+| `-PfxPath` | pad naar een **bestaande** `.pfx`, buiten de repo en buiten de site-map. Zonder deze schakelaar wordt de https-stap overgeslagen. Zie [stap 6](#6-https--met--pfxpath) |
+| `-PfxPassword` | het wachtwoord van die `.pfx`, als **`SecureString`**. Laat je hem weg, dan wordt er interactief om gevraagd |
 | `-SiteName`, `-SiteRoot`, `-SiteHosts`, `-RepoRoot`, `-RepoUrl`, `-Branch`, `-AllmidRoot`, `-TaskName` | paden en namen |
+
+`-Force` betekent "vraag niets", niet "toon niets". De commit die als Administrator gaat
+draaien wordt nog steeds afgedrukt én in het logboek gezet, samen met elke vraag die
+namens jou is overgeslagen. Bij een onbeheerde run is dat het enige spoor dat er
+achteraf nog is.
+
+Afsluitcodes: **0** goed, **1** er is iets misgegaan, **2** de bescherming tegen een
+open forward proxy is niet bewezen — die laatste is onvoorwaardelijk, ook als het script
+niet als bestand draait.
 
 Er is met opzet **geen** `-CollectorPort`. Die werkte maar half: de poort staat ook in
 `deploy/web.config` en die werd niet meegewijzigd. Nu leest `bootstrap.ps1` de poort
@@ -102,20 +113,41 @@ uitleg. Twee keer draaien mag: elke stap kijkt eerst of hij nog nodig is.
 
 Wat de bestaande site tóch merkt:
 
-- Het script schrijft drie keer in `applicationHost.config` (de beschermregel
-  hieronder, de ARR-proxy, en de nieuwe site). IIS leest die configuratie daarna
-  opnieuw in en **recyclet de toepassingsgroepen — ook die van de andere site**. Dat
-  duurt seconden en de site komt vanzelf terug, maar verzoeken die op dat moment
-  onderweg zijn kunnen sneuvelen. Het script meldt dit vóóraf en **vraagt om
-  bevestiging**; met `-Force` slaat het die vraag over. Plan de eerste run buiten
-  piekuren.
+- **Elke** schrijfactie naar `applicationHost.config` laat IIS zijn configuratie
+  opnieuw inlezen en **recyclet daarbij de toepassingsgroepen — ook die van de andere
+  site**. Een schrijfactie is dus een recycle. Dat duurt seconden en de site komt
+  vanzelf terug, maar verzoeken die op dat moment onderweg zijn kunnen sneuvelen.
 
-Wat het **niet** doet is HTTPS — zie [stap 6](#6-https--doe-je-zelf). Dat vereist je
-Cloudflare-account. Aan het eind van de run staat precies wat je nog zelf moet doen.
+  Hier stond eerder "drie keer". Dat klopte niet: het waren er ongeveer achttien — tien
+  in `bootstrap.ps1` voor de beschermregel en de proxyschakelaar, en zeven in
+  `install-site.ps1`. Twee dingen zijn daaraan gedaan:
+
+  | | schrijfacties | |
+  |---|---|---|
+  | `bootstrap.ps1` — beschermregel + ARR-proxy | **1** | waren er 11; nu gebundeld in één `CommitChanges()` via `Microsoft.Web.Administration` |
+  | `install-site.ps1` — toepassingsgroep, site, bindingen | **maximaal 7** | 4 voor de toepassingsgroep, 1–2 voor de site, 1 per ontbrekende binding |
+  | `bootstrap.ps1` — https-binding op 443 | **1** | alleen met `-PfxPath`; beide hostnamen in één schrijfactie |
+
+  Het bundelen is niet alleen kosmetiek: doordat de beschermregel en de proxyschakelaar
+  in één schrijfactie landen, bestaat er geen moment waarop de proxy aan staat zonder
+  bescherming.
+
+  Het script **telt dit vóór de vraag uit wat er nú in IIS staat**, noemt het echte
+  aantal, en vraagt dan `Doorgaan met N schrijfactie(s) naar applicationHost.config?`.
+  Met `-Force` slaat het die vraag over — maar het toont en **logt** nog steeds wát er
+  gaat draaien. Plan de eerste run buiten piekuren.
+
+HTTPS doet het script wél, mits je het certificaat aanwijst: zie
+[stap 6](#6-https--met--pfxpath). Het **maakt** geen certificaat aan (dat is een
+Cloudflare Origin Certificate uit jouw account) en er komt **geen sleutelmateriaal in
+deze repo** — alleen een pad naar een `.pfx` die ergens anders staat. Zonder `-PfxPath`
+slaat het die stap over en staat aan het eind van de run precies wat je nog moet doen.
 
 Van elke run komt een logboek in `C:\allmid\logs\bootstrap-<datum>.log`, met per
-wijziging of hij geslaagd of mislukt is en hoe je hem terugdraait. De API-sleutel staat
-er met opzet niet in.
+wijziging of hij geslaagd of mislukt is en hoe je hem terugdraait, plus welke **commit**
+er als Administrator gedraaid heeft en welke bevestigingen er gegeven zijn (of met
+`-Force` zijn overgeslagen). De API-sleutel staat er met opzet niet in, en het
+`.pfx`-wachtwoord en de vingerafdruk van het certificaat evenmin.
 
 ## De ARR-proxy is een open proxy — en wat daartegen gedaan wordt
 
@@ -132,19 +164,26 @@ Zonder maatregel kan iedereen op internet deze server dus gebruiken om verkeer t
 versturen dat van jouw IP-adres lijkt te komen. Een eerdere versie van dit script
 beweerde in het commentaar het tegenovergestelde. Dat was fout.
 
-`bootstrap.ps1` zet daarom — **vóór** het aanzetten van de proxy, zodat er geen open
-moment bestaat — een serverbrede URL Rewrite-regel neer:
+`bootstrap.ps1` zet daarom een serverbrede URL Rewrite-regel neer, **in dezelfde
+schrijfactie** als het aanzetten van de proxy — zo bestaat er geen moment waarop de
+proxy aan staat zonder bescherming:
 
 ```
 system.webServer/rewrite/globalRules
-  rule "allmid-weiger-absolute-uri", stopProcessing
+  rule "allmid-weiger-absolute-uri", enabled, stopProcessing
     match url = .*
     conditions logicalGrouping = MatchAny
       {UNENCODED_URL}  matcht  ^[a-zA-Z][a-zA-Z0-9+.-]*://
       {HTTP_URL}       matcht  ^[a-zA-Z][a-zA-Z0-9+.-]*://
       {REQUEST_URI}    matcht  ^[a-zA-Z][a-zA-Z0-9+.-]*://
     action = CustomResponse 403
+      statusReason      = "Forwarding is disabled"
+      statusDescription = "This server does not forward requests with an absolute URI."
 ```
+
+Die `statusReason` is niet decoratie: het is het **bewijsmiddel**. Hij komt terecht in
+de statusregel op de lijn (`HTTP/1.1 403 Forwarding is disabled`), en daar gaat de
+zelftest van het script op af — niet op het getal 403.
 
 Waarom zo:
 
@@ -164,9 +203,47 @@ Waarom zo:
 Stond de proxy al aan, dan blijft hij aan — die kan van iemand anders zijn — maar het
 script meldt dat en zet de beschermregel er alsnog bij.
 
-**Controleer het zelf.** Het script test het aan het eind ook (met een `.invalid`-naam,
-die per RFC 6761 nergens naartoe resolvet, dus er verlaat niets de machine), maar doe
-dit vanaf een andere machine:
+### Staat de regel er al? Dan wordt de *inhoud* gecontroleerd, niet de naam
+
+Een eerdere versie keek alleen of er een regel met die **naam** in `globalRules` stond.
+Een regel die halverwege een vorige run was blijven steken — naam wel, condities niet —
+of die iemand op `enabled="false"` had gezet, telde daardoor als "staat er al", waarna
+de proxy alsnog aanging. Precies dan sta je open.
+
+Nu wordt attribuut voor attribuut nagelopen: bestaat de regel, staat `enabled` aan,
+staat `stopProcessing` aan, matcht `match/@url` alles, staat `logicalGrouping` op
+`MatchAny`, zijn er **precies** de drie condities met exact het juiste patroon (en geen
+vierde vreemde), is `action/@type` een `CustomResponse`, is `statusCode` 403, en is
+`statusReason` exact de tekst waar de zelftest straks op afgaat. Klopt er iets niet, dan
+wordt de regel **compleet opnieuw aangelegd** — repareren van losse attributen zou
+betekenen dat je moet weten welke helft klopt.
+
+Omdat de aanleg één `CommitChanges()` is, staat de regel er compleet of hij staat er
+niet: struikelt het er halverwege op, dan is er niets weggeschreven en is er dus ook
+geen halve regel om binnendoor te komen.
+
+### Wat er gebeurt als de test het níet bewijst
+
+De zelftest stuurt een rauw verzoek met absolute URI naar `127.0.0.1:80` (doel is een
+`.invalid`-naam, die per RFC 6761 nergens naartoe resolvet, dus er verlaat niets de
+machine) en kijkt naar de **statusregel**:
+
+| uitkomst | oordeel | wat het script doet |
+|---|---|---|
+| 403 mét `Forwarding is disabled` | bewezen | verder |
+| 403 zónder die tekst | **onbeslist** — dit kan de 403.14 van de bestaande site zijn | luide melding; zie hieronder |
+| 502 / 504 | **open proxy**: IIS probeerde door te sturen | zet de ARR-proxy **zelf uit**, meldt het luid, en eindigt met afsluitcode **2** |
+| iets anders / geen antwoord | **onbeslist** | luide melding; zie hieronder |
+
+Bij *onbeslist* geldt: heeft dit script de proxy in deze run aangezet, dan zet het hem
+ook zelf weer uit — onbewezen is hier hetzelfde als onveilig. Stond hij al aan, dan is
+dat andermans schakelaar en blijft hij staan, maar de run eindigt met een afsluitcode
+ongelijk nul en met de opdracht om hem uit te zetten. **Een halve installatie is beter
+dan een open proxy op internet.**
+
+Onbeslist telt nooit als geslaagd. In de uitslag staat het apart, als `[ ? ]`.
+
+**Controleer het zelf**, vanaf een andere machine:
 
 ```powershell
 curl.exe -sS -o NUL -w "%{http_code}\n" -x http://<ip-van-de-server>:80 http://example.com/
@@ -337,46 +414,96 @@ aan het Service Control Manager-protocol voldoen en `node.exe` doet dat niet. De
 gebruikelijke oplossing is een extra programma zoals `nssm` installeren; een geplande
 taak is ingebouwd, doet hetzelfde, en scheelt een download die je moet vertrouwen.
 
-### 6. HTTPS — doe je zelf
+### 6. HTTPS — met `-PfxPath`
 
 Poort 443 was op deze machine nog helemaal ongebruikt, dus je zit niemand in de weg.
-Dit is de enige stap die `bootstrap.ps1` niet kan overnemen: het certificaat maak je
-aan in het Cloudflare-account, en daar heeft een script op de server geen token voor.
 
 `allmid.gg` wijst naar Cloudflare, niet naar deze server. Daarom **geen Let's Encrypt
 via win-acme**, maar een **Cloudflare Origin Certificate**: Cloudflare praat ermee met
-de server, en dat is precies het stuk dat nu nog onversleuteld is. Een publiek
+de server, en dat is precies het stuk dat anders onversleuteld is. Een publiek
 vertrouwd certificaat is er niet voor nodig — bezoekers zien het certificaat van
 Cloudflare, niet dat van ons.
+
+Het **aanmaken** van dat certificaat kan `bootstrap.ps1` niet overnemen: dat gebeurt in
+jouw Cloudflare-account en daar heeft een script op de server geen token voor. Het
+**importeren en binden** doet het wel, zodra je het bestand aanwijst.
+
+> #### Waarom er geen sleutel in de repo of in het script komt
+>
+> Een Cloudflare Origin private key is één keer per ongeluk in een chat geplakt. Dat
+> certificaat is ingetrokken en opnieuw aangemaakt. Zoiets mag nooit een tweede keer
+> kunnen door hóe wij dit bouwen, dus:
+>
+> - Het script neemt **alleen een pad** aan (`-PfxPath`). Geen sleutel, geen base64,
+>   geen voorbeeldcertificaat, geen "vul hier je key in". Een pad is geen geheim.
+> - Het wachtwoord komt binnen als **`SecureString`**, of wordt interactief gevraagd.
+>   Er is met opzet geen `[string]`-variant: een wachtwoord op de opdrachtregel staat in
+>   je geschiedenis en is via `Get-CimInstance Win32_Process` voor elke gebruiker te
+>   lezen.
+> - Het script **weigert** een `.pfx` die in de repo of in `C:\inetpub\allmid` staat.
+>   `publish.ps1` spiegelt die map met `robocopy /MIR` naar de webroot: een `.pfx` die
+>   daar staat, staat na de eerstvolgende publicatie op internet — mét private sleutel.
+> - Het wachtwoord en de vingerafdruk van het certificaat komen **nergens** op het
+>   scherm of in het logboek.
+> - `.gitignore` blokkeert `*.pfx`, `*.p12`, `*.pkcs12` en `*.jks` als tweede lijn.
 
 1. **Aanmaken** — Cloudflare > allmid.gg > SSL/TLS > Origin Server >
    Create Certificate. Sleutel door Cloudflare laten genereren (RSA 2048), hostnamen
    `allmid.gg` en `*.allmid.gg`, geldigheid 15 jaar. De private sleutel krijg je **één
-   keer** te zien.
+   keer** te zien. Plak hem nergens anders; is dat toch gebeurd, trek het certificaat
+   dan in (Revoke) en maak een nieuw aan.
 
 2. **Omzetten naar `.pfx`**, want IIS importeert niets anders:
 
    ```
-   openssl pkcs12 -export -inkey origin.key -in origin.pem -out allmid.pfx
+   openssl pkcs12 -export -inkey origin.key -in origin.pem -out allmid-origin.pfx
    ```
 
-3. **Importeren** — IIS Manager > (servernaam) > Server Certificates > Import...
+   Zet dat bestand **buiten deze repo en buiten `C:\inetpub\allmid`**, bijvoorbeeld in
+   `C:\certs\`. Het script weigert het anders.
 
-4. **Binding** — IIS Manager > Sites > allmid.gg > Bindings... > Add..., type https,
-   poort 443, hostnaam `allmid.gg`, en **"Require Server Name Indication" aanvinken**.
-   Herhaal voor `www.allmid.gg`.
+3. **Het script opnieuw draaien, nu met het pad erbij:**
 
-   Dat vinkje is hier niet optioneel. Zonder SNI claimt de binding poort 443 voor álle
+   ```powershell
+   .\bootstrap.ps1 -PfxPath 'C:\certs\allmid-origin.pfx'
+   ```
+
+   Er wordt dan interactief om het wachtwoord gevraagd. Moet het onbeheerd:
+
+   ```powershell
+   $pw = Read-Host 'wachtwoord' -AsSecureString
+   .\bootstrap.ps1 -Force -PfxPath 'C:\certs\allmid-origin.pfx' -PfxPassword $pw
+   ```
+
+   Wat het dan doet:
+
+   - controleren dat het bestand bestaat, een geldige `.pfx` **met private sleutel** is,
+     nog geldig is, en niet op een plek staat die gepubliceerd wordt;
+   - het certificaat importeren in `Cert:\LocalMachine\My` (het archief van de
+     **machine**, niet dat van jou — de toepassingsgroep en http.sys draaien niet als
+     jij). Staat het er al, dan gebeurt er niets;
+   - in **één** schrijfactie https-bindingen op 443 toevoegen voor `allmid.gg` en
+     `www.allmid.gg`, met **SNI aan**;
+   - controleren dat 443 antwoordt **en dat het ons certificaat is** — de keten wordt
+     daarbij bewust niet gevalideerd (een origin-certificaat is alleen door Cloudflare
+     vertrouwd, en we kloppen op `127.0.0.1` aan), maar de vingerafdruk van wat de
+     server aanbiedt wordt vergeleken met die van wat we net geïmporteerd hebben.
+
+   SNI is hier niet optioneel. Zonder SNI claimt de binding poort 443 voor álle
    hostnamen, en dan zit je de andere site op deze machine in de weg zodra die ook
    https wil. Met SNI staan ze naast elkaar — dezelfde redenering als bij de
-   hostnaam-bindingen op poort 80.
+   hostnaam-bindingen op poort 80. Claimt een andere site op 443 al een van onze
+   hostnamen, dan stopt het script; het pakt niets af.
 
-5. **Cloudflare op Full (strict)** — SSL/TLS > Overview. Pas ná stap 4, anders krijgen
+4. **Cloudflare op Full (strict)** — SSL/TLS > Overview. Pas ná stap 3, anders krijgen
    bezoekers een 526.
 
-6. **Http naar https** — zet dat aan in Cloudflare (SSL/TLS > Edge Certificates >
+5. **Http naar https** — zet dat aan in Cloudflare (SSL/TLS > Edge Certificates >
    Always Use HTTPS), niet met een omleidingsregel in IIS. Cloudflare beëindigt de
    versleuteling toch al, en een IIS-regel op serverniveau zou de andere site raken.
+
+Draai je **zonder** `-PfxPath`, dan slaat het script deze stap netjes over, blijft alles
+op poort 80, en staat aan het eind van de run bovenstaande instructie op het scherm.
 
 Controleren:
 
@@ -456,9 +583,13 @@ wel dat de pagina in stappen bijwerkt in plaats van continu.
 | 500 op elke pagina | URL Rewrite ontbreekt |
 | 502 op `/api/` | ARR-proxy staat uit, of de verzamelserver ligt: `Get-Content C:\allmid\logs\collector.log -Tail 40` |
 | 403 op een gewone pagina | de beschermregel `allmid-weiger-absolute-uri` slaat aan op iets wat hij niet zou moeten raken; kijk in IIS Manager > (server) > URL Rewrite |
-| De open-proxy-test geeft 200 of 502 | de beschermregel staat er niet, of niet als eerste: IIS Manager > (server) > URL Rewrite > View Ordered List |
+| De open-proxy-test geeft 200 of 502 | de beschermregel staat er niet, of niet als eerste: IIS Manager > (server) > URL Rewrite > View Ordered List. Het script heeft de ARR-proxy dan zelf uitgezet en is met code 2 gestopt |
+| De open-proxy-test meldt `[ ? ] ONBESLIST` | er kwam wel een 403, maar zonder `Forwarding is disabled` in de statusregel — dus die 403 kwam ergens anders vandaan. Kijk of de beschermregel er nog staat en of een andere `globalRule` met `stopProcessing` er eerder bij is |
+| Bootstrap eindigt met code 2 | de bescherming tegen een open forward proxy is niet bewezen. Lees het alarmblok onderaan de uitvoer: daar staat of de proxy is uitgezet, of dat jij dat nog moet doen |
 | `allmid.gg` toont de andere site | de binding met hostnaam ontbreekt; draai `install-site.ps1` opnieuw |
-| 526 bij Cloudflare | de 443-binding of het origin-certificaat ontbreekt; zie stap 6 |
+| 526 bij Cloudflare | de 443-binding of het origin-certificaat ontbreekt; draai opnieuw met `-PfxPath`, zie stap 6 |
+| "het bestand staat in ... daar mag geen sleutelmateriaal staan" | de `.pfx` staat in de repo of in `C:\inetpub\allmid`. Verplaats hem naar bijvoorbeeld `C:\certs\` en draai opnieuw |
+| "dit is geen leesbare .pfx, of het wachtwoord klopt niet" | controleer het wachtwoord, en of `openssl pkcs12 -export` echt een `.pfx` heeft opgeleverd (geen `.pem`) |
 | `npm ci` loopt vast op een bestand in `node_modules` | de collector draait nog: `Stop-ScheduledTask -TaskName 'AllMid Collector'` |
 | Bootstrap stopte halverwege | `C:\allmid\logs\bootstrap-*.log` — daar staat per wijziging of hij geslaagd of mislukt is, en hoe je hem terugdraait |
 
