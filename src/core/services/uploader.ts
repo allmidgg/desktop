@@ -31,9 +31,22 @@ const ID_BATCH = 1_000;
  * op de wachttijd voorkomt dat een server die "kom over een uur terug" zegt de
  * hele sync laat hangen -- dan stoppen we liever en proberen het later opnieuw.
  */
-const RATE_LIMIT_ATTEMPTS = 6;
+const RATE_LIMIT_ATTEMPTS = 8;
+
+/**
+ * Zonder Retry-After van de server wachten we oplopend: 5, 10, 20, 40, 75, 75...
+ * Vast op vijf seconden bleven staan was fout -- zes pogingen kwamen samen op
+ * dertig seconden, terwijl het venster van de server er zestig is. De sync gaf
+ * dus altijd op vlak voordat de teller zou terugvallen.
+ */
 const RATE_LIMIT_FALLBACK_MS = 5_000;
-const RATE_LIMIT_MAX_WAIT_MS = 60_000;
+
+/**
+ * De bovengrens moet ruim boven een venster van 60 seconden liggen, anders kap
+ * je precies de wachttijd af die nodig is. Hij bestaat om een server die "kom
+ * over een uur terug" zegt niet de hele sync te laten hangen.
+ */
+const RATE_LIMIT_MAX_WAIT_MS = 75_000;
 
 /**
  * Hoe vaak we de afvinklijst op zijn vroegst tussentijds wegschrijven. Na elke
@@ -147,7 +160,8 @@ export class MatchUploader {
       if (res.status !== 429 || attempt >= RATE_LIMIT_ATTEMPTS) throw new HttpError(res.status);
 
       const wait = Math.min(
-        parseRetryAfter(res.headers.get("retry-after")) ?? RATE_LIMIT_FALLBACK_MS,
+        parseRetryAfter(res.headers.get("retry-after")) ??
+          RATE_LIMIT_FALLBACK_MS * Math.pow(2, attempt - 1),
         RATE_LIMIT_MAX_WAIT_MS,
       );
       console.warn(

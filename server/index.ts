@@ -75,15 +75,24 @@ const site = new SiteRefresher(DATABASE, () => store.size);
 
 const hits = new Map<string, { count: number; resetAt: number }>();
 
-function rateLimited(ip: string): boolean {
+/**
+ * Geeft terug hoeveel seconden er nog gewacht moet worden, of 0 als het mag.
+ *
+ * Eerder was dit een simpele ja/nee. Dat was te weinig: de client kreeg een 429
+ * zonder te weten hoe lang het venster nog loopt, gokte vijf seconden, en gaf na
+ * zes pogingen op -- dertig seconden, terwijl het venster er zestig is. Een
+ * eerste sync van honderdduizend games kwam er dus per definitie niet doorheen.
+ */
+function rateLimited(ip: string): number {
   const now = Date.now();
   const entry = hits.get(ip);
   if (!entry || now > entry.resetAt) {
     hits.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return false;
+    return 0;
   }
   entry.count++;
-  return entry.count > RATE_LIMIT;
+  if (entry.count <= RATE_LIMIT) return 0;
+  return Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
 }
 
 /**
@@ -187,7 +196,12 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     });
   }
 
-  if (rateLimited(ip)) return send(res, 429, { error: "te veel verzoeken" });
+  const wacht = rateLimited(ip);
+  if (wacht > 0) {
+    // Retry-After erbij, anders moet de client gokken hoe lang hij moet wachten.
+    res.setHeader("retry-after", String(wacht));
+    return send(res, 429, { error: "te veel verzoeken", retryAfter: wacht });
+  }
 
   /**
    * Uploaden mag ZONDER sleutel.
