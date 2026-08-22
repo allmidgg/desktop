@@ -133,7 +133,7 @@ function LaneRow({
     >
       <PlayerCard entry={ally} champions={champions} side="ally" highlight={lane.isLocalPlayerLane} />
 
-      <div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-white/5 bg-white/[0.015] px-2 py-2">
+      <div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-line bg-white/[0.015] px-2 py-2">
         <div className="flex items-center gap-1.5 text-ink-500">
           <PositionIcon position={lane.position} />
           <span className="text-[11px] font-medium tracking-wide">
@@ -178,7 +178,7 @@ function PlayerCard({
 }): JSX.Element {
   if (!entry) {
     return (
-      <div className="flex items-center rounded-xl border border-dashed border-white/6 px-3 py-2">
+      <div className="flex items-center rounded-xl border border-dashed border-line px-3 py-2">
         <span className="text-[11px] text-ink-700">no pick yet</span>
       </div>
     );
@@ -194,7 +194,7 @@ function PlayerCard({
   return (
     <Panel
       className={`flex items-center gap-3 px-3 py-2 ${alignRight ? "flex-row-reverse text-right" : ""} ${
-        highlight ? "border-jade-500/40" : ""
+        highlight ? "border-gold-400/45" : ""
       }`}
     >
       <ChampionIcon iconPath={champion?.iconPath} name={champion?.name} size={42} dim={hovering} />
@@ -203,13 +203,13 @@ function PlayerCard({
         <div className={`flex items-center gap-2 ${alignRight ? "justify-end" : ""}`}>
           <span
             className={`truncate text-[13px] font-medium ${
-              entry.isLocalPlayer ? "text-jade-300" : "text-ink-100"
+              entry.isLocalPlayer ? "text-gold-300" : "text-ink-100"
             }`}
           >
             {profile?.riotId ?? "Hidden player"}
           </span>
           {entry.isLocalPlayer ? (
-            <span className="rounded bg-jade-500/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-jade-300 uppercase">
+            <span className="rounded bg-gold-400/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-gold-300 uppercase">
               you
             </span>
           ) : null}
@@ -355,7 +355,7 @@ function AutoMasteries({
       <label
         className={`flex w-fit cursor-pointer items-center gap-2.5 rounded-xl border px-4 py-2 transition-colors ${
           enabled
-            ? "border-gold-500/40 bg-gold-500/12 text-gold-300"
+            ? "border-gold-400/40 bg-gold-400/12 text-gold-300"
             : "border-white/10 text-ink-300 hover:border-white/20"
         } ${busy ? "opacity-60" : ""}`}
       >
@@ -495,7 +495,7 @@ function BuildPanel({
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-1.5 border-l border-white/6 pl-4">
+          <div className="flex flex-col gap-1.5 border-l border-line pl-4">
             {plan.spells.map((entry) => (
               <div key={entry.spells.join("-")} className="flex items-center gap-1.5">
                 {entry.spells.map((id) => {

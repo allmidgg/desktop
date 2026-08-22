@@ -44,12 +44,12 @@ export function ProfileView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elemen
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void search()}
           placeholder="Search a player, e.g. Faker#KR1"
-          className="w-80 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5 text-sm outline-none placeholder:text-ink-700 focus:border-jade-500/40"
+          className="w-80 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5 text-sm outline-none placeholder:text-ink-700 focus:border-gold-400/45"
         />
         <button
           onClick={() => void search()}
           disabled={busy}
-          className="rounded-xl border border-jade-500/25 bg-jade-500/10 px-4 py-2.5 text-sm font-medium text-jade-300 transition-colors hover:bg-jade-500/20 disabled:opacity-40"
+          className="rounded-xl border border-gold-400/30 bg-gold-400/10 px-4 py-2.5 text-sm font-medium text-gold-300 transition-colors hover:bg-gold-400/20 disabled:opacity-40"
         >
           {busy ? "Searching..." : "Search"}
         </button>
@@ -89,7 +89,7 @@ export function ProfileView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elemen
           </div>
         </div>
 
-        <div className="mt-5 flex items-center gap-3 border-t border-white/5 pt-4">
+        <div className="mt-5 flex items-center gap-3 border-t border-line pt-4">
           <span className="text-xs text-ink-500">Recent form</span>
           <FormDots results={jade.recentResults} />
           <Streak streak={jade.streak} />

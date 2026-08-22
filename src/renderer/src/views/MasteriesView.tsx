@@ -59,13 +59,13 @@ export function MasteriesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elem
                 key={page.index}
                 onClick={() => setSelected(page.index)}
                 className={`panel min-w-[168px] px-4 py-3 text-left transition-colors ${
-                  isShown ? "border-jade-500/40" : "hover:border-white/14"
+                  isShown ? "border-gold-400/45" : "hover:border-line-lit"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] font-medium capitalize">{page.name}</span>
                   {page.isActive ? (
-                    <span className="rounded bg-jade-500/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-jade-300 uppercase">
+                    <span className="rounded bg-gold-400/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-gold-300 uppercase">
                       active
                     </span>
                   ) : null}
@@ -84,7 +84,7 @@ export function MasteriesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elem
                       e.stopPropagation();
                       void activate(page.index);
                     }}
-                    className="mt-2 block text-[11px] text-jade-400 hover:text-jade-300"
+                    className="mt-2 block text-[11px] text-gold-400 hover:text-gold-300"
                   >
                     activate
                   </span>
@@ -93,7 +93,7 @@ export function MasteriesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elem
             );
           })}
         </div>
-        {status ? <p className="mt-2 text-xs text-jade-300">{status}</p> : null}
+        {status ? <p className="mt-2 text-xs text-gold-300">{status}</p> : null}
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -125,7 +125,7 @@ export function MasteriesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elem
                               key={mastery.id}
                               title={`${mastery.name} (${rank}/${mastery.maxRank})\n${mastery.description}`}
                               className={`relative aspect-square rounded-lg border ${
-                                active ? style.ring : "border-white/6"
+                                active ? style.ring : "border-line"
                               } ${unlocked ? "" : "opacity-35"}`}
                             >
                               <img

@@ -56,8 +56,8 @@ export function MetaView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
               onClick={() => setPosition(entry)}
               className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-[12px] font-medium transition-colors ${
                 position === entry
-                  ? "border-jade-500/40 bg-jade-500/12 text-jade-300"
-                  : "border-white/8 text-ink-500 hover:border-white/14 hover:text-ink-300"
+                  ? "border-gold-400/40 bg-gold-400/12 text-gold-300"
+                  : "border-white/8 text-ink-500 hover:border-line-lit hover:text-ink-300"
               }`}
             >
               <PositionIcon position={entry} size={14} />
@@ -98,7 +98,7 @@ export function MetaView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
                     key={entry.championId}
                     onClick={() => setSelected(entry.championId)}
                     className={`panel flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
-                      active ? "border-jade-500/40" : "hover:border-white/14"
+                      active ? "border-gold-400/45" : "hover:border-line-lit"
                     }`}
                   >
                     <span className="num w-6 text-center text-[12px] text-ink-700">{index + 1}</span>
@@ -191,13 +191,13 @@ function ChampionPanel({
         </div>
 
         {detail.positions.length > 1 ? (
-          <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/5 pt-3">
+          <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-3">
             {detail.positions.map((entry) => (
               <span
                 key={entry.position}
                 className={`num flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] ${
                   entry.position === detail.position
-                    ? "bg-jade-500/12 text-jade-300"
+                    ? "bg-gold-400/12 text-gold-300"
                     : "bg-white/[0.04] text-ink-500"
                 }`}
               >

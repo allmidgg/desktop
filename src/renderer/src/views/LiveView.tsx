@@ -96,7 +96,7 @@ function GameRow({ game, snapshot }: { game: RecentGameSummary; snapshot: AppSna
 
   return (
     <Panel
-      className={`group relative flex items-center gap-4 overflow-hidden py-3 pr-5 pl-4 transition-colors hover:border-white/14 ${
+      className={`group relative flex items-center gap-4 overflow-hidden py-3 pr-5 pl-4 transition-colors hover:border-line-lit ${
         game.win ? "bg-jade-500/[0.035]" : "bg-loss-500/[0.03]"
       }`}
     >

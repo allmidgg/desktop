@@ -86,7 +86,7 @@ export function ItemRow({
           <div
             key={index}
             style={{ width: size, height: size }}
-            className="rounded-md border border-white/5 bg-white/[0.02]"
+            className="rounded-md border border-line bg-white/[0.02]"
           />
         );
       })}
@@ -120,7 +120,7 @@ export function SpellPair({
           <div
             key={index}
             style={{ width: size, height: size }}
-            className="rounded border border-white/5 bg-white/[0.02]"
+            className="rounded border border-line bg-white/[0.02]"
           />
         );
       })}
@@ -138,7 +138,9 @@ const TIER_COLORS: Record<string, string> = {
   salt: "text-[#cfd6dd] border-[#cfd6dd]/25 bg-[#cfd6dd]/10",
   bronze: "text-[#cd7f32] border-[#cd7f32]/30 bg-[#cd7f32]/10",
   silver: "text-[#c0c8d0] border-[#c0c8d0]/25 bg-[#c0c8d0]/10",
-  gold: "text-gold-400 border-gold-400/30 bg-gold-400/10",
+  // Letterlijke hex, niet het merktoken: de rangkleuren moeten exact blijven
+  // staan ook nu goud van tint verandert.
+  gold: "text-[#e6c88a] border-[#e6c88a]/30 bg-[#e6c88a]/10",
   platinum: "text-[#5fd6c8] border-[#5fd6c8]/30 bg-[#5fd6c8]/10",
   diamond: "text-[#7aa8ff] border-[#7aa8ff]/30 bg-[#7aa8ff]/10",
 };
@@ -199,7 +201,7 @@ export function Streak({ streak }: { streak: number }): JSX.Element | null {
 export function Spinner({ label }: { label?: string }): JSX.Element {
   return (
     <div className="flex items-center gap-2 text-sm text-ink-500">
-      <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/15 border-t-jade-500" />
+      <span className="h-3 w-3 animate-spin rounded-full border-2 border-line-lit border-t-gold-400" />
       {label}
     </div>
   );

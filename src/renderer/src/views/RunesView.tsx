@@ -9,9 +9,14 @@ import type { AppSnapshot, RunePlanSummary } from "../../../shared/types";
 import type { RuneKind } from "../../../core/jade/runes";
 import { asset, ChampionIcon, EmptyState, Panel, SectionTitle, Spinner } from "../ui";
 
+/**
+ * De vier slots hebben hun eigen vaste kleur, net als in de client. Dat is
+ * informatie, geen stijl: seal staat daarom op een letterlijke hex en niet op
+ * het merktoken, zodat dit palet niet meebeweegt als het accent verandert.
+ */
 const KIND_LABELS: Record<RuneKind, { label: string; color: string }> = {
   mark: { label: "Marks", color: "text-loss-400" },
-  seal: { label: "Seals", color: "text-gold-400" },
+  seal: { label: "Seals", color: "text-[#e6c88a]" },
   glyph: { label: "Glyphs", color: "text-[#7aa8ff]" },
   quintessence: { label: "Quintessences", color: "text-jade-300" },
 };
@@ -67,7 +72,7 @@ export function RunesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element 
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search..."
-          className="mb-2 w-full rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm outline-none placeholder:text-ink-700 focus:border-jade-500/40"
+          className="mb-2 w-full rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2 text-sm outline-none placeholder:text-ink-700 focus:border-gold-400/45"
         />
         <div className="max-h-[calc(100vh-220px)] space-y-1 overflow-y-auto pr-1">
           {champions.map((champion) => (
@@ -75,7 +80,7 @@ export function RunesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element 
               key={champion.jadeId}
               onClick={() => setChampionId(champion.jadeId)}
               className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors ${
-                championId === champion.jadeId ? "bg-jade-500/12 text-jade-300" : "hover:bg-white/5"
+                championId === champion.jadeId ? "bg-gold-400/12 text-gold-300" : "hover:bg-white/5"
               }`}
             >
               <ChampionIcon iconPath={champion.iconPath} name={champion.name} size={30} />
@@ -103,13 +108,18 @@ export function RunesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element 
                 </div>
               </div>
               <div className="text-right">
+                {/* De knop staat in goud, want dit is de hoofdactie. De
+                    bevestiging overschrijft je eigen pagina en moet daar
+                    zichtbaar van verschillen; die stond op goud, maar goud is nu
+                    het merkaccent, dus valt hij terug op rood -- de kleur die
+                    hier al "dit kost je iets" betekent. */}
                 <button
                   onClick={() => void apply()}
                   disabled={applying || !targetPage}
                   className={`rounded-xl border px-5 py-2.5 text-sm font-medium transition-colors disabled:opacity-40 ${
                     confirming
-                      ? "border-gold-500/40 bg-gold-500/15 text-gold-300 hover:bg-gold-500/25"
-                      : "border-jade-500/30 bg-jade-500/12 text-jade-300 hover:bg-jade-500/22"
+                      ? "border-loss-500/45 bg-loss-500/15 text-loss-400 hover:bg-loss-500/25"
+                      : "border-gold-400/30 bg-gold-400/12 text-gold-300 hover:bg-gold-400/22"
                   }`}
                 >
                   {applying
@@ -121,7 +131,7 @@ export function RunesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element 
                 {targetPage ? (
                   <p
                     className={`mt-1.5 max-w-[260px] text-[11px] ${
-                      targetPage.isEmpty ? "text-ink-500" : "text-gold-400"
+                      targetPage.isEmpty ? "text-ink-500" : "text-gold-300"
                     }`}
                   >
                     {targetPage.isEmpty
@@ -175,7 +185,7 @@ export function RunesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element 
                             className="h-7 w-7 rounded-lg border border-white/8"
                           />
                         ) : null}
-                        <span className="num w-7 text-[13px] font-semibold text-jade-400">
+                        <span className="num w-7 text-[13px] font-semibold text-gold-400">
                           {choice.count}x
                         </span>
                         <div className="min-w-0 flex-1">
@@ -192,7 +202,7 @@ export function RunesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element 
                   </div>
 
                   {kind.upgrade && kind.upgrade.gapPercent > 0 ? (
-                    <div className="mt-3 rounded-lg border border-gold-500/20 bg-gold-500/8 px-2.5 py-2">
+                    <div className="mt-3 rounded-lg border border-gold-500 bg-gold-400/8 px-2.5 py-2">
                       <p className="text-[11px] text-gold-300">
                         Buy: {kind.slots}x {kind.upgrade.title}
                       </p>

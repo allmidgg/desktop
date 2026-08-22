@@ -43,10 +43,10 @@ function ChampSelectWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.
   const database = snapshot?.database;
   return (
     <div className="app-backdrop relative flex h-full flex-col">
-      <header className="drag flex h-10 shrink-0 items-center justify-between border-b border-white/6 pr-1 pl-4">
+      <header className="drag flex h-10 shrink-0 items-center justify-between border-b border-line pr-1 pl-4">
         <div className="flex items-center gap-3">
           <span className="text-[13px] font-semibold tracking-tight">
-            All<span className="text-jade-400">Mid</span>
+            All<span className="text-gold-400">Mid</span>
           </span>
           <span className="text-[10px] tracking-[0.16em] text-ink-700 uppercase">
             Champion Select
@@ -129,10 +129,10 @@ function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
   const connected = snapshot?.connection === "connected";
   const database = snapshot?.database;
   return (
-    <header className="drag relative z-10 flex h-11 shrink-0 items-center justify-between border-b border-white/6 pr-1 pl-5">
+    <header className="drag relative z-10 flex h-11 shrink-0 items-center justify-between border-b border-line pr-1 pl-5">
       <div className="flex items-center gap-3">
         <span className="text-[15px] font-semibold tracking-tight">
-          All<span className="text-jade-400">Mid</span>
+          All<span className="text-gold-400">Mid</span>
         </span>
         <span className="text-[11px] tracking-[0.16em] text-ink-700 uppercase">League Classic</span>
       </div>
@@ -194,7 +194,7 @@ function Sidebar({
   hasChampSelect: boolean;
 }): JSX.Element {
   return (
-    <nav className="relative z-10 flex w-[76px] shrink-0 flex-col items-center gap-1 border-r border-white/6 py-5">
+    <nav className="relative z-10 flex w-[76px] shrink-0 flex-col items-center gap-1 border-r border-line py-5">
       {TABS.map((entry) => {
         const active = tab === entry.id;
         return (
@@ -202,11 +202,11 @@ function Sidebar({
             key={entry.id}
             onClick={() => onSelect(entry.id)}
             className={`group relative flex w-full flex-col items-center gap-1.5 py-3 transition-colors ${
-              active ? "text-jade-300" : "text-ink-500 hover:text-ink-300"
+              active ? "text-gold-300" : "text-ink-500 hover:text-ink-300"
             }`}
           >
             {active ? (
-              <span className="absolute top-1/2 left-0 h-7 w-[2px] -translate-y-1/2 rounded-r bg-jade-400" />
+              <span className="absolute top-1/2 left-0 h-7 w-[2px] -translate-y-1/2 rounded-r bg-gold-400" />
             ) : null}
             <svg
               width="21"
@@ -221,7 +221,7 @@ function Sidebar({
             </svg>
             <span className="text-[10px] font-medium tracking-wide">{entry.label}</span>
             {entry.id === "live" && hasChampSelect && !active ? (
-              <span className="absolute top-2.5 right-4 h-1.5 w-1.5 rounded-full bg-jade-400" />
+              <span className="absolute top-2.5 right-4 h-1.5 w-1.5 rounded-full bg-gold-400" />
             ) : null}
           </button>
         );
