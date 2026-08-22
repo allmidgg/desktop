@@ -32,6 +32,7 @@ const meta = read("data/meta.json");
 // Het manifest heeft metadata op het hoogste niveau; de champions zitten eronder.
 const roster = read("img/champions/manifest.json").champions;
 const champions = read("data/champions.json");
+const builds = read("data/builds.json");
 
 /**
  * champions.json is de bron voor alles wat over champions gaat: aantallen, lanes,
@@ -134,6 +135,46 @@ function tierFor(lane) {
     }));
 }
 
+/**
+ * De builds in compacte vorm voor het script.
+ *
+ * Alleen wat getoond wordt, en als getallenrijtjes in plaats van objecten --
+ * dit gaat als JSON de pagina in, dus elke veldnaam die je 63 keer herhaalt is
+ * pure ballast.
+ */
+function buildsData() {
+  const kort = (x) => [x.baseId, x.pickRate, x.winrate];
+  const out = {};
+  for (const c of Object.values(roster)) {
+    const b = buildFor(c.baseId);
+    if (!b) continue;
+    out[c.baseId] = {
+      l: b.lane,
+      g: b.games,
+      i: b.items.map(kort),
+      b: b.boots.map(kort),
+      s: b.starters.map(kort),
+      p: b.spells.map((x) => [x.spells[0], x.spells[1], x.pickRate, x.winrate]),
+    };
+  }
+  return out;
+}
+
+/** Alleen de namen die ook echt in een build voorkomen. */
+function naamTabellen() {
+  const items = {};
+  const spells = {};
+  for (const c of Object.values(roster)) {
+    const b = buildFor(c.baseId);
+    if (!b) continue;
+    for (const lijst of [b.items, b.boots, b.starters]) {
+      for (const x of lijst) items[x.baseId] = x.naam;
+    }
+    for (const s of b.spells) for (const id of s.spells) spells[id] = spellName(id);
+  }
+  return { items, spells };
+}
+
 /** Namen en icoonpaden, zodat het script geen paden hoeft samen te stellen. */
 function rosterData() {
   const out = {};
@@ -229,6 +270,94 @@ function detailPanel() {
           <ul class="matchups" id="detail-loses">${loses.map((m) => matchup(m, "down")).join("") || `<li class="c-empty">Not enough games.</li>`}</ul>
         </div>
       </div>
+    </div>`;
+}
+
+/* ── Builds ──────────────────────────────────────────────────────────────── */
+
+const itemIcon = (id) => `img/items/${id}.png`;
+const spellIcon = (id) => `img/spells/${id}.png`;
+const itemName = (id) => builds.itemtabel?.[String(id)]?.naam ?? `Item ${id}`;
+const spellName = (id) => builds.spelltabel?.[String(id)] ?? `Spell ${id}`;
+
+/**
+ * De build die we voor een champion tonen.
+ *
+ * Een champion speelt vaak in meerdere lanes, en die builds verschillen. We
+ * kiezen de lane waar hij het sterkst is, want dat is de build waar iemand naar
+ * op zoek is -- en we zetten er expliciet bij welke lane het is, anders lijkt
+ * het alsof deze cijfers voor alle lanes gelden.
+ */
+function buildFor(baseId) {
+  const champ = builds.champions?.[String(baseId)];
+  if (!champ?.lanes?.length) return null;
+
+  const beste = [...champ.lanes].sort((a, b) => b.winrate - a.winrate)[0];
+  return {
+    lane: beste.lane,
+    games: beste.games,
+    items: (beste.items ?? []).slice(0, 6),
+    boots: (beste.boots ?? []).slice(0, 3),
+    starters: (beste.starters ?? []).slice(0, 3),
+    spells: (beste.spells ?? []).slice(0, 3),
+  };
+}
+
+/** Eén regel in een itemlijst: icoon, naam, hoe vaak, en hoe vaak gewonnen. */
+const itemRow = (i) => `
+      <li>
+        <img src="${itemIcon(i.baseId)}" alt="" width="64" height="64" loading="lazy" />
+        <span class="i-name">${esc(i.naam)}</span>
+        <span class="i-pick">${pct(i.pickRate)}<small>%</small></span>
+        <span class="i-wr ${wrClass(i.winrate)}">${pct(i.winrate)}<small>%</small></span>
+      </li>`;
+
+const spellRow = (s) => `
+      <li>
+        <span class="s-pair">
+          <img src="${spellIcon(s.spells[0])}" alt="${esc(spellName(s.spells[0]))}" width="64" height="64" loading="lazy" />
+          <img src="${spellIcon(s.spells[1])}" alt="${esc(spellName(s.spells[1]))}" width="64" height="64" loading="lazy" />
+        </span>
+        <span class="i-name">${esc(spellName(s.spells[0]))} + ${esc(spellName(s.spells[1]))}</span>
+        <span class="i-pick">${pct(s.pickRate)}<small>%</small></span>
+        <span class="i-wr ${wrClass(s.winrate)}">${pct(s.winrate)}<small>%</small></span>
+      </li>`;
+
+/** Het buildblok onder het detailpaneel, vooraf gevuld met de startchampion. */
+function detailBuilds(seedId) {
+  const b = buildFor(seedId);
+  const laneLabel = LANES.find((l) => l.key === b?.lane)?.label ?? b?.lane ?? "";
+
+  return `
+    <div class="builds" id="builds">
+      <div class="builds-head">
+        <p class="block-label">Most built <span>on <b id="builds-lane">${esc(laneLabel)}</b> &middot; <b id="builds-games">${b ? n(b.games) : "0"}</b> games</span></p>
+      </div>
+
+      <div class="builds-cols">
+        <div>
+          <p class="col-label">Items</p>
+          <ul class="itemlist" id="builds-items">${(b?.items ?? []).map(itemRow).join("")}</ul>
+        </div>
+        <div>
+          <p class="col-label">Boots</p>
+          <ul class="itemlist" id="builds-boots">${(b?.boots ?? []).map(itemRow).join("")}</ul>
+          <p class="col-label" style="margin-top:1.1rem">Starting items</p>
+          <ul class="itemlist" id="builds-starters">${(b?.starters ?? []).map(itemRow).join("")}</ul>
+        </div>
+        <div>
+          <p class="col-label">Summoner spells</p>
+          <ul class="itemlist" id="builds-spells">${(b?.spells ?? []).map(spellRow).join("")}</ul>
+        </div>
+      </div>
+
+      <p class="builds-note">
+        <span class="fn-mark">2</span>
+        These are the items that were <strong>still in the inventory when the game ended</strong>, not a
+        purchase order. Classic match history carries no timeline, so there is no honest way to say what
+        anyone bought first &mdash; and a starting item that got sold does not show up here at all. The
+        percentage is how often the item was held; the second number is the win rate of the games it was held in.
+      </p>
     </div>`;
 }
 
@@ -719,6 +848,56 @@ nav.links a:hover { color: var(--ink); }
 .wr-hi { color: var(--wr-hi); } .wr-ok { color: var(--wr-ok); }
 .wr-lo { color: var(--wr-lo); } .wr-bad { color: var(--wr-bad); }
 
+/* ── Builds onder het detailpaneel ─────────────────────────────────────── */
+.builds {
+  margin-top: 1px;
+  background: var(--surface);
+  border: 1px solid var(--line-lit);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.2rem 1.3rem 1.1rem;
+}
+.builds-head { margin-bottom: 1rem; }
+.builds-head .block-label { margin: 0; }
+.builds-head .block-label b { color: var(--gold); font-weight: 500; }
+
+.builds-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1.2rem, 3vw, 2.4rem);
+}
+@media (max-width: 900px) { .builds-cols { grid-template-columns: 1fr; } }
+
+.col-label {
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--dim); margin: 0 0 0.6rem;
+}
+
+.itemlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.34rem; }
+.itemlist li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+}
+.itemlist img { width: 30px; height: 30px; border-radius: 4px; border: 1px solid var(--line); }
+.i-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.i-pick { font-family: var(--mono); font-size: 0.72rem; color: var(--dim); font-variant-numeric: tabular-nums; }
+.i-wr { font-family: var(--mono); font-weight: 700; font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; }
+.i-pick small, .i-wr small { font-size: 0.7em; opacity: 0.6; }
+
+/* Twee spells naast elkaar in de breedte van een enkel itemicoon. */
+.s-pair { display: flex; gap: 2px; }
+.s-pair img { width: 14px; height: 14px; border-radius: 3px; }
+
+.builds-note {
+  margin: 1.1rem 0 0; padding-top: 0.9rem; border-top: 1px solid var(--line);
+  font-size: 0.8rem; color: var(--dim); line-height: 1.6; max-width: 88ch;
+}
+.builds-note strong { color: var(--muted); font-weight: 600; }
+
 /* ── Masthead: de herkomst van de cijfers, in één regel ────────────────── */
 .masthead { border-block: 1px solid var(--line); background: var(--surface); }
 .masthead .wrap {
@@ -974,7 +1153,10 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 
 <!-- ── Detail ─────────────────────────────────────────────────────────── -->
 <section class="band" style="padding-block:0 clamp(2.5rem,5vw,4rem);margin-top:-0.5rem">
-  <div class="wrap rise">${detailPanel()}</div>
+  <div class="wrap rise">
+    ${detailPanel()}
+    ${detailBuilds(SEED)}
+  </div>
 </section>
 
 <!-- ── Masthead ───────────────────────────────────────────────────────── -->
@@ -1011,7 +1193,8 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
       <p class="eyebrow">Live tier list</p>
       <h2>The Classic meta, right here on the page.</h2>
       <p>
-        Not a screenshot &mdash; this is the same dataset the app ships with, computed by the same code.
+        Not a screenshot &mdash; this is the pooled dataset, computed by the same code the app runs.
+        A fresh install starts empty and builds up its own; these are everyone&rsquo;s finds together.
         ${n(T.games)} games from patches ${T.patches.map((p) => esc(p)).join(" and ")}, collected between
         ${DATE(T.eersteGame)} and ${DATE(T.laatsteGame)}.
       </p>
@@ -1087,8 +1270,8 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
         <h3>Builds behind every number</h3>
         <p>Open a champion in the app and you get the build the wins were actually played with.</p>
         <ul class="ticks">
-          <li><b>Item paths</b> with the pick rate on every slot</li>
-          <li><b>Summoner spells</b> and <b>skill order</b></li>
+          <li><b>Most-built items</b> with how often they were held and how often those games were won</li>
+          <li><b>Summoner spells</b>, ranked by how often the pair was taken</li>
           <li><b>Matchups</b> &mdash; who beats it, who loses to it, and by how much</li>
           <li>Win rates <b>smoothed</b>, so a 3-game 100% never tops the list</li>
         </ul>
@@ -1117,11 +1300,15 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
       <div class="step"><span class="num">STEP 1</span><h4>Your client already knows</h4><p>League runs two local APIs on your machine for its own interface to use. AllMid reads them &mdash; the same match history you can open yourself, just faster.</p></div>
       <div class="step"><span class="num">STEP 2</span><h4>It walks the graph</h4><p>Every match names ten players, and every player has a match history. Follow that outward and a handful of games becomes a hundred thousand.</p></div>
       <div class="step"><span class="num">STEP 3</span><h4>Finds get pooled</h4><p>Games are merged and deduplicated by ID. If ten people run into the same match it is stored once, so overlap between users costs nothing.</p></div>
-      <div class="step"><span class="num">STEP 4</span><h4>Everyone gets it back</h4><p>The pooled numbers return to every install. The tool gets sharper for everybody each time somebody new runs it, including you.</p></div>
+      <div class="step"><span class="num">STEP 4</span><h4>Everyone gets it back</h4><p>The pooled numbers are what this page is built from. Every new person who runs the app makes the tier lists, counters and builds here sharper &mdash; the app itself still computes from what it has crawled locally.</p></div>
     </div>
     <p class="audit">
-      Only public match data is collected: champion, result, KDA, CS, gold, items and summoner spells.
-      Nothing is read that you could not look up yourself in the client.
+      <strong>Per player:</strong> the account identifier (puuid), champion, team, position, result,
+      KDA, CS, gold, final items and summoner spells. <strong>Per game:</strong> id, timestamp, duration,
+      queue and patch. No display names, no runes or masteries, and no purchase order &mdash; the match
+      history does not carry one. The puuid is what makes deduplication and player lookup possible; it is
+      the same identifier the client itself uses, and it is listed here because leaving it out would
+      understate what leaves your machine.
     </p>
   </div>
 </section>
@@ -1145,7 +1332,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
       <div class="item no"><p class="top">Does not</p><p><strong>Play for you.</strong> No in-game automation, no scripting, no input simulation.</p></div>
       <div class="item yes"><p class="top">Does</p><p><strong>Use the client&rsquo;s own local APIs</strong> &mdash; the interfaces League already runs on your machine for its own UI.</p></div>
       <div class="item yes"><p class="top">Does</p><p><strong>Write your mastery page</strong>, and only when you ask it to. Your existing pages are backed up first.</p></div>
-      <div class="item yes"><p class="top">Does</p><p><strong>Send collected match data</strong> to the shared pool, so the stats improve for everyone. You can turn this off.</p></div>
+      <div class="item yes"><p class="top">Does</p><p><strong>Send collected match data</strong> to the shared pool, so the stats improve for everyone. There is a switch in the title bar that turns it off, and it shows you what has been shared.</p></div>
       <div class="item yes"><p class="top">Does</p><p><strong>Build in the open.</strong> The installer comes out of a public CI run you can inspect, not off somebody&rsquo;s laptop.</p></div>
     </div>
     <p class="audit">
@@ -1192,7 +1379,12 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   </div>
 </footer>
 
-<script id="champ-data" type="application/json">${JSON.stringify({ c: explorerData(), r: rosterData() })}</script>
+<script id="champ-data" type="application/json">${JSON.stringify({
+  c: explorerData(),
+  r: rosterData(),
+  b: buildsData(),
+  t: naamTabellen(),
+})}</script>
 
 <script>
 (() => {
@@ -1240,6 +1432,52 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     return li.outerHTML;
   }
 
+  /* ── De builds onder het detailpaneel ── */
+
+  // Namen worden via textContent gezet en niet in de HTML geplakt: ze komen uit
+  // Riots catalogus en bevatten apostrofs ("Doran's Blade"), die anders de
+  // opmaak zouden breken.
+  function regel(iconSrc, naam, pick, wr) {
+    const li = document.createElement("li");
+    li.innerHTML =
+      iconSrc +
+      '<span class="i-name"></span>' +
+      '<span class="i-pick">' + pct(pick) + "<small>%</small></span>" +
+      '<span class="i-wr ' + wrClass(wr) + '">' + pct(wr) + "<small>%</small></span>";
+    li.querySelector(".i-name").textContent = naam;
+    return li.outerHTML;
+  }
+
+  const itemRegel = ([id, pick, wr]) =>
+    regel('<img src="img/items/' + id + '.png" alt="" width="64" height="64" loading="lazy" />',
+          data.t.items[id] || "Item " + id, pick, wr);
+
+  const spellRegel = ([a, b, pick, wr]) =>
+    regel('<span class="s-pair">' +
+            '<img src="img/spells/' + a + '.png" alt="" width="64" height="64" loading="lazy" />' +
+            '<img src="img/spells/' + b + '.png" alt="" width="64" height="64" loading="lazy" />' +
+          "</span>",
+          (data.t.spells[a] || a) + " + " + (data.t.spells[b] || b), pick, wr);
+
+  function showBuild(id) {
+    const b = data.b[id];
+    const leeg = '<li class="c-empty">Not enough games.</li>';
+
+    if (!b) {
+      el("builds-lane").textContent = "—";
+      el("builds-games").textContent = "0";
+      for (const veld of ["items", "boots", "starters", "spells"]) el("builds-" + veld).innerHTML = leeg;
+      return;
+    }
+
+    el("builds-lane").textContent = LANE_LABEL[b.l] || b.l;
+    el("builds-games").textContent = num(b.g);
+    el("builds-items").innerHTML = b.i.map(itemRegel).join("") || leeg;
+    el("builds-boots").innerHTML = b.b.map(itemRegel).join("") || leeg;
+    el("builds-starters").innerHTML = b.s.map(itemRegel).join("") || leeg;
+    el("builds-spells").innerHTML = b.p.map(spellRegel).join("") || leeg;
+  }
+
   function show(id) {
     const c = data.c[id];
     const r = data.r[id];
@@ -1267,6 +1505,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     el("detail-beats").innerHTML = c.b.map((m) => matchupRow(m, "up")).join("") || none;
     el("detail-loses").innerHTML = c.d.map((m) => matchupRow(m, "down")).join("") || none;
 
+    showBuild(id);
     buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.champ === String(id))));
   }
 
