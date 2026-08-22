@@ -58,10 +58,20 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: AllMid
-  artifactName: ${productName} Setup ${version}.${ext}
+
+  # Vaste naam zonder versienummer. Daardoor blijft
+  # github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe
+  # voor altijd naar de nieuwste installer wijzen, en hoeft de downloadknop op
+  # de site nooit aangepast te worden bij een nieuwe uitgave.
+  artifactName: ${productName}-Setup.${ext}
 
 portable:
   # Een portable .exe pakt zichzelf uit in temp, dus de opslag mag daar niet
   # staan. Omdat de app zijn map altijd onder %APPDATA% zoekt, deelt de portable
   # versie zijn gegevens gewoon met de geïnstalleerde.
-  artifactName: ${productName} ${version} Portable.${ext}
+  #
+  # Hij wordt wel gebouwd maar gaat NIET mee in de release. Twee downloads met
+  # bijna dezelfde naam laat mensen twijfelen over wat ze moeten hebben, en de
+  # installer is voor vrijwel iedereen de betere keuze: hij start sneller (een
+  # portable pakt zich bij elke start opnieuw uit) en zet een snelkoppeling neer.
+  artifactName: ${productName}-Portable.${ext}

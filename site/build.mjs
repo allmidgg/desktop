@@ -728,6 +728,40 @@ nav.links a:hover { color: var(--ink); }
 .btn svg { width: 17px; height: 17px; flex: none; }
 .cta-row { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center; }
 
+/* ── De knop aanwijzen vanuit de kop ──────────────────────────────────────
+   Klikken op Download rechtsboven springt naar de eerste knop. Zonder markering
+   land je daar en weet je niet waar je naar moet kijken; vandaar dat hij even
+   oplicht met een pijl erboven. Alles verdwijnt vanzelf.
+   ───────────────────────────────────────────────────────────────────────── */
+@keyframes wijs-aan {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(231, 199, 110, 0); }
+  50%      { box-shadow: 0 0 0 7px rgba(231, 199, 110, 0.28); }
+}
+@keyframes wijs-pijl {
+  0%, 100% { transform: translate(-50%, 0); }
+  50%      { transform: translate(-50%, 7px); }
+}
+
+.btn.aangewezen { animation: wijs-aan 1s ease-in-out 3; position: relative; }
+.btn.aangewezen::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 10px solid var(--gold);
+  animation: wijs-pijl 1s ease-in-out 3;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn.aangewezen { animation: none; box-shadow: 0 0 0 4px rgba(231, 199, 110, 0.3); }
+  .btn.aangewezen::after { animation: none; }
+}
+
 /* ── Hero ──────────────────────────────────────────────────────────────── */
 .hero {
   position: relative;
@@ -1161,7 +1195,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
       <a href="#data">The data</a>
       <a href="#safety">Safety</a>
     </nav>
-    <a class="btn btn-primary btn-sm" href="#download">Download</a>
+    <a class="btn btn-primary btn-sm" id="nav-download" href="#get">Download</a>
   </div>
 </header>
 
@@ -1179,8 +1213,8 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
         the dataset from scratch: <strong>${n(T.games)} games</strong> across
         <strong>${n(T.players)} players</strong> and all <strong>63 champions</strong>.
       </p>
-      <div class="cta-row">
-        <a class="btn btn-primary" href="#download">
+      <div class="cta-row" id="get">
+        <a class="btn btn-primary" id="hero-download" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 11 5 5 5-5" /><path d="M4 20h16" /></svg>
           Download for Windows
         </a>
@@ -1409,7 +1443,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
     <h2>Install it before your next Classic queue.</h2>
     <p>Windows 10 and 11. It runs alongside the League client &mdash; start it whenever you like and it picks up from there. Free, and it stays free.</p>
     <div class="cta-row">
-      <a class="btn btn-primary" href="https://github.com/allmidgg/desktop/releases/latest">
+      <a class="btn btn-primary" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 11 5 5 5-5" /><path d="M4 20h16" /></svg>
         Download for Windows
       </a>
@@ -1463,6 +1497,26 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   const onScroll = () => bar.classList.toggle("stuck", window.scrollY > 8);
   onScroll();
   addEventListener("scroll", onScroll, { passive: true });
+
+  /* ── Download rechtsboven wijst de echte knop aan ── */
+  const navDownload = document.getElementById("nav-download");
+  const heroDownload = document.getElementById("hero-download");
+
+  if (navDownload && heroDownload) {
+    navDownload.addEventListener("click", (e) => {
+      e.preventDefault();
+      document.getElementById("get")?.scrollIntoView({
+        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "center",
+      });
+      // Opnieuw starten als je twee keer klikt: de klasse moet er eerst af,
+      // anders loopt de animatie niet nog een keer.
+      heroDownload.classList.remove("aangewezen");
+      void heroDownload.offsetWidth;
+      heroDownload.classList.add("aangewezen");
+      setTimeout(() => heroDownload.classList.remove("aangewezen"), 3200);
+    });
+  }
 
   /* ── Lane-tabs ── */
   const tabs = [...document.querySelectorAll(".lane-tabs button")];

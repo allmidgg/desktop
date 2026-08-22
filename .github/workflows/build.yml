@@ -84,10 +84,12 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          # Alleen de installer van de client. De portable, de blockmaps en de
+          # Server Manager worden wel gebouwd en blijven als artefact van de run
+          # beschikbaar, maar horen niet op een downloadpagina: wie AllMid wil,
+          # moet niet hoeven kiezen uit zes bestanden met bijna dezelfde naam.
+          # De Server Manager is bovendien beheergereedschap, geen gebruikersding.
           files: |
-            dist/*.exe
-            dist/*.blockmap
-            manager/dist/*.exe
-            manager/dist/*.blockmap
+            dist/AllMid-Setup.exe
           draft: true
           generate_release_notes: true
