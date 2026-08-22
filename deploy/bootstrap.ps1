@@ -173,11 +173,6 @@ $script:LogMap        = Join-Path $AllmidRoot 'logs'
 # weten of de bestaande site nog antwoordt. Deze vlag voorkomt dat hij twee keer loopt.
 $script:EindmetingGedaan = $false
 
-# Blijkt deze server ondanks alles een open proxy, dan is dat geen gewone fout: dan
-# moet de proxy uit, moet het luid gemeld worden, en moet de afsluitcode ongelijk nul
-# zijn -- ook als het script niet als bestand draait.
-$script:OpenProxyNood = $false
-
 # Hebben WIJ de ARR-proxy in deze run aangezet? Dat bepaalt of we hem bij twijfel weer
 # uit mogen zetten: een schakelaar die al aan stond is de beslissing van iemand anders.
 $script:ProxyDoorOnsAan = $false
@@ -705,16 +700,22 @@ $script:RegelVars  = @('{UNENCODED_URL}', '{HTTP_URL}', '{REQUEST_URI}')
 # statusregel ("HTTP/1.1 403 Forwarding is disabled"), en de zelftest onderaan zoekt er
 # precies naar. Een 403 zonder deze tekst komt dus ergens anders vandaan.
 $script:RegelReden = 'Forwarding is disabled'
+$script:RegelBody  = 'This server does not forward requests with an absolute URI.'
 
-# Zet de zelftest onderaan vast dat deze machine tóch als forward proxy werkt,
-# dan wordt dit waar en eindigt het script met een fout. Een halve installatie is
-# beter dan een open proxy die op internet blijft staan.
+# Stelt de zelftest onderaan vast dat deze machine toch als forward proxy werkt, dan
+# wordt dit waar en eindigt het script met een afsluitcode ongelijk nul. Een halve
+# installatie is beter dan een open proxy die op internet blijft staan.
 $script:OpenProxy = $false
 
-# Wat het script uit zichzelf heeft teruggedraaid, los van de gewone
-# wijzigingenlijst -- dat is namelijk geen wijziging maar een noodrem.
+# Draait dit op client-Windows in plaats van Windows Server? Dat mag, maar IIS
+# begrenst daar het aantal gelijktijdige verbindingen op 10 -- een beperking van
+# de Windows-licentie, geen instelling. Dat hoort in de slotsamenvatting terug te
+# komen, want het is precies het soort ding dat je vergeet tot de site traag wordt.
+$script:ClientWindows = $false
+
+# Wat het script uit zichzelf heeft teruggedraaid, los van de gewone wijzigingenlijst
+# -- dat is namelijk geen wijziging maar een noodrem.
 $script:Terugdraaiingen = @()
-$script:RegelBody  = 'This server does not forward requests with an absolute URI.'
 
 <#
     Microsoft.Web.Administration -- de beheer-API van IIS zelf.
@@ -1357,8 +1358,19 @@ Info "$($os.Caption.Trim())  (ProductType $($os.ProductType))"
 if ($os.ProductType -ne 1) {
     Goed 'Windows Server'
 } else {
-    Blokkeer -Reden 'Dit is geen Windows Server.' `
-             -Hint  'De doelmachine is de dedicated server met IIS 10. Op werkstation-Windows ontbreken IIS-onderdelen en gedraagt de geplande taak zich anders.'
+    # Eerder blokkeerde dit. Dat was te streng: IIS draait prima op Windows Pro
+    # en alles wat dit script doet werkt daar. Of IIS er is wordt hieronder
+    # gewoon apart gecontroleerd, en dat is de vraag die er echt toe doet.
+    #
+    # Maar er is wel een verschil dat je moet weten, en dat is geen instelling
+    # maar een licentiebeperking van Windows zelf.
+    Let 'Dit is client-Windows, geen Windows Server.'
+    Let 'IIS werkt hier, maar begrenst het aantal GELIJKTIJDIGE verbindingen op 10.'
+    Let 'Dat is een limiet van de Windows-licentie en niet uit te zetten. Voor een'
+    Let 'publieke site is dat een echt plafond: bij drukte staan bezoekers in de wacht.'
+    Let 'Met Cloudflare ervoor die statische bestanden cachet valt er mee te leven;'
+    Let 'groeit het, dan is Windows Server (of een reverse proxy die meer aankan) nodig.'
+    $script:ClientWindows = $true
 }
 
 Stap 'IIS'
@@ -1551,6 +1563,96 @@ function Get-Nulmeting {
 
 $nulmeting = Get-Nulmeting
 
+<#
+    De nulmeting opnieuw doen en het verschil tonen.
+
+    Waarom dit een functie is en niet gewoon de onderkant van stap 9: hij moet OOK op
+    het foutpad draaien. Vroeger stond deze meting alleen in het gelukte pad, en sloeg
+    het catch-blok hem over. Precies verkeerd om: juist als er halverwege iets omvalt --
+    een mislukte npm ci, een geblokkeerde schrijfactie, een script uit de repo dat
+    struikelt -- wil je weten of de ANDERE site op deze machine nog antwoordt. Dat is de
+    vraag waar je 's nachts wakker van ligt, niet of onze eigen site het doet.
+
+    Hij is idempotent gemaakt met een vlag: het gelukte pad roept hem aan het eind aan,
+    het catch-blok alleen als dat nog niet gebeurd is.
+#>
+function Invoke-Eindmeting {
+    if ($script:EindmetingGedaan) { return }
+    $script:EindmetingGedaan = $true
+
+    Stap 'De nulmeting opnieuw, en het verschil'
+
+    $eindmeting = $null
+    try {
+        $eindmeting = Get-Nulmeting
+    } catch {
+        Fout "De eindmeting zelf mislukte: $($_.Exception.Message)"
+        Meld-Controle -Wat 'eindmeting' -Ok $false -Detail 'de meting kon niet uitgevoerd worden'
+        return
+    }
+
+    foreach ($voorD in $script:nulmeting.Diensten) {
+        $naD = @($eindmeting.Diensten | Where-Object { $_.Naam -eq $voorD.Naam })[0]
+        $naStatus = 'onbekend'
+        if ($naD) { $naStatus = $naD.Status }
+        Meld-Controle -Wat "dienst $($voorD.Naam)" -Ok ($naStatus -eq $voorD.Status) `
+            -Detail "$($voorD.Status) -> $naStatus"
+    }
+
+    foreach ($voorS in $script:nulmeting.Sites) {
+        $naS = @($eindmeting.Sites | Where-Object { $_.Naam -eq $voorS.Naam })[0]
+        if (-not $naS) {
+            Meld-Controle -Wat "site $($voorS.Naam)" -Ok $false -Detail "$($voorS.Staat) -> WEG"
+            continue
+        }
+        Meld-Controle -Wat "site $($voorS.Naam)" -Ok ($naS.Staat -eq $voorS.Staat) `
+            -Detail "$($voorS.Staat) -> $($naS.Staat)"
+    }
+    foreach ($naS in $eindmeting.Sites) {
+        $bekend = @($script:nulmeting.Sites | Where-Object { $_.Naam -eq $naS.Naam })
+        if ($bekend.Count -eq 0) {
+            Info ("nieuw (van ons): site {0} staat op {1}" -f $naS.Naam, $naS.Staat)
+        }
+    }
+
+    foreach ($voorP in $script:nulmeting.Pools) {
+        $naP = @($eindmeting.Pools | Where-Object { $_.Naam -eq $voorP.Naam })[0]
+        $naStaat = 'WEG'
+        if ($naP) { $naStaat = $naP.Staat }
+        # Een pool die recyclet komt vanzelf weer op Started; hij hoort niet op
+        # Stopped te blijven staan.
+        Meld-Controle -Wat "toepassingsgroep $($voorP.Naam)" -Ok ($naStaat -eq $voorP.Staat) `
+            -Detail "$($voorP.Staat) -> $naStaat"
+    }
+
+    if ($script:nulmeting.Probes.Count -eq 0) {
+        Info 'Er waren vooraf geen andere sites met een http-binding om te bevragen.'
+    } else {
+        foreach ($voorPr in $script:nulmeting.Probes) {
+            $naPr = @($eindmeting.Probes | Where-Object {
+                $_.Site -eq $voorPr.Site -and $_.Host -eq $voorPr.Host -and $_.Poort -eq $voorPr.Poort
+            })[0]
+            $naStatus = 0
+            if ($naPr) { $naStatus = $naPr.Status }
+            $wat = "HTTP $($voorPr.Site) $($voorPr.Host):$($voorPr.Poort)"
+
+            <#
+                Status 0 in de NULMETING betekent: die site gaf vooraf al geen antwoord.
+                Is hij aan het eind weer 0, dan is dat gelijk aan de nulmeting -- maar het
+                bewijst niets. Twee keer niets is geen bewijs dat de site leeft, en dat
+                mocht niet langer als een geslaagde controle in de samenvatting staan.
+            #>
+            if ($voorPr.Status -eq 0) {
+                Meld-Controle -Wat $wat -Onbeslist -Ok $false `
+                    -Detail "kon vooraf al niet gemeten worden (0 -> $naStatus); dit zegt niets over die site"
+                continue
+            }
+            Meld-Controle -Wat $wat -Ok ($naStatus -eq $voorPr.Status) `
+                -Detail "$($voorPr.Status) -> $naStatus"
+        }
+    }
+}
+
 Stap 'Diensten'
 foreach ($d in $nulmeting.Diensten) { Info ("{0,-8} {1}" -f $d.Naam, $d.Status) }
 
@@ -1569,12 +1671,21 @@ if ($script:KanIIS) {
     if ($nulmeting.Probes.Count -eq 0) {
         Info 'geen andere site met een http-binding gevonden'
     } else {
+        $ongemeten = 0
         foreach ($p in $nulmeting.Probes) {
             $detail = "HTTP $($p.Status)"
-            if ($p.Status -eq 0) { $detail = "geen antwoord: $($p.Fout)" }
+            if ($p.Status -eq 0) {
+                $detail = "geen antwoord: $($p.Fout)"
+                $ongemeten++
+            }
             Write-Host ("   {0,-24} {1,-28} {2}" -f $p.Site, "$($p.Host):$($p.Poort)", $detail) -ForegroundColor Gray
         }
         Info 'Deze getallen zijn de meetlat. Aan het eind wordt exact hetzelfde opnieuw gedaan.'
+        if ($ongemeten -gt 0) {
+            Let "$ongemeten binding(en) gaven nu al geen antwoord (status 0)."
+            Let 'Daarvan valt aan het eind niets te bewijzen: weer 0 is geen bewijs dat die'
+            Let 'site leeft. Die komen straks als ONBESLIST in de uitslag, niet als geslaagd.'
+        }
     }
 } else {
     Info 'IIS is hier niet leesbaar, dus er valt niets te meten.'
@@ -2269,100 +2380,125 @@ Kop '8/9  Proxybescherming, ARR, site, publiceren, verzamelserver'
     (deze ontwikkelmachine heeft geen IIS). Daarom test het script het straks zelf,
     door zo'n verzoek naar 127.0.0.1 te sturen, en staat de opdracht om het vanaf een
     andere machine na te doen in de eindtekst. Vertrouw de test, niet dit commentaar.
-#>
-$RegelNaam = 'allmid-weiger-absolute-uri'
-$absPatroon = '^[a-zA-Z][a-zA-Z0-9+.\-]*://'
 
-Stap "Beschermregel '$RegelNaam'"
+    En daarom kijkt het script hier ook naar de INHOUD van een al bestaande regel en
+    niet naar de naam. Een regel die er alleen bij NAAM is -- half aangelegd, of op
+    enabled=false gezet -- weigert niets, en zou wel als "staat er al" doorgaan. Dan
+    ging de proxy aan zonder bescherming. Zie Get-Beschermregelstaat.
+#>
+$RegelNaam  = $script:RegelNaam
+$absPatroon = $script:AbsPatroon
+
+Stap "Beschermregel '$RegelNaam' en de ARR-proxy"
+Info 'Zonder de proxyschakelaar geeft IIS een 502 op /api/: ARR mag dan niet doorsturen.'
+Info 'Aanzetten maakt IIS ook een FORWARD proxy voor verzoeken met een absolute URI.'
+Info 'Daarom gaan de beschermregel en die schakelaar samen in een schrijfactie.'
+
 if ($script:KanIIS) {
-    $bestaandeGlobals = @()
-    try {
-        $bestaandeGlobals = @(Get-WebConfiguration -PSPath 'MACHINE/WEBROOT/APPHOST' `
-            -Filter 'system.webServer/rewrite/globalRules/rule' -ErrorAction Stop |
-            ForEach-Object { [string]$_.name })
-    } catch {
-        $bestaandeGlobals = @()
+    # Opnieuw lezen, en niet vertrouwen op de meting uit stap 3: daartussen zit npm ci,
+    # het klonen van de repo en een bevestiging, en dat kan minuten duren.
+    $regelStaat = Get-Beschermregelstaat
+    if (-not $regelStaat.Leesbaar) {
+        Blokkeer -Reden "De serverbrede rewrite-regels zijn niet te lezen: $($regelStaat.Leesfout)" `
+                 -Hint  'Zonder die controle zet ik de proxy niet aan.'
+    }
+    $proxyAan = Get-ArrProxyAan
+    if ($null -eq $proxyAan) {
+        Blokkeer -Reden 'De ARR-proxyinstelling is niet leesbaar terwijl ARR wel geinstalleerd is.' `
+                 -Hint  'Herstart de server (of iisreset) en draai dit script opnieuw.'
     }
 
-    if ($bestaandeGlobals -contains $RegelNaam) {
-        Goed 'staat er al'
+    $regelNodig = -not $regelStaat.Ok
+    $proxyNodig = -not $proxyAan
+
+    if ($regelStaat.Ok) {
+        Goed 'de beschermregel staat er en de inhoud klopt -- niet aangeraakt'
+    } elseif ($regelStaat.Bestaat) {
+        Let 'Er staat een regel met onze naam, maar de inhoud deugt niet:'
+        foreach ($pr in $regelStaat.Problemen) { Let "  - $pr" }
+        Let 'Hij wordt compleet opnieuw aangelegd. Repareren van losse attributen zou'
+        Let 'betekenen dat je moet weten welke helft klopt; opnieuw aanleggen weet je zeker.'
     } else {
-        if ($bestaandeGlobals.Count -gt 0) {
-            Let "Er staan al $($bestaandeGlobals.Count) serverbrede regel(s): $($bestaandeGlobals -join ', ')"
-            Let 'Onze regel komt er ACHTER. Heeft een van die regels stopProcessing en past'
-            Let 'hij eerder, dan komt onze regel niet aan de beurt. Zet hem in IIS Manager >'
-            Let '(server) > URL Rewrite > View Ordered List bovenaan als dat zo is.'
-        }
-        Wijzig -Wat "serverbrede regel '$RegelNaam' toegevoegd (weigert absolute URI met 403)" `
-               -Terugdraaien "Remove-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/rewrite/globalRules' -Name '.' -AtElement @{name='$RegelNaam'}" `
+        Info 'de beschermregel ontbreekt en wordt aangelegd'
+    }
+
+    # De volgorde van de serverbrede regels blijft een aandachtspunt: onze regel komt
+    # achteraan, en een eerdere regel met stopProcessing kan hem het werk uit handen nemen.
+    # Daar valt niet automatisch over te oordelen, dus het wordt gemeld.
+    $andereGlobals = @()
+    try {
+        $andereGlobals = @(Get-WebConfiguration -PSPath 'MACHINE/WEBROOT/APPHOST' `
+            -Filter 'system.webServer/rewrite/globalRules/rule' -ErrorAction Stop |
+            ForEach-Object { [string]$_.name } | Where-Object { $_ -ne $RegelNaam })
+    } catch {
+        $andereGlobals = @()
+    }
+    if ($regelNodig -and $andereGlobals.Count -gt 0) {
+        Let "Er staan al $($andereGlobals.Count) andere serverbrede regel(s): $($andereGlobals -join ', ')"
+        Let 'Onze regel komt er ACHTER. Heeft een van die regels stopProcessing en past'
+        Let 'hij eerder, dan komt onze regel niet aan de beurt. Zet hem in IIS Manager >'
+        Let '(server) > URL Rewrite > View Ordered List bovenaan als dat zo is.'
+        Let 'De zelftest in stap 9 laat zien of dat gebeurt.'
+    }
+
+    if ($proxyAan) {
+        Let 'De ARR-proxy stond AL AAN -- die schakelaar is niet van ons en blijft van iemand anders.'
+        Let 'Deze server kon dus al als forward proxy aangesproken worden, buiten ons om.'
+    }
+
+    if (-not $regelNodig -and -not $proxyNodig) {
+        Goed 'niets te schrijven: regel en proxy staan allebei al goed'
+    } else {
+        $wat = @()
+        if ($regelNodig) { $wat += "beschermregel '$RegelNaam' (403 + reden '$($script:RegelReden)')" }
+        if ($proxyNodig) { $wat += 'ARR-proxy aan (system.webServer/proxy enabled=true)' }
+        $terug = @()
+        if ($regelNodig) { $terug += "Remove-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/rewrite/globalRules' -Name '.' -AtElement @{name='$RegelNaam'}" }
+        if ($proxyNodig) { $terug += "Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'enabled' -Value `$false" }
+
+        $doeRegel = $regelNodig
+        $doeProxy = $proxyNodig
+        Wijzig -Wat ("APPHOST in EEN schrijfactie: " + ($wat -join ' + ')) `
+               -Terugdraaien ($terug -join ' ; ') `
                -Doe {
-                   $basis = 'system.webServer/rewrite/globalRules'
-                   $mijn  = "$basis/rule[@name='$RegelNaam']"
-                   Add-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter $basis -Name '.' `
-                       -Value @{ name = $RegelNaam; patternSyntax = 'ECMAScript'; stopProcessing = 'True' }
-                   Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter "$mijn/match" `
-                       -Name 'url' -Value '.*'
-                   Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter "$mijn/conditions" `
-                       -Name 'logicalGrouping' -Value 'MatchAny'
-                   foreach ($variabele in @('{UNENCODED_URL}', '{HTTP_URL}', '{REQUEST_URI}')) {
-                       Add-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter "$mijn/conditions" `
-                           -Name '.' -Value @{ input = $variabele; pattern = $absPatroon }
-                   }
-                   Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter "$mijn/action" `
-                       -Name 'type' -Value 'CustomResponse'
-                   Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter "$mijn/action" `
-                       -Name 'statusCode' -Value 403
-                   Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter "$mijn/action" `
-                       -Name 'statusReason' -Value 'Forwarding is disabled'
-                   Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter "$mijn/action" `
-                       -Name 'statusDescription' -Value 'This server does not forward requests with an absolute URI.'
+                   Set-Proxybescherming -RegelOpnieuw $doeRegel -ProxyAanzetten $doeProxy
                }
+        if ($proxyNodig) { $script:ProxyDoorOnsAan = $true }
+
+        # Nakijken, niet aannemen: staat er nu echt een regel die de inhoudscontrole haalt?
+        $naStaat = Get-Beschermregelstaat
+        if ($naStaat.Ok) {
+            Meld-Controle -Wat 'beschermregel in applicationHost.config' -Ok $true -Detail 'inhoud gecontroleerd, niet alleen de naam'
+        } else {
+            Meld-Controle -Wat 'beschermregel in applicationHost.config' -Ok $false `
+                -Detail (($naStaat.Problemen) -join ' | ')
+            # De proxy staat nu mogelijk aan zonder werkende bescherming. Dat is precies
+            # de toestand die we nooit willen laten bestaan.
+            if ($script:ProxyDoorOnsAan) {
+                Fout 'De regel staat er niet goed op terwijl de proxy net aan is gegaan. Ik zet hem terug uit.'
+                try {
+                    Disable-ArrProxy
+                    Fout 'ARR-proxy weer UIT gezet.'
+                    $script:Terugdraaiingen += 'ARR-proxy weer uitgezet: de beschermregel haalde de inhoudscontrole niet'
+                    $script:ProxyDoorOnsAan = $false
+                } catch {
+                    Fout "De proxy kon niet uitgezet worden: $($_.Exception.Message)"
+                    Fout "  Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'enabled' -Value `$false"
+                    $script:OpenProxy = $true
+                }
+            }
+            Blokkeer -Reden 'De beschermregel is aangelegd maar haalt de inhoudscontrole niet.' `
+                     -Hint  'Kijk in IIS Manager > (server) > URL Rewrite naar de regel, of in applicationHost.config onder system.webServer/rewrite/globalRules.'
+        }
     }
 } else {
     Plan  "serverbrede rewrite-regel '$RegelNaam': match .* met MatchAny-condities op"
     Plan  "{UNENCODED_URL}, {HTTP_URL} en {REQUEST_URI} tegen $absPatroon -> CustomResponse 403"
-    Terug "de regel uit system.webServer/rewrite/globalRules verwijderen"
-}
-
-# ── 8b. De ARR-proxy ──────────────────────────────────────────────────────────
-Stap 'ARR-proxy'
-Info 'Zonder deze schakelaar geeft IIS een 502 op /api/: ARR mag dan niet doorsturen.'
-Info 'Aanzetten maakt IIS ook een FORWARD proxy voor verzoeken met een absolute URI.'
-Info 'Daar is de regel hierboven voor, en die staat er nu eerder.'
-
-if ($script:KanIIS) {
-    $huidig = $null
-    try {
-        $huidig = (Get-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' `
-                    -Filter 'system.webServer/proxy' -Name 'enabled' -ErrorAction Stop)
-    } catch {
-        $huidig = $null
-    }
-
-    if ($null -eq $huidig) {
-        Blokkeer -Reden 'De ARR-proxyinstelling is niet leesbaar terwijl ARR wel geinstalleerd is.' `
-                 -Hint  'Herstart de server (of iisreset) en draai dit script opnieuw.'
-    } elseif (Test-WaardeWaar $huidig) {
-        # Niet aanzetten wat al aan staat, en het ook niet uitzetten: iemand anders kan
-        # hem nodig hebben. Wel melden, want het betekent dat deze server al forward
-        # proxy speelde voordat wij er waren.
-        Goed 'stond AL AAN -- niet aangeraakt'
-        Let  'Deze server kon dus al als forward proxy aangesproken worden, buiten ons om.'
-        Let  'De beschermregel hierboven is er nu bij gekomen; controleer met de test onderaan.'
-    } else {
-        Wijzig -Wat 'ARR-proxy aangezet (system.webServer/proxy enabled=true, APPHOST)' `
-               -Terugdraaien "Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'enabled' -Value `$false" `
-               -Doe {
-                   Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' `
-                       -Filter 'system.webServer/proxy' -Name 'enabled' -Value $true
-               }
-    }
-} else {
-    Info 'Niet te lezen zonder IIS. Op de server: eerst de huidige waarde opvragen'
-    Info '(genormaliseerd, want die komt als True/1/tekst terug), en alleen als hij'
-    Info 'uit staat wordt hij aangezet.'
-    Plan 'system.webServer/proxy enabled = true op APPHOST-niveau (mits nu uit)'
-    Terug 'dezelfde eigenschap weer op false zetten'
+    Plan  "met statusReason '$($script:RegelReden)' -- dat is waar de zelftest op afgaat"
+    Plan  'plus system.webServer/proxy enabled = true, in DEZELFDE schrijfactie'
+    Terug "de regel verwijderen en system.webServer/proxy enabled weer op false zetten"
+    Info  'Een al bestaande regel wordt op INHOUD gecontroleerd (bestaat, staat aan, drie'
+    Info  'condities, CustomResponse met de juiste reden) en anders opnieuw aangelegd.'
 }
 
 # ── 8c. De drie deploy-scripts ────────────────────────────────────────────────
@@ -2441,10 +2577,27 @@ Stap 'Mag er in de doelmap gespiegeld worden?'
 $claimBestand = Join-Path $script:StateMap 'site-target.txt'
 $merkInDoel   = Join-Path $SiteRoot '.allmid-site'
 
-$doelInhoud = @()
+<#
+    Hier stond -ErrorAction SilentlyContinue. Dat is precies de verkeerde kant op
+    falen: een map die niet te LEZEN is (rechten, een pad dat naar een netwerkshare
+    wijst die weg is, een beschadigde map) leverde dan een lege lijst op, en een lege
+    lijst betekent hier "leeg, dus veilig om te spiegelen". Robocopy /MIR zou daarna
+    alles in die map wissen.
+
+    Een fout bij het lezen betekent STOP. Niet weten wat er staat is geen bewijs dat er
+    niets staat.
+#>
+$doelInhoud   = @()
+$doelLeesbaar = $true
 if (Test-Path $SiteRoot) {
-    $doelInhoud = @(Get-ChildItem $SiteRoot -Force -ErrorAction SilentlyContinue |
-                    Where-Object { $_.Name -ne '.allmid-site' })
+    try {
+        $doelInhoud = @(Get-ChildItem $SiteRoot -Force -ErrorAction Stop |
+                        Where-Object { $_.Name -ne '.allmid-site' })
+    } catch {
+        $doelLeesbaar = $false
+        Blokkeer -Reden "$SiteRoot is niet te lezen: $($_.Exception.Message)" `
+                 -Hint  "publish.ps1 spiegelt die map met robocopy /MIR. Zolang ik niet weet wat erin staat, gebeurt dat niet. Kijk zelf met: Get-ChildItem `"$SiteRoot`" -Force"
+    }
 }
 $claim = ''
 if (Test-Path $claimBestand) {
@@ -2452,7 +2605,10 @@ if (Test-Path $claimBestand) {
 }
 $vanOns = ($claim -and ($claim.TrimEnd('\') -eq $SiteRoot.TrimEnd('\'))) -or (Test-Path $merkInDoel)
 
-if ($doelInhoud.Count -eq 0) {
+if (-not $doelLeesbaar) {
+    # In -DryRun loopt Blokkeer door; dan mag hier in geen geval 'veilig' komen te staan.
+    Fout "$SiteRoot is niet te lezen -- er wordt niet gespiegeld."
+} elseif ($doelInhoud.Count -eq 0) {
     Goed "$SiteRoot is leeg of bestaat nog niet -- veilig"
 } elseif ($vanOns) {
     Goed "$SiteRoot is eerder door dit script gevuld ($($doelInhoud.Count) items) -- veilig"
@@ -2505,6 +2661,75 @@ Roep-Deployscript -Pad $collectorScript `
         'en SYSTEM) en registreert een taak die bij het opstarten meekomt en zichzelf',
         "herstart. Luistert op 127.0.0.1:$poortTekst -- niet vanaf buiten bereikbaar."
     )
+
+# ── 8e. HTTPS ─────────────────────────────────────────────────────────────────
+<#
+    Deze stap staat hier omdat de site nu pas bestaat: een https-binding hang je aan een
+    site, en install-site.ps1 heeft hem zojuist aangemaakt.
+
+    Wat hier NIET gebeurt:
+      * geen certificaat aanmaken. Dat is een Cloudflare Origin Certificate en dat maak
+        je in dat account.
+      * geen sleutelmateriaal in de repo, in dit script, in een voorbeeld of in een
+        logregel. Alleen een PAD naar een bestaande .pfx, en dat pad is geen geheim.
+      * het wachtwoord en de vingerafdruk worden niet afgedrukt en niet gelogd.
+
+    Zonder -PfxPath gebeurt hier niets en staat aan het eind wat je zelf moet doen.
+#>
+Stap 'HTTPS op 443'
+if (-not $PfxPath) {
+    Info 'Overgeslagen: geen -PfxPath meegegeven. De site luistert alleen op poort 80.'
+    Info 'Aan het eind staat wat je moet doen om dit alsnog dicht te zetten.'
+    $script:HttpsReden = 'overgeslagen: geen -PfxPath meegegeven'
+} elseif (-not $script:PfxStaat -or -not $script:PfxStaat.Ok) {
+    # In een echte run zijn we hier al gestopt bij de afkeuring in stap 3; in -DryRun
+    # loopt het door en dan hoort hier geen plan te staan alsof het wel goed komt.
+    Fout 'De .pfx is in stap 3 afgekeurd; de https-stap gebeurt niet.'
+    $script:HttpsReden = 'overgeslagen: de opgegeven .pfx is niet bruikbaar'
+} elseif ($DryRun) {
+    Plan  "de .pfx op $($script:PfxStaat.VolPad) importeren in Cert:\LocalMachine\My"
+    Plan  "https-bindingen op 443 met SNI voor $($SiteHosts -join ' en '), in EEN schrijfactie"
+    Plan  'daarna controleren dat 443 antwoordt EN dat het ONS certificaat is'
+    Terug "Get-WebBinding -Name '$SiteName' -Protocol https -Port 443 | Remove-WebBinding  (en het certificaat uit Cert:\LocalMachine\My halen)"
+    Info  'Het wachtwoord en de vingerafdruk worden nergens afgedrukt of weggeschreven.'
+} else {
+    $vingerafdruk = $script:PfxStaat.Vingerafdruk
+
+    if (Test-Path "Cert:\LocalMachine\My\$vingerafdruk") {
+        Goed 'het certificaat stond al in het archief van de machine -- niet opnieuw geimporteerd'
+    } else {
+        Wijzig -Wat "certificaat uit $($script:PfxStaat.VolPad) geimporteerd in Cert:\LocalMachine\My" `
+               -Terugdraaien "Remove-Item Cert:\LocalMachine\My\<vingerafdruk>  (te vinden via: Get-ChildItem Cert:\LocalMachine\My | Where-Object Subject -like '*allmid*')" `
+               -Doe {
+                   $nieuw = Import-Pfx -Pad $script:PfxStaat.VolPad -Wachtwoord $PfxPassword -Vingerafdruk $script:PfxStaat.Vingerafdruk
+                   if (-not $nieuw) { throw 'Het importeren gaf geen certificaat terug.' }
+               }
+    }
+
+    $httpsNu = Get-HttpsStaat -Naam $SiteName -Hostnamen $SiteHosts
+    if ($httpsNu.Botsing.Count -gt 0) {
+        foreach ($b in $httpsNu.Botsing) { Fout "  $b" }
+        Blokkeer -Reden 'Een andere site claimt op 443 al een van onze hostnamen.' `
+                 -Hint  'Ik pak geen bindingen af. Los dat eerst met de hand op in IIS Manager.'
+    }
+    if (-not $httpsNu.SiteBestaat) {
+        Blokkeer -Reden "Site '$SiteName' bestaat niet, dus er valt geen https-binding aan te hangen." `
+                 -Hint  'Kijk naar de uitvoer van install-site.ps1 hierboven.'
+    }
+
+    if ($httpsNu.Ontbreekt.Count -eq 0) {
+        Goed "de https-bindingen op 443 stonden er al voor $($SiteHosts -join ' en ')"
+    } else {
+        $missend = @($httpsNu.Ontbreekt)
+        Wijzig -Wat ("https-binding op 443 met SNI voor " + ($missend -join ' en ') + " (EEN schrijfactie)") `
+               -Terugdraaien ("Get-WebBinding -Name '$SiteName' -Protocol https -Port 443 | Remove-WebBinding") `
+               -Doe {
+                   Add-HttpsBindingen -Naam $SiteName -Hostnamen $missend -Vingerafdruk $script:PfxStaat.Vingerafdruk
+               }
+    }
+    $script:HttpsGedaan = $true
+    $script:HttpsReden  = 'ingericht met de meegegeven .pfx'
+}
 
 # ═══ 9. Controle ═══════════════════════════════════════════════════════════════
 Kop '9/9  Controle -- afgezet tegen de nulmeting'
@@ -2570,99 +2795,118 @@ if ($DryRun) {
     Info 'Er gaat nu een rauw verzoek met absolute URI naar 127.0.0.1:80. Het doel is een'
     Info '.invalid-naam, die per RFC 6761 nergens naartoe resolvet -- er verlaat dus'
     Info 'gegarandeerd niets deze machine, ook niet als de bescherming stuk is.'
+    Info "Bewijs is niet het GETAL 403, maar de reden '$($script:RegelReden)' in de statusregel."
     $pt = Test-Proxyverzoek -Adres '127.0.0.1' -Poort 80
 
-    # Een kale 403 is GEEN bewijs. De bestaande site kan er ook een geven -- een
-    # 403.14 bijvoorbeeld, als mapweergave uitstaat. Alleen de reden die onze
-    # eigen CustomResponse in de statusregel zet bewijst dat ONZE regel het
-    # verzoek tegenhield.
-    $vanOnzeRegel = ($pt.Status -eq 403) -and ($pt.Regel -like "*$($script:RegelReden)*")
+    <#
+        Een kale 403 is GEEN bewijs. De bestaande site op deze machine geeft er zelf ook
+        een -- een 403.14 als mapweergave uitstaat, een 403.1 op een map zonder
+        uitvoerrechten -- en die 403 zegt niets over onze regel. Alleen de reden die onze
+        eigen CustomResponse in de statusregel zet, bewijst dat ONZE regel het verzoek
+        tegenhield. Die reden staat in $script:RegelReden, wordt door Set-Proxybescherming
+        weggeschreven, en door Get-Beschermregelstaat in de configuratie nagekeken. Drie
+        plekken, een waarde.
+
+        De statusDescription staat in de body en telt als tweede spoor; die wordt alleen
+        gebruikt als de statusregel om wat voor reden dan ook zonder reden binnenkomt.
+    #>
+    $redenGezien = ($pt.Regel -like "*$($script:RegelReden)*") -or
+                   ($pt.Antwoord -like "*$($script:RegelBody)*")
+    $vanOnzeRegel = ($pt.Status -eq 403) -and $redenGezien
+
+    # Aantoonbaar geproxyd: IIS heeft geprobeerd door te sturen.
+    $isOpenProxy = ($pt.Status -eq 502 -or $pt.Status -eq 504)
 
     if ($vanOnzeRegel) {
         Meld-Controle -Wat 'absolute URI wordt geweigerd' -Ok $true -Detail "$($pt.Regel)"
-    } elseif ($pt.Status -eq 403) {
-        # Wel geweigerd, maar niet aantoonbaar door ons. Dat is geen open proxy,
-        # maar ook geen bewijs -- en dat verschil moet zichtbaar blijven.
-        Meld-Controle -Wat 'absolute URI wordt geweigerd' -Ok $false `
-            -Detail "$($pt.Regel) -- 403, maar zonder '$($script:RegelReden)'. Onbeslist: dit kan van een andere regel of site komen."
-        Let "Controleer met de hand: IIS Manager > (server) > URL Rewrite > View Ordered List."
-    } elseif ($pt.Status -eq 502 -or $pt.Status -eq 504) {
-        # IIS heeft het verzoek doorgestuurd. Dit IS een open proxy, en dan is
-        # doorgaan met een halve installatie beter dan dit op internet laten staan.
+    } elseif ($isOpenProxy) {
         Meld-Controle -Wat 'absolute URI wordt geweigerd' -Ok $false `
             -Detail "$($pt.Regel) -- IIS PROBEERDE TE PROXYEN. Dit is een open proxy."
+        $script:OpenProxy = $true
+    } elseif ($pt.Status -eq 403) {
+        # Wel geweigerd, maar niet aantoonbaar door ons. Dat is geen open proxy, maar
+        # ook geen bewijs -- en dat verschil moet zichtbaar blijven.
+        Meld-Controle -Wat 'absolute URI wordt geweigerd' -Onbeslist -Ok $false `
+            -Detail "403 zonder '$($script:RegelReden)' -- ONBESLIST, kan van een andere regel of site komen"
+        Let "Antwoordregel: $($pt.Regel)"
+        Let 'Controleer met de hand: IIS Manager > (server) > URL Rewrite > View Ordered List.'
+    } elseif ($pt.Status -gt 0) {
+        Meld-Controle -Wat 'absolute URI wordt geweigerd' -Onbeslist -Ok $false `
+            -Detail "$($pt.Regel) -- ONBESLIST: niet geproxyd, maar ook niet door onze regel geweigerd"
+        Let 'Kijk naar de volgorde van de serverbrede regels: IIS Manager > (server) > URL Rewrite > View Ordered List.'
+    } else {
+        Meld-Controle -Wat 'absolute URI wordt geweigerd' -Onbeslist -Ok $false `
+            -Detail "ONBESLIST, geen antwoord: $($pt.Fout)"
+    }
 
-        Fout 'Open proxy vastgesteld. Ik zet de ARR-proxy nu zelf uit.'
+    <#
+        En dan de kant waar het fout mag gaan.
+
+        Vroeger drukte het script hier alleen een opdracht af die IEMAND ANDERS nog moest
+        uitvoeren. Dat is de verkeerde kant op falen: tot die iemand het doet, staat er
+        een open proxy op internet.
+
+        Twee gevallen, en ze verschillen:
+
+        1. Aantoonbaar open proxy (502/504). Dan gaat de schakelaar uit, ook als hij al
+           aan stond voordat wij er waren. Van andermans instellingen blijven we af --
+           behalve als die instelling aantoonbaar een open proxy op internet is.
+
+        2. Onbeslist: de bescherming is niet te bewijzen. Dan zetten we hem alleen uit als
+           WIJ hem in deze run hebben aangezet. Stond hij al aan, dan is dat de beslissing
+           van de beheerder en er is niets AANGETOOND; dan volstaat een luide melding en
+           een afsluitcode ongelijk nul.
+    #>
+    $onbewezen = -not $vanOnzeRegel
+    $uitzetten = $isOpenProxy -or ($onbewezen -and $script:ProxyDoorOnsAan)
+
+    if ($uitzetten) {
+        if ($isOpenProxy) {
+            Fout 'OPEN PROXY VASTGESTELD. Ik zet de ARR-proxy nu zelf uit.'
+        } else {
+            Fout 'De bescherming is niet te bewijzen en WIJ hebben de proxy in deze run aangezet.'
+            Fout 'Ik zet hem terug uit; onbewezen is hier hetzelfde als onveilig.'
+        }
         try {
-            Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' `
-                -Filter 'system.webServer/proxy' -Name 'enabled' -Value $false -ErrorAction Stop
-            Fout 'ARR-proxy uitgezet. /api/ werkt hierdoor NIET tot de beschermregel klopt.'
-            $script:Terugdraaiingen += 'ARR-proxy automatisch uitgezet na een mislukte open-proxy-test'
+            Disable-ArrProxy
+            Fout 'ARR-proxy UITGEZET. /api/ werkt hierdoor NIET tot de beschermregel klopt.'
+            $script:Terugdraaiingen += 'ARR-proxy automatisch uitgezet: de open-proxytest leverde geen bewijs van bescherming'
+            $script:ProxyDoorOnsAan = $false
         } catch {
             Fout "Uitzetten is NIET gelukt: $($_.Exception.Message)"
             Fout 'Doe dit met de hand, nu meteen:'
             Fout "  Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'enabled' -Value `$false"
         }
         $script:OpenProxy = $true
-    } elseif ($pt.Status -gt 0) {
-        Meld-Controle -Wat 'absolute URI wordt geweigerd' -Ok $false `
-            -Detail "$($pt.Regel) -- niet geproxyd, maar ook niet door onze regel geweigerd"
-        Let "Kijk naar de volgorde van de serverbrede regels: IIS Manager > (server) > URL Rewrite > View Ordered List."
-    } else {
-        Meld-Controle -Wat 'absolute URI wordt geweigerd' -Ok $false -Detail "geen antwoord: $($pt.Fout)"
+    } elseif ($onbewezen) {
+        Fout 'De bescherming is NIET bewezen. De ARR-proxy stond al aan voordat dit script'
+        Fout 'begon, dus die schakelaar is niet van ons en ik zet hem niet om -- maar deze'
+        Fout 'machine kan nu een open proxy zijn. Controleer dat vanaf een andere machine'
+        Fout 'met de opdracht onderaan, en zet hem uit als dat zo is:'
+        Fout "  Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'enabled' -Value `$false"
+        $script:OpenProxy = $true
     }
 
-    Stap 'De nulmeting opnieuw, en het verschil'
-    $eindmeting = Get-Nulmeting
-
-    foreach ($voorD in $nulmeting.Diensten) {
-        $naD = @($eindmeting.Diensten | Where-Object { $_.Naam -eq $voorD.Naam })[0]
-        $naStatus = 'onbekend'
-        if ($naD) { $naStatus = $naD.Status }
-        Meld-Controle -Wat "dienst $($voorD.Naam)" -Ok ($naStatus -eq $voorD.Status) `
-            -Detail "$($voorD.Status) -> $naStatus"
-    }
-
-    foreach ($voorS in $nulmeting.Sites) {
-        $naS = @($eindmeting.Sites | Where-Object { $_.Naam -eq $voorS.Naam })[0]
-        if (-not $naS) {
-            Meld-Controle -Wat "site $($voorS.Naam)" -Ok $false -Detail "$($voorS.Staat) -> WEG"
-            continue
-        }
-        Meld-Controle -Wat "site $($voorS.Naam)" -Ok ($naS.Staat -eq $voorS.Staat) `
-            -Detail "$($voorS.Staat) -> $($naS.Staat)"
-    }
-    foreach ($naS in $eindmeting.Sites) {
-        $bekend = @($nulmeting.Sites | Where-Object { $_.Naam -eq $naS.Naam })
-        if ($bekend.Count -eq 0) {
-            Info ("nieuw (van ons): site {0} staat op {1}" -f $naS.Naam, $naS.Staat)
+    if ($script:HttpsGedaan) {
+        Stap 'HTTPS op 443'
+        Info 'De keten wordt hier bewust niet gevalideerd -- een Cloudflare Origin'
+        Info 'Certificate is alleen door Cloudflare vertrouwd en we kloppen op 127.0.0.1'
+        Info 'aan. In plaats daarvan wordt vergeleken of het aangeboden certificaat HET'
+        Info 'certificaat is dat we net geimporteerd hebben. De vingerafdruk zelf wordt'
+        Info 'niet getoond.'
+        $r4 = Invoke-Controleverzoek -Url 'https://127.0.0.1/' -Hostnaam $SiteHosts[0] `
+                  -NegeerCertificaatketen -VerwachteVingerafdruk $script:PfxStaat.Vingerafdruk
+        if ($r4.Ok -and $r4.CertKlopt) {
+            Meld-Controle -Wat "https op $($SiteHosts[0])" -Ok $true -Detail "HTTP $($r4.Status), en het is ons certificaat"
+        } elseif ($r4.Ok) {
+            Meld-Controle -Wat "https op $($SiteHosts[0])" -Ok $false `
+                -Detail "HTTP $($r4.Status), maar 443 biedt een ANDER certificaat aan -- staat SNI aan?"
+        } else {
+            Meld-Controle -Wat "https op $($SiteHosts[0])" -Ok $false -Detail "HTTP $($r4.Status) $($r4.Fout)"
         }
     }
 
-    foreach ($voorP in $nulmeting.Pools) {
-        $naP = @($eindmeting.Pools | Where-Object { $_.Naam -eq $voorP.Naam })[0]
-        $naStaat = 'WEG'
-        if ($naP) { $naStaat = $naP.Staat }
-        # Een pool die recyclet komt vanzelf weer op Started; hij hoort niet op
-        # Stopped te blijven staan.
-        Meld-Controle -Wat "toepassingsgroep $($voorP.Naam)" -Ok ($naStaat -eq $voorP.Staat) `
-            -Detail "$($voorP.Staat) -> $naStaat"
-    }
-
-    if ($nulmeting.Probes.Count -eq 0) {
-        Info 'Er waren vooraf geen andere sites met een http-binding om te bevragen.'
-    } else {
-        foreach ($voorPr in $nulmeting.Probes) {
-            $naPr = @($eindmeting.Probes | Where-Object {
-                $_.Site -eq $voorPr.Site -and $_.Host -eq $voorPr.Host -and $_.Poort -eq $voorPr.Poort
-            })[0]
-            $naStatus = 0
-            if ($naPr) { $naStatus = $naPr.Status }
-            $wat = "HTTP $($voorPr.Site) $($voorPr.Host):$($voorPr.Poort)"
-            Meld-Controle -Wat $wat -Ok ($naStatus -eq $voorPr.Status) `
-                -Detail "$($voorPr.Status) -> $naStatus"
-        }
-    }
+    Invoke-Eindmeting
 }
 
 # ── De opdrachten waarmee je het zelf nakijkt ─────────────────────────────────
@@ -2743,27 +2987,71 @@ if ($DryRun) {
     if (-not (Test-Path $script:LogMap)) { New-Item -ItemType Directory -Path $script:LogMap -Force | Out-Null }
     $logpad = Join-Path $script:LogMap ("bootstrap-{0:yyyyMMdd-HHmmss}.log" -f $script:Start)
     $regels = @("allmid.gg bootstrap -- $($script:Start.ToString('yyyy-MM-dd HH:mm:ss'))", '')
+
+    # Welke commit er als Administrator gedraaid heeft. Dit gaat er ALTIJD in, ook met
+    # -Force: zonder deze regels is achteraf niet meer vast te stellen wat er is
+    # uitgevoerd, en dat is nou juist wat je bij een onbeheerde run wilt weten.
+    if ($script:CommitRegel) {
+        $regels += 'Uitgevoerde code:'
+        $regels += "  commit: $($script:CommitRegel)"
+        $regels += "  hash  : $($script:CommitHash)"
+        if ($script:CommitVuil.Count -gt 0) {
+            $regels += "  LET OP: $($script:CommitVuil.Count) bestand(en) weken af van die commit:"
+            foreach ($v in ($script:CommitVuil | Select-Object -First 20)) { $regels += "          $v" }
+        } else {
+            $regels += '  werkmap was schoon'
+        }
+        $regels += ''
+    }
+
+    # Waar toestemming voor gegeven is -- of namens wie er met -Force is doorgelopen.
+    if ($script:Besluiten.Count -gt 0) {
+        $regels += 'Bevestigingen:'
+        foreach ($b in $script:Besluiten) {
+            $regels += "  [$($b.Tijd)] $($b.Vraag)  ->  $($b.Uitkomst)"
+            foreach ($u in $b.Uitleg) { $regels += "             $u" }
+        }
+        $regels += ''
+    }
+
     foreach ($w in $script:Wijzigingen) {
         $regels += "[$($w.Tijd)] [$($w.Status)] $($w.Wat)"
         $regels += "          terug: $($w.Terugdraaien)"
     }
+    if ($script:Terugdraaiingen.Count -gt 0) {
+        $regels += ''
+        $regels += 'Door het script zelf teruggedraaid (noodrem):'
+        foreach ($t in $script:Terugdraaiingen) { $regels += "  $t" }
+    }
     $regels += ''
     foreach ($c in $script:Controles) {
         $status = 'FOUT'
-        if ($c.Ok) { $status = 'ok  ' }
+        if ($c.Staat -eq 'ok') { $status = 'ok  ' } elseif ($c.Staat -eq 'ONBESLIST') { $status = ' ?  ' }
         $regels += "[$status] $($c.Wat)  $($c.Detail)"
     }
-    # De sleutel gaat hier bewust NIET in: dit logbestand is niet afgeschermd.
+    # De sleutel gaat hier bewust NIET in: dit logbestand is niet afgeschermd. Het
+    # .pfx-wachtwoord en de vingerafdruk van het certificaat ook niet, om dezelfde reden.
     $regels += ''
     $regels += "De API-sleutel staat in $startBestand en staat met opzet niet in dit logbestand."
+    $regels += 'Het .pfx-wachtwoord en de vingerafdruk van het certificaat staan hier ook niet in.'
     Set-Content -Path $logpad -Value $regels -Encoding UTF8
     Info "logboek: $logpad"
 
     Stap 'Uitkomst van de controles'
-    $mislukt = @($script:Controles | Where-Object { -not $_.Ok })
-    if ($mislukt.Count -eq 0) {
+    $mislukt   = @($script:Controles | Where-Object { $_.Staat -eq 'FOUT' })
+    $onbeslist = @($script:Controles | Where-Object { $_.Staat -eq 'ONBESLIST' })
+    $geslaagd  = @($script:Controles | Where-Object { $_.Staat -eq 'ok' })
+    if ($mislukt.Count -eq 0 -and $onbeslist.Count -eq 0) {
         Goed "alle $($script:Controles.Count) controles geslaagd"
     } else {
+        Info "$($geslaagd.Count) geslaagd, $($onbeslist.Count) onbeslist, $($mislukt.Count) mislukt (van $($script:Controles.Count))"
+    }
+    if ($onbeslist.Count -gt 0) {
+        Let "$($onbeslist.Count) controle(s) ONBESLIST -- gemeten, maar niets bewezen:"
+        foreach ($c in $onbeslist) { Let "  $($c.Wat): $($c.Detail)" }
+        Let 'Onbeslist laat de run niet falen, maar het is ook geen groen vinkje.'
+    }
+    if ($mislukt.Count -gt 0) {
         Fout "$($mislukt.Count) van de $($script:Controles.Count) controles mislukt:"
         foreach ($c in $mislukt) { Fout "  $($c.Wat): $($c.Detail)" }
         $script:Gelukt = $false
@@ -2888,6 +3176,27 @@ Write-Host ''
     }
     Write-Host ''
 
+    <#
+        De eindmeting hoort JUIST hier te draaien.
+
+        Vroeger sloeg dit blok hem over: ging er iets mis, dan stopte het script zonder
+        ooit te kijken of de ANDERE site op deze machine nog antwoordde. Dat is precies
+        het moment waarop je dat wilt weten -- er is dan immers al van alles gebeurd, en
+        de laatste schrijfactie naar applicationHost.config kan halverwege zijn blijven
+        steken.
+
+        Hij draait in een eigen try: een eindmeting die zelf omvalt mag de foutmelding
+        hierboven en de lijst met wijzigingen hieronder niet opeten.
+    #>
+    if (-not $DryRun) {
+        try {
+            Invoke-Eindmeting
+        } catch {
+            Fout "De eindmeting kon niet uitgevoerd worden: $($_.Exception.Message)"
+        }
+    }
+    Write-Host ''
+
     # Half werk is erger dan geen werk, dus hier stopt het. Wat er tot nu toe wel
     # veranderd is staat hieronder, met hoe je het terugdraait -- inclusief de
     # wijziging die MISLUKT is, want juist die laat de machine in een halve stand
@@ -2911,25 +3220,44 @@ Write-Host ''
     $script:Gelukt = $false
 }
 
-if ($script:OpenProxy) {
-    Write-Host ''
-    Fout '================================================================'
-    Fout ' LET OP: deze machine gedroeg zich als open forward proxy.'
-    Fout ' De ARR-proxy is uitgezet. /api/ werkt daardoor niet.'
-    Fout ' Los de beschermregel op en draai dit script opnieuw.'
-    Fout '================================================================'
-    $script:Gelukt = $false
-}
-
 if ($script:Terugdraaiingen.Count -gt 0) {
     Write-Host ''
     Let 'Het script heeft zelf iets teruggedraaid:'
     foreach ($t in $script:Terugdraaiingen) { Let "  - $t" }
 }
 
-# `exit` zou bij een aanroep in een bestaand venster dat venster kunnen sluiten, en dat
-# is precies het moment waarop je de foutmelding nog wilt kunnen lezen. Alleen als dit
-# als bestand draait is een echte afsluitcode nuttig (bijvoorbeeld in de CI).
+if ($script:OpenProxy) {
+    Write-Host ''
+    Fout '================================================================'
+    Fout ' LET OP: de bescherming tegen een open forward proxy is NIET'
+    Fout ' bewezen op deze machine.'
+    if ($script:ProxyDoorOnsAan) {
+        Fout ' De ARR-proxy staat NOG AAN en die schakelaar was niet van ons.'
+        Fout ' Controleer dit nu vanaf een andere machine, en zet hem uit:'
+        Fout "   Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' ``"
+        Fout "       -Filter 'system.webServer/proxy' -Name 'enabled' -Value `$false"
+    } else {
+        Fout ' De ARR-proxy is uitgezet. /api/ werkt daardoor niet.'
+        Fout ' Los de beschermregel op en draai dit script opnieuw.'
+    }
+    Fout '================================================================'
+    $script:Gelukt = $false
+}
+
+<#
+    `exit` zou bij een aanroep in een bestaand venster dat venster kunnen sluiten, en
+    dat is precies het moment waarop je de foutmelding nog wilt kunnen lezen. Voor de
+    gewone fouten geldt dat nog steeds: dan alleen een echte afsluitcode als dit als
+    BESTAND draait (bijvoorbeeld in de CI).
+
+    Voor een open proxy geldt het niet. Dat is de ene uitkomst die niemand mag missen en
+    die geen enkele automatisering als geslaagd mag lezen, dus daar wordt onvoorwaardelijk
+    met een code ongelijk nul afgesloten. Het alarm hierboven is dan al afgedrukt.
+#>
+if ($script:OpenProxy) {
+    $global:LASTEXITCODE = 2
+    exit 2
+}
 if (-not $script:Gelukt) {
     $global:LASTEXITCODE = 1
     if ($PSCommandPath) { exit 1 }
