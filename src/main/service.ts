@@ -8,7 +8,7 @@
  * geen counters -- niemand anders verzamelt deze modus.
  */
 import { EventEmitter } from "node:events";
-import { writeFileSync } from "node:fs";
+import { appendFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { LcuClient, LcuNotRunningError } from "../core/lcu/connector";
 import { LcuEventStream } from "../core/lcu/events";
@@ -407,8 +407,29 @@ export class JadeService extends EventEmitter {
       clearInterval(this.liveTimer);
       this.liveTimer = null;
     }
+    this.bewaarBuildOrders();
     this.liveWatcher?.reset();
     if (this.snapshot.liveGame) this.update({ liveGame: null });
+  }
+
+  /**
+   * Write down the build orders of the game that just finished.
+   *
+   * This is the only moment they exist. They were assembled from what the client
+   * reported second by second, and that server is gone as soon as the game ends,
+   * so anything not written here is gone with it.
+   */
+  private bewaarBuildOrders(): void {
+    const records = this.liveWatcher?.oogst() ?? [];
+    if (records.length === 0) return;
+    try {
+      const pad = join(this.backupDir, "..", "buildorders.jsonl");
+      const regels = records.map((r) => JSON.stringify(r) + "\n");
+      appendFileSync(pad, regels.join(""), "utf8");
+      console.log(`[allmid] ${records.length} build orders bewaard in ${pad}`);
+    } catch (err) {
+      reportBackgroundError(err as Error);
+    }
   }
 
   private publishDatabaseStatus(): void {

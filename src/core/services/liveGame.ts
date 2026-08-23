@@ -12,7 +12,7 @@
  */
 import type { LiveGameData, LivePlayer } from "../lcu/liveClient";
 import { SkillOrderRecorder } from "../lcu/liveClient";
-import type { LiveGamePlayer, LiveGameSnapshot, Position } from "../../shared/types";
+import type { BuildStep, LiveGamePlayer, LiveGameSnapshot, Position } from "../../shared/types";
 
 /**
  * Names come back in more shapes than you would like: "Nasus", "Jade_Nasus",
@@ -45,6 +45,31 @@ const POSITIES: Record<string, Position> = {
 export const teamVan = (team: string): LiveGamePlayer["team"] =>
   team === "ORDER" || team === "CHAOS" ? team : "UNKNOWN";
 
+/**
+ * What is kept from a finished game.
+ *
+ * No Riot IDs, no summoner names, no puuids. The build order of a champion in a
+ * lane is the whole point; who was holding the mouse is not, and the same rule
+ * already applies everywhere else here.
+ */
+export interface BuildOrderRecord {
+  recordedAt: number;
+  gameMode: string;
+  mapNumber: number;
+  gameLengthSeconds: number;
+  championId: number | null;
+  championName: string;
+  position: Position | null;
+  level: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  build: BuildStep[];
+  /** Only ever present for the player who was at the keyboard. */
+  skillOrder?: string[];
+}
+
 export interface ChampionZoeker {
   /** Jade champion id for a display name or alias, or null. */
   (naam: string): number | null;
@@ -60,6 +85,23 @@ export class LiveGameWatcher {
   private readonly recorder = new SkillOrderRecorder();
   /** Game time at the previous poll, used to notice a new game. */
   private laatsteTijd: number | null = null;
+  /**
+   * Per player, every item seen appearing and when.
+   *
+   * Keyed on Riot ID because that is the only field that stays put: champion
+   * names repeat across teams in some modes and the array order is not promised.
+   */
+  private readonly builds = new Map<string, BuildStep[]>();
+  /**
+   * How many of each item a player held at the previous poll.
+   *
+   * Counts rather than presence, because two Long Swords are two purchases and
+   * a set would record one. That matters exactly where build orders are most
+   * useful -- the early components.
+   */
+  private readonly vorigeInventaris = new Map<string, Map<number, number>>();
+  /** The last thing we saw, so a finished game can still be written down. */
+  private laatsteSnapshot: LiveGameSnapshot | null = null;
 
   constructor(private readonly zoekChampion: ChampionZoeker) {}
 
@@ -74,17 +116,93 @@ export class LiveGameWatcher {
     // Within one game the clock only moves forward. The one second of slack
     // absorbs the client reporting a value that rounds down between polls.
     const zelfdeGame = this.laatsteTijd !== null && gameTime + 1 >= this.laatsteTijd;
-    if (!zelfdeGame) this.recorder.reset();
+    if (!zelfdeGame) {
+      this.recorder.reset();
+      this.builds.clear();
+      this.vorigeInventaris.clear();
+    }
     this.laatsteTijd = gameTime;
   }
 
   reset(): void {
     this.recorder.reset();
+    this.builds.clear();
+    this.vorigeInventaris.clear();
     this.laatsteTijd = null;
+    this.laatsteSnapshot = null;
+  }
+
+  /**
+   * Note anything that was not in the inventory a moment ago.
+   *
+   * Only appearances are recorded, never disappearances, and that is deliberate.
+   * When three components turn into one finished item the components vanish, but
+   * nobody sold anything -- the purchase sequence is exactly the list of things
+   * that showed up. What this cannot separate is a real sale or an undo in the
+   * shop, so a rare extra entry is possible. Better than dropping the genuine
+   * component buys, which are most of what a build order actually is.
+   */
+  private noteerAankopen(sleutel: string, items: number[], gameTime: number): BuildStep[] {
+    const nu = new Map<number, number>();
+    for (const id of items) nu.set(id, (nu.get(id) ?? 0) + 1);
+
+    // No previous reading means the first sighting, and then everything in the
+    // inventory counts as bought right now. Joining a game already in progress
+    // therefore starts the record mid-build, which is why the timestamps say
+    // more than the count does.
+    const vorige = this.vorigeInventaris.get(sleutel) ?? new Map<number, number>();
+    const lijst = this.builds.get(sleutel) ?? [];
+
+    // Walk items in slot order so several purchases between two polls keep the
+    // order the client shows them in.
+    const gezien = new Map<number, number>();
+    for (const id of items) {
+      const nummer = (gezien.get(id) ?? 0) + 1;
+      gezien.set(id, nummer);
+      if (nummer > (vorige.get(id) ?? 0)) lijst.push({ itemId: id, at: gameTime });
+    }
+
+    this.vorigeInventaris.set(sleutel, nu);
+    this.builds.set(sleutel, lijst);
+    return lijst;
   }
 
   get skillOrder(): string[] {
     return this.recorder.skillOrder;
+  }
+
+  /**
+   * The finished game, ready to keep.
+   *
+   * Returns nothing for anything that is not a real Classic game long enough to
+   * have a build in it. Two minutes filters out remakes and the odd reconnect,
+   * where the first-sighting rule would otherwise record a full inventory as if
+   * it were bought in one instant.
+   */
+  oogst(minimaalSeconden = 120): BuildOrderRecord[] {
+    const laatste = this.laatsteSnapshot;
+    if (!laatste || !laatste.isClassic) return [];
+    if (laatste.gameTimeSeconds < minimaalSeconden) return [];
+
+    const nu = Date.now();
+    return laatste.players
+      .filter((p) => p.build.length > 0)
+      .map((p) => ({
+        recordedAt: nu,
+        gameMode: laatste.mode,
+        mapNumber: laatste.mapNumber,
+        gameLengthSeconds: laatste.gameTimeSeconds,
+        championId: p.championId,
+        championName: p.championName,
+        position: p.position,
+        level: p.level,
+        kills: p.kills,
+        deaths: p.deaths,
+        assists: p.assists,
+        cs: p.cs,
+        build: p.build,
+        ...(p.isYou ? { skillOrder: laatste.skillOrder } : {}),
+      }));
   }
 
   verwerk(data: LiveGameData, jouwNaam: string | null, mapId: number): LiveGameSnapshot {
@@ -99,7 +217,7 @@ export class LiveGameWatcher {
     const isClassic = mapNumber === mapId || mode.toUpperCase() === "JADE";
 
     const jij = jouwNaam ? normaliseerNaam(jouwNaam) : null;
-    const spelers = (data.allPlayers ?? []).map((p) => this.speler(p, jij));
+    const spelers = (data.allPlayers ?? []).map((p) => this.speler(p, jij, gameTime));
 
     let note: string | null = null;
     if (!isClassic) {
@@ -109,7 +227,7 @@ export class LiveGameWatcher {
       note = `No stats for ${onbekend.join(", ")} -- the client reports a name we do not recognise.`;
     }
 
-    return {
+    this.laatsteSnapshot = {
       mode,
       mapNumber,
       isClassic,
@@ -118,11 +236,15 @@ export class LiveGameWatcher {
       skillOrder: this.recorder.skillOrder,
       note,
     };
+    return this.laatsteSnapshot;
   }
 
-  private speler(p: LivePlayer, jouwGenormaliseerdeNaam: string | null): LiveGamePlayer {
+  private speler(p: LivePlayer, jouwGenormaliseerdeNaam: string | null, gameTime: number): LiveGamePlayer {
     const naam = p.riotId || p.summonerName || "";
+    const items = itemsVan(p);
+    const sleutel = naam || `${p.team}|${p.championName}`;
     return {
+      build: this.noteerAankopen(sleutel, items, gameTime),
       championId: this.zoekChampion(p.championName ?? ""),
       championName: p.championName ?? "",
       riotId: naam || null,
@@ -135,7 +257,7 @@ export class LiveGameWatcher {
       deaths: p.scores?.deaths ?? 0,
       assists: p.scores?.assists ?? 0,
       cs: p.scores?.creepScore ?? 0,
-      items: itemsVan(p),
+      items,
       isYou: jouwGenormaliseerdeNaam !== null && normaliseerNaam(naam) === jouwGenormaliseerdeNaam,
     };
   }

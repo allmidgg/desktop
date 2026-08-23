@@ -238,7 +238,25 @@ export interface LiveGamePlayer {
   cs: number;
   /** Jade item ids, trinket excluded, in slot order. Same keys as snapshot.items. */
   items: number[];
+  /**
+   * Every item seen appearing in this player's inventory, in the order it did.
+   *
+   * This is the thing match history cannot give. A finished game reports the six
+   * slots someone ended on; it says nothing about what they bought first, and
+   * a component that got built into something else leaves no trace at all. By
+   * watching the inventory during the game, the real sequence falls out --
+   * Long Sword, Long Sword, Vampiric Scepter, Bloodthirster -- for all ten
+   * players, not only the one at the keyboard.
+   */
+  build: BuildStep[];
   isYou: boolean;
+}
+
+export interface BuildStep {
+  /** Jade item id. */
+  itemId: number;
+  /** Game time in seconds when it first showed up. */
+  at: number;
 }
 
 export interface LiveGameSnapshot {

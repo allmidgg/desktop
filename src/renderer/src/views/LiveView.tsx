@@ -6,8 +6,9 @@
  */
 import type { AppSnapshot, LiveGamePlayer, LiveGameSnapshot, RecentGameSummary } from "../../../shared/types";
 import { ChampSelectView } from "./ChampSelectView";
+import { Fragment } from "react";
 import {
-  ChampionIcon, EmptyState, FormDots, ItemRow, Panel, RankPill, SectionTitle, SpellPair, Spinner,
+  asset, ChampionIcon, EmptyState, FormDots, ItemRow, Panel, RankPill, SectionTitle, SpellPair, Spinner,
   Winrate,
 } from "../ui";
 
@@ -98,6 +99,7 @@ const klok = (s: number): string =>
 function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: AppSnapshot }): JSX.Element {
   const items = new Map(snapshot.items.map((i) => [i.jadeId, i]));
   const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
+  const jij = live.players.find((p) => p.isYou) ?? null;
   const orde = live.players.filter((p) => p.team === "ORDER");
   const chaos = live.players.filter((p) => p.team === "CHAOS");
   const rest = live.players.filter((p) => p.team === "UNKNOWN");
@@ -143,16 +145,111 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
         </Panel>
       ) : null}
 
-      {live.skillOrder.length ? (
-        <Panel className="p-3">
-          <p className="text-[10px] tracking-[0.14em] text-ink-500 uppercase">Your skill order</p>
-          <p className="num mt-1 text-sm">{live.skillOrder.join(" ")}</p>
-          <p className="mt-1 text-[11px] text-ink-600">
-            Only yours — the client does not reveal anyone else&rsquo;s abilities. This is the one thing
-            match history can never say, because a finished game records levels but not their order.
-          </p>
-        </Panel>
-      ) : null}
+      {jij ? <JouwGame live={live} jij={jij} items={items} /> : null}
+    </div>
+  );
+}
+
+const SKILLS = ["Q", "W", "E", "R"] as const;
+const LEVELS = Array.from({ length: 18 }, (_, i) => i + 1);
+
+/**
+ * The two things a finished match can never tell you, side by side.
+ *
+ * Skill order is yours alone: the client keeps everyone else's abilities to
+ * itself. The build order is collected for all ten, but yours is the one you can
+ * still act on while the game is running.
+ */
+function JouwGame({
+  live,
+  jij,
+  items,
+}: {
+  live: LiveGameSnapshot;
+  jij: LiveGamePlayer;
+  items: Map<number, { name: string; iconPath: string }>;
+}): JSX.Element {
+  return (
+    <div className="space-y-3">
+      <SectionTitle hint={<span className="num">{jij.championName}</span>}>Your game</SectionTitle>
+
+      <Panel className="p-4">
+        <p className="text-[10px] tracking-[0.14em] text-ink-500 uppercase">Skill order</p>
+        {live.skillOrder.length === 0 ? (
+          <p className="mt-2 text-xs text-ink-600">Nothing levelled yet.</p>
+        ) : (
+          <SkillRaster order={live.skillOrder} />
+        )}
+        <p className="mt-3 text-[11px] text-ink-600">
+          Yours only &mdash; the client does not reveal anyone else&rsquo;s abilities.
+        </p>
+      </Panel>
+
+      <Panel className="p-4">
+        <p className="text-[10px] tracking-[0.14em] text-ink-500 uppercase">Purchase order</p>
+        {jij.build.length === 0 ? (
+          <p className="mt-2 text-xs text-ink-600">Nothing bought yet.</p>
+        ) : (
+          <div className="mt-3 flex flex-wrap gap-x-1.5 gap-y-3">
+            {jij.build.map((stap, i) => {
+              const item = items.get(stap.itemId);
+              return (
+                <div key={`${stap.itemId}-${i}`} className="flex flex-col items-center gap-1" title={item?.name}>
+                  {item ? (
+                    <img src={asset(item.iconPath)} alt={item.name} className="h-8 w-8 rounded border border-ink-800" />
+                  ) : (
+                    <div className="h-8 w-8 rounded border border-ink-800 bg-ink-900" />
+                  )}
+                  <span className="num text-[9px] text-ink-600">{klok(stap.at)}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <p className="mt-3 text-[11px] text-ink-600">
+          Components count: a Long Sword that later becomes something else was still bought. Recorded for
+          all ten players, which is how Classic gets a build order at all &mdash; a finished match reports
+          the six slots someone ended on and nothing about the road there.
+        </p>
+      </Panel>
+    </div>
+  );
+}
+
+/**
+ * The grid every build guide uses: one row per ability, one column per level.
+ *
+ * The recorded order is the whole story -- entry n was the point spent at level
+ * n -- so the grid needs nothing beyond it.
+ */
+function SkillRaster({ order }: { order: string[] }): JSX.Element {
+  return (
+    <div className="mt-2 overflow-x-auto">
+      <div className="inline-grid gap-[3px]" style={{ gridTemplateColumns: "18px repeat(18, 18px)" }}>
+        <span />
+        {LEVELS.map((n) => (
+          <span key={n} className="num text-center text-[9px] leading-4 text-ink-600">
+            {n}
+          </span>
+        ))}
+        {SKILLS.map((skill) => (
+          <Fragment key={skill}>
+            <span className="num text-center text-[10px] leading-[18px] font-semibold text-ink-400">{skill}</span>
+            {LEVELS.map((n) => {
+              const gezet = order[n - 1] === skill;
+              return (
+                <span
+                  key={n}
+                  className={`h-[18px] rounded-[3px] ${
+                    gezet ? (skill === "R" ? "bg-gold-400" : "bg-gold-500/70") : "bg-ink-900/70"
+                  }`}
+                  title={gezet ? `Level ${n}: ${skill}` : undefined}
+                />
+              );
+            })}
+          </Fragment>
+        ))}
+      </div>
     </div>
   );
 }

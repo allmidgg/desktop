@@ -67,3 +67,6 @@ tools/pfx-maker/PfxMaker.exe
 
 # Ruwe momentopname van een lopende game. Bevat de Riot ID's van je medespelers.
 live-sample.json
+
+# Build orders uit eigen games, nog niet gedeeld.
+buildorders.jsonl
