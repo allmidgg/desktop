@@ -28,7 +28,7 @@ type StatWeights = Record<string, number>;
  * "+1 Critical Chance" of "+1.3 Health per level", en die getallen zeggen los van
  * elkaar niets over welke sterker is.
  */
-const GOLD_PER_UNIT: StatWeights = {
+export const GOLD_PER_UNIT: StatWeights = {
   "Attack Damage": 36,
   "Ability Power": 21.75,
   Health: 2.66,
@@ -49,10 +49,16 @@ const GOLD_PER_UNIT: StatWeights = {
 };
 
 /**
- * Hoe belangrijk een stat is voor een rol, als vermenigvuldiger op de goudwaarde.
- * 1.0 is neutraal: precies zoveel waard als het goud zegt.
+ * How much a stat is worth to a role, as a multiplier on its gold value.
+ *
+ * The tables list what a role wants. What a role does NOT want has to be said
+ * too, and that is what REST_MULTIPLIER is for: an unlisted stat used to fall
+ * back to 1.0, meaning "worth exactly its gold". For a specialist that is plain
+ * wrong, and it showed -- a tank was being handed Lethality, Attack Speed and
+ * Critical Chance marks, because those stats were simply missing from its table
+ * and so counted at full price while Armor got its 1.5.
  */
-const ROLE_MULTIPLIERS: Record<string, StatWeights> = {
+export const ROLE_MULTIPLIERS: Record<string, StatWeights> = {
   marksman: {
     "Attack Damage": 1.5, "Attack Speed": 1.3, "Critical Chance": 1.3, "Critical Damage": 1.1,
     "Armor Penetration": 1.4, Lethality: 1.4, "Life Steal": 1.1,
@@ -79,6 +85,23 @@ const ROLE_MULTIPLIERS: Record<string, StatWeights> = {
     "Magic Resist": 1.3, Armor: 1.2, Health: 1.1, "Mana Regen": 1.5, "Cooldown Reduction": 1.4,
     "Movement Speed": 1.3, "Ability Power": 0.8, "Health Regen": 1.2, "Attack Damage": 0.2,
   },
+};
+
+/**
+ * What a stat is worth to a role that never asked for it.
+ *
+ * A tank taking Lethality is not a neutral choice, it is a wasted slot, so the
+ * discount is steep. "default" stays at 1.0: with no role to go on, gold value
+ * is the only honest ordering left.
+ */
+const REST_MULTIPLIER: Record<string, number> = {
+  marksman: 0.45,
+  mage: 0.45,
+  assassin: 0.5,
+  fighter: 0.7,
+  tank: 0.2,
+  support: 0.35,
+  default: 1,
 };
 
 const DEFAULT_MULTIPLIERS: StatWeights = {};
@@ -128,16 +151,19 @@ export function resolveRole(champion: JadeChampion | null, override?: string): s
  * Een stat zonder bekende goudwaarde telt als nul: liever niets aanbevelen dan
  * iets aanbevelen op basis van een verzonnen getal.
  */
-function scoreRune(rune: Rune, multipliers: StatWeights): number {
+export function scoreRune(rune: Rune, multipliers: StatWeights, rest = 1): number {
   let score = 0;
   for (const [stat, amount] of Object.entries(rune.stats)) {
     const gold = GOLD_PER_UNIT[stat];
     if (gold === undefined) continue;
     const effective = amount * (rune.isPerLevel ? SCALING_REFERENCE_LEVEL : 1);
-    score += effective * gold * (multipliers[stat] ?? 1);
+    score += effective * gold * (multipliers[stat] ?? rest);
   }
   return score;
 }
+
+/** The discount for stats a role never listed. */
+export const restVoorRol = (role: string): number => REST_MULTIPLIER[role] ?? 1;
 
 /**
  * Bouwt het plan. `catalog` levert zowel de runes als je aantallen, dus het
@@ -150,6 +176,7 @@ export function planRunes(
 ): RunePlan {
   const role = resolveRole(champion, roleOverride);
   const weights = ROLE_MULTIPLIERS[role] ?? DEFAULT_MULTIPLIERS;
+  const rest = restVoorRol(role);
 
   const kinds: RuneKindPlan[] = [];
   const slots = {} as Record<RuneKind, number[]>;
@@ -159,7 +186,7 @@ export function planRunes(
     const slotCount = RUNE_SLOTS[kind].count;
     const owned: Array<OwnedRune & { score: number }> = catalog
       .ownedRunes(kind)
-      .map((o) => ({ ...o, score: scoreRune(o.rune, weights) }))
+      .map((o) => ({ ...o, score: scoreRune(o.rune, weights, rest) }))
       .filter((o) => o.score > 0)
       .sort((a, b) => b.score - a.score);
 
@@ -184,9 +211,15 @@ export function planRunes(
     slots[kind] = filled;
 
     // Wat zou er mogelijk zijn als bezit geen beperking was?
-    const best = catalog
-      .all(kind)
-      .map((rune) => ({ rune, score: scoreRune(rune, weights) }))
+    //
+    // The cheap tier is left out of this one. isLowQuality was being read from
+    // the client, stored on every rune and then never used, so a Minor Mark of
+    // Armor at 0.8 was competing on equal terms with the real thing -- and
+    // winning, which meant the app told you to go buy the weaker rune. What you
+    // already own still counts above; this is only about what to recommend next.
+    const kandidaten = catalog.all(kind).filter((rune) => !rune.isLowQuality);
+    const best = (kandidaten.length > 0 ? kandidaten : catalog.all(kind))
+      .map((rune) => ({ rune, score: scoreRune(rune, weights, rest) }))
       .sort((a, b) => b.score - a.score)[0];
     const bestPossibleScore = (best?.score ?? 0) * slotCount;
     const alreadyOptimal = choices.length === 1 && choices[0]?.rune.id === best?.rune.id && emptySlots === 0;
