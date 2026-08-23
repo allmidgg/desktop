@@ -201,6 +201,9 @@ function registerIpc(): void {
     await service?.uploadNow();
     return service?.getSnapshot();
   });
+  ipcMain.handle("masteries:plan", (_event, championId: number) =>
+    service?.masteryPlanFor(championId) ?? null,
+  );
   ipcMain.handle("masteries:auto", (_event, championId: number | null) =>
     service?.autoApplyMasteries(championId),
   );

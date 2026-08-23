@@ -5,8 +5,8 @@
  * page is ever overwritten, so nothing of yours can be lost here.
  */
 import { useEffect, useState } from "react";
-import type { AppSnapshot, MasteryTreeInfo } from "../../../shared/types";
-import { asset, Panel, SectionTitle, Spinner } from "../ui";
+import type { AppSnapshot, MasteryPlanSummary, MasteryTreeInfo } from "../../../shared/types";
+import { asset, ChampionIcon, Panel, SectionTitle, Spinner, SplashBackdrop } from "../ui";
 
 const TREE_STYLE: Record<string, { text: string; ring: string; bar: string }> = {
   offense: { text: "text-loss-400", ring: "border-loss-500/30", bar: "bg-loss-500" },
@@ -18,6 +18,24 @@ export function MasteriesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elem
   const [trees, setTrees] = useState<MasteryTreeInfo[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  /** Which champion's recommendation we are looking at, if any. */
+  const [champion, setChampion] = useState<number | null>(null);
+  const [plan, setPlan] = useState<MasteryPlanSummary | null>(null);
+  const [zoek, setZoek] = useState("");
+
+  useEffect(() => {
+    if (champion === null) {
+      setPlan(null);
+      return;
+    }
+    let levend = true;
+    void window.jade.masteryPlan(champion).then((p) => {
+      if (levend) setPlan(p);
+    });
+    return () => {
+      levend = false;
+    };
+  }, [champion]);
 
   // See RunesView: the trees only exist once the client catalogues are loaded.
   useEffect(() => {
@@ -32,7 +50,19 @@ export function MasteriesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elem
   const shownPage =
     snapshot.masteryPages.find((page) => page.index === selected) ??
     (activePage && !activePage.isEmpty ? activePage : (firstFilled ?? activePage));
-  const points = new Map(shownPage?.points ?? []);
+  // Either the page you have, or the page we would build for a champion. The
+  // trees below render the same either way, which is the point: what you are
+  // shown is what the button would write.
+  const points = plan
+    ? new Map(plan.points.map((p) => [p.masteryId, p.points]))
+    : new Map(shownPage?.points ?? []);
+  const perTree = plan?.perTree ?? shownPage?.perTree;
+
+  const champions = [...snapshot.champions].sort((a, b) => a.name.localeCompare(b.name));
+  const gefilterd = zoek.trim()
+    ? champions.filter((c) => c.name.toLowerCase().includes(zoek.trim().toLowerCase()))
+    : champions;
+  const gekozenChampion = champion === null ? undefined : snapshot.champions.find((c) => c.jadeId === champion);
 
   async function activate(index: number): Promise<void> {
     const result = await window.jade.activateMasteryPage(index);
@@ -49,7 +79,69 @@ export function MasteriesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elem
 
   return (
     <div className="animate-rise space-y-5">
-      <div>
+      <div className="relative">
+        <SectionTitle
+          hint={
+            gekozenChampion ? (
+              <button onClick={() => setChampion(null)} className="text-gold-400 hover:text-gold-300">
+                back to my pages
+              </button>
+            ) : (
+              <input
+                value={zoek}
+                onChange={(e) => setZoek(e.target.value)}
+                placeholder="Find a champion"
+                className="w-44 rounded-lg border border-line bg-white/[0.03] px-2.5 py-1 text-[11px] outline-none placeholder:text-ink-700 focus:border-gold-400/45"
+              />
+            )
+          }
+        >
+          {gekozenChampion ? `Recommended for ${gekozenChampion.name}` : "Every Classic champion"}
+        </SectionTitle>
+
+        {gekozenChampion ? (
+          <Panel className="relative overflow-hidden p-4">
+            <SplashBackdrop champion={gekozenChampion} strip />
+            <div className="relative flex items-center gap-3">
+              <ChampionIcon iconPath={gekozenChampion.iconPath} name={gekozenChampion.name} size={44} />
+              <div>
+                <p className="text-sm font-semibold">{gekozenChampion.name}</p>
+                <p className="text-[11px] text-ink-500">
+                  {plan ? `Built for a ${plan.role}` : "Working it out..."}
+                  {plan?.errors.length ? ` — ${plan.errors[0]}` : ""}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  void window.jade.autoMasteries(gekozenChampion.jadeId).then((r) => setStatus(r.message));
+                }}
+                className="ml-auto rounded-xl border border-gold-400/30 bg-gold-400/10 px-3.5 py-2 text-[12px] font-medium text-gold-300 transition-colors hover:bg-gold-400/20"
+              >
+                Set this page
+              </button>
+            </div>
+          </Panel>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {gefilterd.map((c) => (
+              <button
+                key={c.jadeId}
+                onClick={() => setChampion(c.jadeId)}
+                title={c.name}
+                className="rounded-lg border border-transparent transition-colors hover:border-gold-400/50"
+              >
+                <ChampionIcon iconPath={c.iconPath} name={c.name} size={40} />
+              </button>
+            ))}
+            {gefilterd.length === 0 ? (
+              <p className="text-xs text-ink-600">Nobody by that name.</p>
+            ) : null}
+          </div>
+        )}
+        {status ? <p className="mt-2 text-xs text-gold-300">{status}</p> : null}
+      </div>
+
+      <div className={gekozenChampion ? "hidden" : ""}>
         <SectionTitle hint={`${snapshot.masteryPages.length} pages`}>Your pages</SectionTitle>
         <div className="flex flex-wrap gap-2">
           {snapshot.masteryPages.map((page) => {
@@ -93,13 +185,12 @@ export function MasteriesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elem
             );
           })}
         </div>
-        {status ? <p className="mt-2 text-xs text-gold-300">{status}</p> : null}
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         {trees.map((tree) => {
           const style = TREE_STYLE[tree.type] ?? TREE_STYLE.offense!;
-          const spent = shownPage?.perTree[tree.type] ?? 0;
+          const spent = perTree?.[tree.type] ?? 0;
           return (
             <Panel key={tree.type} className="p-4">
               <div className="mb-4 flex items-baseline justify-between">

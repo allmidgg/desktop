@@ -188,6 +188,21 @@ export interface MasteryTreeInfo {
   rows: Array<{ pointsRequired: number; masteries: Array<MasteryInfo | null> }>;
 }
 
+/**
+ * The mastery page suggested for one champion.
+ *
+ * points is a plain list rather than a Map because it has to survive the trip
+ * through IPC, which turns a Map into an empty object without complaining.
+ */
+export interface MasteryPlanSummary {
+  championId: number;
+  championName: string;
+  role: string;
+  perTree: Record<"offense" | "defense" | "utility", number>;
+  points: Array<{ masteryId: number; points: number }>;
+  errors: string[];
+}
+
 export interface RunePlanSummary {
   championId: number | null;
   championName: string | null;

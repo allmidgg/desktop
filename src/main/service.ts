@@ -42,7 +42,8 @@ import {
 import { MatchUploader, defaultUploadStatePath } from "../core/services/uploader";
 import type {
   AppSnapshot, ApplyResult, ChampSelectSnapshot, ChampionSummary, GameflowPhase, LaneAnalysis,
-  ChampionDetail, ChampionPlan, ItemEntry, MasteryTreeInfo, MatchupEntry, RecentGameSummary,
+  ChampionDetail, ChampionPlan, ItemEntry, MasteryPlanSummary, MasteryTreeInfo, MatchupEntry,
+  RecentGameSummary,
   RuneInfo, RunePlanSummary, ScoutEntry, TierEntry, UploadStatus,
 } from "../shared/types";
 
@@ -986,6 +987,28 @@ export class JadeService extends EventEmitter {
     } catch (err) {
       return { ok: false, message: (err as Error).message };
     }
+  }
+
+  /**
+   * The mastery page we would set for a champion, without setting it.
+   *
+   * Same planner the auto-setter uses, so what the screen shows is exactly what
+   * the button would write. Anything else would be a demo rather than a preview.
+   */
+  masteryPlanFor(championId: number): MasteryPlanSummary | null {
+    const { masteries, jade } = this;
+    if (!masteries || !jade) return null;
+    const champion = jade.champion(championId) ?? null;
+    if (!champion) return null;
+    const plan = planMasteries(masteries, champion, roleForPosition(null));
+    return {
+      championId,
+      championName: champion.name,
+      role: plan.role,
+      perTree: plan.perTree,
+      points: [...plan.points.entries()].map(([masteryId, points]) => ({ masteryId, points })),
+      errors: plan.errors,
+    };
   }
 
   async lookupPlayer(riotId: string): Promise<PlayerProfile | null> {
