@@ -66,7 +66,9 @@ export function MetaView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
           ))}
         </div>
         <span className="num text-[11px] text-ink-700">
-          from {snapshot.database.matches.toLocaleString("en-US")} collected games
+          from{" "}
+          {(snapshot.database.community?.games ?? snapshot.database.matches).toLocaleString("en-US")}{" "}
+          {snapshot.database.community ? "shared games" : "collected games"}
           {snapshot.database.crawling ? " · syncing" : ""}
         </span>
       </div>

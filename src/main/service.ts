@@ -28,6 +28,7 @@ import { planMasteries } from "../core/services/masteryOptimizer";
 import {
   watchChampSelect, resolveBans, type ChampSelectView, type ChampSelectPlayer,
 } from "../core/services/champSelect";
+import { CommunityStatsCache, type CommunityLoad } from "../core/services/communityStats";
 import { MatchStore, defaultStorePath, type Position } from "../core/services/matchStore";
 import { MatchCrawler } from "../core/services/crawler";
 import { JadeStats, likelyPosition, MIN_MATCHUP_GAMES, type ChampionStat } from "../core/services/stats";
@@ -145,6 +146,9 @@ export class JadeService extends EventEmitter {
 
   private readonly backupDir: string;
   private readonly uploadStatePath: string;
+  private readonly community: CommunityStatsCache;
+  /** Non-null once the community aggregate is in use, so we can say so. */
+  private communityLoad: CommunityLoad | null = null;
 
   constructor(dataRoot: string) {
     super();
@@ -152,6 +156,33 @@ export class JadeService extends EventEmitter {
     this.settings = new SettingsStore(defaultSettingsPath(dataRoot));
     this.backupDir = join(dataRoot, "data", "backups");
     this.uploadStatePath = defaultUploadStatePath(dataRoot);
+    this.community = new CommunityStatsCache(dataRoot);
+  }
+
+  /**
+   * Pick the numbers to advise from.
+   *
+   * The community aggregate wins whenever it is there. It covers every game
+   * people chose to share, where the local store only holds what this machine
+   * happened to crawl -- on a fresh install, nothing at all. They are not added
+   * together on purpose: the app uploads what it crawls, so local games are
+   * already inside the aggregate and counting them twice would quietly weight
+   * one player's matches against everyone else's.
+   */
+  private rebuildStats(): void {
+    const gedeeld = this.communityLoad;
+    if (gedeeld) {
+      try {
+        this.stats = JadeStats.fromAggregate(gedeeld.stats);
+        return;
+      } catch (err) {
+        // A shape change in the published file should not take the app down; it
+        // just means falling back to what we counted ourselves.
+        reportBackgroundError(err as Error);
+        this.communityLoad = null;
+      }
+    }
+    this.stats = JadeStats.from(this.store.all());
   }
 
   private snapshot: AppSnapshot = {
@@ -167,7 +198,7 @@ export class JadeService extends EventEmitter {
     masteryPages: [],
     runePages: [],
     recentGames: [],
-    database: { matches: 0, players: 0, usableMatchups: 0, crawling: false },
+    database: { matches: 0, players: 0, usableMatchups: 0, crawling: false, community: null },
     settings: publicSettings(DEFAULT_SETTINGS),
     upload: {
       enabled: DEFAULT_SETTINGS.shareMatches,
@@ -200,9 +231,14 @@ export class JadeService extends EventEmitter {
       await this.settings.load();
       this.update({ settings: this.settings.shared });
       await this.store.load();
-      this.stats = JadeStats.from(this.store.all());
+      this.rebuildStats();
       this.publishDatabaseStatus();
       this.startUploadSchedule();
+
+      // Deliberately not awaited: a slow or unreachable allmid.gg must never
+      // hold up connecting to the client. The numbers get better a second later
+      // instead of the window staying blank.
+      void this.loadCommunityStats().catch(reportBackgroundError);
 
       this.client = await LcuClient.connect();
       await this.onConnected();
@@ -277,7 +313,7 @@ export class JadeService extends EventEmitter {
     const busy = ["ChampSelect", "GameStart", "InProgress", "ReadyCheck"];
     if (busy.includes(this.snapshot.phase) || !this.crawler || this.crawler.isRunning) return;
     await this.crawler.run(playersPerRun);
-    this.stats = JadeStats.from(this.store.all());
+    this.rebuildStats();
     this.publishDatabaseStatus();
     // Net binnengekomen games zijn de enige reden dat er iets te delen is, dus
     // dit is het moment om het aan te bieden. De ondergrens in syncUploads()
@@ -285,13 +321,33 @@ export class JadeService extends EventEmitter {
     void this.syncUploads().catch(reportBackgroundError);
   }
 
+  /**
+   * Fetch the community aggregate and switch over to it once it lands.
+   *
+   * Runs in the background at startup and again after every crawl round, but the
+   * cache decides whether that actually reaches the network -- see VERS_MS there.
+   */
+  private async loadCommunityStats(): Promise<void> {
+    const geladen = await this.community.laad();
+    if (!geladen) return;
+    this.communityLoad = geladen;
+    this.rebuildStats();
+    this.publishDatabaseStatus();
+  }
+
   private publishDatabaseStatus(): void {
+    const gedeeld = this.communityLoad;
     this.update({
       database: {
         matches: this.store.size,
         players: this.store.knownPuuids.length,
         usableMatchups: this.stats.coverage(MIN_MATCHUP_GAMES).usable,
         crawling: this.crawler?.isRunning ?? false,
+        // Where the advice comes from. Without this the window shows "412 games"
+        // next to numbers drawn from 128,628, which reads as a bug.
+        community: gedeeld
+          ? { games: gedeeld.games, players: gedeeld.players, generatedAt: gedeeld.generatedAt }
+          : null,
       },
     });
   }

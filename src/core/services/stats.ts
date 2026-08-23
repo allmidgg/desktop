@@ -102,6 +102,29 @@ interface Tally {
   assists: number;
 }
 
+
+/**
+ * The pre-counted tallies published at allmid.gg/data/app-stats.json.
+ *
+ * Field order is not decoration: the arrays are read positionally, and `velden`
+ * in the file records which order was used. Check it before trusting the numbers,
+ * because a silent reorder would turn deaths into assists without any error.
+ */
+export interface AggregateStats {
+  generatedAt: string;
+  games: number;
+  players: number;
+  velden: { champions: string[]; paar: string[] };
+  positionTotals: Record<string, number>;
+  champions: Record<string, number[]>;
+  matchups: Record<string, number[]>;
+  items: Record<string, number[]>;
+  spells: Record<string, number[]>;
+}
+
+const CHAMPION_FIELDS = ["games", "wins", "kills", "deaths", "assists", "cs", "gold", "seconden"];
+const PAIR_FIELDS = ["games", "wins"];
+
 const emptyTally = (): Tally => ({ games: 0, wins: 0, kills: 0, deaths: 0, assists: 0 });
 
 export class JadeStats {
@@ -122,6 +145,66 @@ export class JadeStats {
     for (const match of matches) stats.ingest(match);
     return stats;
   }
+
+  /**
+   * Build the same stats from the community aggregate instead of local matches.
+   *
+   * Why this exists: a fresh install has an empty store, so every number in
+   * champion select reads "not enough games" until the user has crawled thousands
+   * of matches themselves. Meanwhile the counting has already been done centrally
+   * over every game people chose to share. This hydrates the exact same Maps that
+   * ingest() fills, so all query methods work unchanged.
+   *
+   * Deliberately NOT merged with the local store. The app uploads what it crawls,
+   * so those games are already in here -- adding them again would count them twice.
+   */
+  static fromAggregate(raw: AggregateStats): JadeStats {
+    const zelfde = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+    if (!zelfde(raw.velden?.champions ?? [], CHAMPION_FIELDS)) {
+      throw new Error(`app-stats.json champion fields changed: ${JSON.stringify(raw.velden?.champions)}`);
+    }
+    if (!zelfde(raw.velden?.paar ?? [], PAIR_FIELDS)) {
+      throw new Error(`app-stats.json pair fields changed: ${JSON.stringify(raw.velden?.paar)}`);
+    }
+
+    const stats = new JadeStats();
+    stats.matchCount = raw.games;
+
+    for (const [position, aantal] of Object.entries(raw.positionTotals)) {
+      stats.positionTotals.set(position as Position, aantal);
+    }
+    const getal = (rij: number[], i: number, sleutel: string): number => {
+      const x = rij[i];
+      if (typeof x !== "number") throw new Error(`app-stats.json: ${sleutel} has no value at index ${i}`);
+      return x;
+    };
+    for (const [sleutel, v] of Object.entries(raw.champions)) {
+      stats.champions.set(sleutel, {
+        games: getal(v, 0, sleutel),
+        wins: getal(v, 1, sleutel),
+        kills: getal(v, 2, sleutel),
+        deaths: getal(v, 3, sleutel),
+        assists: getal(v, 4, sleutel),
+      });
+    }
+    for (const [naam, doel] of [
+      ["matchups", stats.matchups],
+      ["items", stats.items],
+      ["spells", stats.spells],
+    ] as const) {
+      for (const [sleutel, v] of Object.entries(raw[naam])) {
+        doel.set(sleutel, {
+          games: getal(v, 0, sleutel),
+          wins: getal(v, 1, sleutel),
+          kills: 0,
+          deaths: 0,
+          assists: 0,
+        });
+      }
+    }
+    return stats;
+  }
+
 
   get totalMatches(): number {
     return this.matchCount;
@@ -202,7 +285,7 @@ export class JadeStats {
       const stat = this.championStat(Number(champ), position);
       if (stat) result.push(stat);
     }
-    return result.sort((a, b) => b.adjusted - a.adjusted);
+    return result.sort((a, b) => b.adjusted - a.adjusted || b.games - a.games || a.championId - b.championId);
   }
 
   /** Deel van alle spelersloten in die lane dat naar deze champion gaat. */
@@ -245,7 +328,7 @@ export class JadeStats {
         ...record(tally.games, tally.wins),
       });
     }
-    return result.sort((a, b) => b.adjusted - a.adjusted);
+    return result.sort((a, b) => b.adjusted - a.adjusted || b.games - a.games || a.championId - b.championId);
   }
 
   /**
@@ -271,7 +354,7 @@ export class JadeStats {
         pickRate: tally.games / championGames,
       });
     }
-    return result.sort((a, b) => b.pickRate - a.pickRate);
+    return result.sort((a, b) => b.pickRate - a.pickRate || b.games - a.games || a.itemId - b.itemId);
   }
 
   /** Welke summoner spells er op deze champion gedraaid worden. */
@@ -291,7 +374,7 @@ export class JadeStats {
         pickRate: tally.games / championGames,
       });
     }
-    return result.sort((a, b) => b.pickRate - a.pickRate);
+    return result.sort((a, b) => b.pickRate - a.pickRate || b.games - a.games || a.spells[0] - b.spells[0] || a.spells[1] - b.spells[1]);
   }
 
   /** Op welke posities een champion gespeeld wordt, en hoe vaak. */
@@ -305,7 +388,7 @@ export class JadeStats {
       total += tally.games;
     }
     for (const entry of perPosition) entry.share = total ? entry.games / total : 0;
-    return perPosition.sort((a, b) => b.games - a.games);
+    return perPosition.sort((a, b) => b.games - a.games || a.position.localeCompare(b.position));
   }
 
   /**
@@ -325,7 +408,7 @@ export class JadeStats {
       const stat = { championId, opponentId, position, ...record(tally.games, tally.wins) };
       if (stat.winrate < 0.5) result.push(stat);
     }
-    return result.sort((a, b) => a.adjusted - b.adjusted);
+    return result.sort((a, b) => a.adjusted - b.adjusted || b.games - a.games || a.opponentId - b.opponentId);
   }
 
   /** Andersom: matchups die deze champion juist wint. */
@@ -342,7 +425,7 @@ export class JadeStats {
       const stat = { championId, opponentId, position, ...record(tally.games, tally.wins) };
       if (stat.winrate > 0.5) result.push(stat);
     }
-    return result.sort((a, b) => b.adjusted - a.adjusted);
+    return result.sort((a, b) => b.adjusted - a.adjusted || b.games - a.games || a.opponentId - b.opponentId);
   }
 
   /** Hoeveel matchups hebben genoeg games om iets te durven zeggen? */

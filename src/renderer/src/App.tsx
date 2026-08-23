@@ -52,9 +52,9 @@ function ChampSelectWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.
           <span className="text-[10px] tracking-[0.16em] text-ink-700 uppercase">
             Champion Select
           </span>
-          {database && database.matches > 0 ? (
+          {database?.community || (database && database.matches > 0) ? (
             <span className="num text-[10px] text-ink-700">
-              {database.matches.toLocaleString("en-US")} games
+              {(database.community?.games ?? database.matches).toLocaleString("en-US")} games
               {database.crawling ? " · syncing" : ""}
             </span>
           ) : null}
@@ -139,9 +139,18 @@ function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
       </div>
 
       <div className="flex items-center gap-4">
-        {database && database.matches > 0 ? (
-          <span className="num text-[11px] text-ink-700" title="Games in your local Classic database">
-            {database.matches.toLocaleString("en-US")} games{database.crawling ? " · syncing" : ""}
+        {database?.community || (database && database.matches > 0) ? (
+          <span
+            className="num text-[11px] text-ink-700"
+            title={
+              database.community
+                ? `${database.community.games.toLocaleString("en-US")} shared games from ${database.community.players.toLocaleString("en-US")} players, collected up to ${new Date(database.community.generatedAt).toLocaleString()}. You have crawled ${database.matches.toLocaleString("en-US")} yourself; those are already included.`
+                : "Games in your local Classic database"
+            }
+          >
+            {(database.community?.games ?? database.matches).toLocaleString("en-US")} games
+            {database.community ? " shared" : ""}
+            {database.crawling ? " · syncing" : ""}
           </span>
         ) : null}
         {snapshot ? <SharingBadge upload={snapshot.upload} /> : null}

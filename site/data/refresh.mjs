@@ -1007,6 +1007,44 @@ function bouwChampions(t, nu) {
   };
 }
 
+
+/* ── app-stats.json ──────────────────────────────────────────────────────────*/
+
+/**
+ * The raw tallies, so the desktop app can rebuild JadeStats without owning the
+ * 300 MB match log.
+ *
+ * A fresh install starts with an empty store: every number in champion select
+ * reads "not enough games" until the user has crawled thousands of matches of
+ * their own. The counting has already been done here, so ship the result.
+ *
+ * champions.json cannot serve this. It keeps only the top five matchups per side,
+ * and champion select has to look up whichever pair actually shows up. So this
+ * file carries every tally, keyed exactly like the Maps in JadeStats.
+ */
+function appStats(t) {
+  const uitMap = (kaart, velden) => {
+    const uit = {};
+    for (const [sleutel, v] of kaart) uit[sleutel] = velden.map((f) => v[f]);
+    return uit;
+  };
+  return {
+    generatedAt: new Date(t.laatste).toISOString().replace(/\.\d{3}Z$/, "Z"),
+    games: t.games,
+    players: t.spelers.size,
+    // Field order matters: the app reads these back positionally.
+    velden: {
+      champions: ["games", "wins", "kills", "deaths", "assists", "cs", "gold", "seconden"],
+      paar: ["games", "wins"],
+    },
+    positionTotals: Object.fromEntries(t.slotenPerLane),
+    champions: uitMap(t.champions, ["games", "wins", "kills", "deaths", "assists", "cs", "gold", "seconden"]),
+    matchups: uitMap(t.matchups, ["games", "wins"]),
+    items: uitMap(t.items, ["games", "wins"]),
+    spells: uitMap(t.spells, ["games", "wins"]),
+  };
+}
+
 /* ── builds.json ─────────────────────────────────────────────────────────────*/
 
 const TOON_ITEMS = 12;
@@ -1316,6 +1354,7 @@ const bestanden = [
   ["meta.json", serialiseer(meta, 2) + "\n"],
   ["champions.json", serialiseer(champions, 0)],
   ["builds.json", serialiseer(builds, 0)],
+  ["app-stats.json", JSON.stringify(appStats(t))],
 ];
 for (const [naam, inhoud] of bestanden) {
   writeFileSync(join(uitmap, naam), inhoud, "utf8");

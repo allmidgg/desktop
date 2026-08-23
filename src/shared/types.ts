@@ -103,10 +103,17 @@ export interface SpellSummary {
 
 /** Stand van de zelfgebouwde matchdatabase. */
 export interface DatabaseStatus {
+  /** Games this machine crawled itself. Your own history. */
   matches: number;
   players: number;
   usableMatchups: number;
   crawling: boolean;
+  /**
+   * The shared dataset the advice is drawn from, or null when the app is falling
+   * back to locally crawled games. These are not added to `matches`: everything
+   * crawled here is uploaded, so it is already counted in there.
+   */
+  community: { games: number; players: number; generatedAt: string } | null;
 }
 
 export interface MasteryPageSummary {
