@@ -15,7 +15,8 @@ import type {
   AppSnapshot, ChampionPlan, ChampionSummary, LaneAnalysis, ScoutEntry,
 } from "../../../shared/types";
 import {
-  asset, ChampionIcon, FormDots, Panel, PositionIcon, POSITION_LABELS, RankPill, Streak, Winrate,
+  asset, ChampionIcon, FormDots, Panel, PositionIcon, POSITION_LABELS, RankPill, SplashBackdrop,
+  Streak, Winrate,
 } from "../ui";
 
 /**
@@ -61,9 +62,16 @@ export function ChampSelectView({
   );
   const myLane = select.lanes.find((lane) => lane.isLocalPlayerLane);
 
+  const mijnChampion = select.localChampionId ? champions.get(select.localChampionId) : undefined;
+
   return (
-    <div className={`animate-rise ${compact ? "space-y-3" : "space-y-5"}`}>
-      <div className="flex items-start justify-between gap-4">
+    <div className={`animate-rise relative ${compact ? "space-y-3" : "space-y-5"}`}>
+      {/* The champion you are about to play, behind everything. Nothing else on
+          this screen carries any weight until a pick lands, and an empty grid of
+          placeholders is exactly what makes it feel like nothing is happening. */}
+      <SplashBackdrop champion={mijnChampion} className="-inset-x-6 -top-6 bottom-auto h-[340px]" />
+
+      <div className="relative flex items-start justify-between gap-4">
         <AutoMasteries
           enabled={snapshot.settings.autoMasteries}
           status={snapshot.autoMasteryStatus}
@@ -76,7 +84,14 @@ export function ChampSelectView({
             champions={champions}
             align="right"
           />
-          <div className="num rounded-xl border border-white/8 bg-white/[0.03] px-4 py-1.5 text-xl font-semibold">
+          {/* Under ten seconds it should start pressing. */}
+          <div
+            className={`num rounded-xl border px-4 py-1.5 text-xl font-semibold transition-colors ${
+              seconds <= 10
+                ? "urgent border-loss-500/50 bg-loss-500/10 text-loss-400"
+                : "border-white/8 bg-white/[0.03]"
+            }`}
+          >
             {seconds}
             <span className="ml-1 text-[11px] font-normal text-ink-500">s</span>
           </div>
@@ -84,19 +99,20 @@ export function ChampSelectView({
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="relative space-y-2">
         <div className="grid grid-cols-[1fr_auto_1fr] gap-3 px-1 text-[10px] tracking-[0.16em] text-ink-700 uppercase">
-          <span>Your team</span>
+          <span className="text-sky-400/70">Your team</span>
           <span className="text-center">Lane</span>
-          <span className="text-right">Enemy team</span>
+          <span className="text-right text-loss-400/70">Enemy team</span>
         </div>
-        {select.lanes.map((lane) => (
-          <LaneRow
-            key={lane.position}
-            lane={lane}
-            entries={[...select.myTeam, ...select.theirTeam]}
-            champions={champions}
-          />
+        {select.lanes.map((lane, i) => (
+          <div key={lane.position} className="stagger" style={{ "--vertraging": `${i * 55}ms` } as React.CSSProperties}>
+            <LaneRow
+              lane={lane}
+              entries={[...select.myTeam, ...select.theirTeam]}
+              champions={champions}
+            />
+          </div>
         ))}
       </div>
 
@@ -176,14 +192,28 @@ function MatchupVerdict({ lane }: { lane: LaneAnalysis }): JSX.Element {
     return <span className="text-[10px] text-ink-700">waiting for picks</span>;
   }
   if (!lane.matchup) {
-    return <span className="text-[10px] text-ink-700">not enough data yet</span>;
+    return <span className="text-[10px] text-ink-700">too few games to call it</span>;
   }
   const pct = Math.round(lane.matchup.winrate * 100);
   const tone = pct >= 55 ? "text-jade-400" : pct <= 45 ? "text-loss-400" : "text-ink-300";
+  // A bar as well as a number: at a glance you want to see which way it leans
+  // before you have read anything. Measured from 50, because that is the only
+  // place a matchup means nothing -- a bar from zero would make 47% and 53%
+  // look like the same comfortable majority.
+  const kant = Math.min(100, Math.abs(pct - 50) * 6);
   return (
     <div className="text-center">
       <p className={`num text-sm font-semibold ${tone}`}>{pct}%</p>
-      <p className="num text-[9px] text-ink-700">{lane.matchup.games} games</p>
+      <div className="mx-auto mt-0.5 flex h-[3px] w-16 overflow-hidden rounded-full bg-line/50">
+        <span className="flex-1" />
+        {pct < 50 ? (
+          <span className="bg-loss-500/80" style={{ width: `${kant / 2}%`, marginLeft: `-${kant / 2}%` }} />
+        ) : (
+          <span className="bg-jade-500/80" style={{ width: `${kant / 2}%` }} />
+        )}
+        <span className="flex-1" />
+      </div>
+      <p className="num mt-0.5 text-[9px] text-ink-700">{lane.matchup.games} games</p>
     </div>
   );
 }
@@ -201,8 +231,19 @@ function PlayerCard({
 }): JSX.Element {
   if (!entry) {
     return (
-      <div className="flex items-center rounded-xl border border-dashed border-line px-3 py-2">
-        <span className="text-[11px] text-ink-700">no pick yet</span>
+      <div
+        className={`flex items-center gap-2.5 rounded-xl border border-dashed border-line/70 px-3 py-2 ${
+          side === "enemy" ? "flex-row-reverse" : ""
+        }`}
+      >
+        <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-line/30">
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${
+              side === "enemy" ? "bg-loss-500/60" : "bg-sky-500/60"
+            } animate-pulse`}
+          />
+        </span>
+        <span className="text-[11px] text-ink-700">waiting to pick</span>
       </div>
     );
   }
@@ -256,10 +297,11 @@ function PlayerCard({
           {entry.likelyPosition && entry.positionShare > 0 ? (
             <span
               className="flex items-center gap-1 text-[10px] text-ink-500"
-              title={`Plays ${POSITION_LABELS[entry.likelyPosition]} in ${Math.round(entry.positionShare * 100)}% of tracked games`}
+              title={`This player picks ${POSITION_LABELS[entry.likelyPosition]} in ${Math.round(entry.positionShare * 100)}% of the games we have of them. Nothing to do with the champion.`}
             >
               <PositionIcon position={entry.likelyPosition} size={11} />
-              {Math.round(entry.positionShare * 100)}%
+              <span className="num">{Math.round(entry.positionShare * 100)}%</span>
+              <span className="text-ink-700">of their games</span>
             </span>
           ) : null}
         </div>

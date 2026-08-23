@@ -27,6 +27,10 @@ export interface JadeChampion {
   /** Alias zonder Jade_-prefix, bijv. "Ashe" -- matcht de normale Riot-alias. */
   alias: string;
   iconPath: string;
+  /** Full-bleed splash, subject roughly centred. For backdrops. */
+  splashPath: string;
+  /** The wide crop, better where a strip of art is wanted rather than a scene. */
+  tilePath: string;
   roles: string[];
 }
 
@@ -54,6 +58,15 @@ export interface JadeSpell {
  * haalt ze op via het jade://-protocol dat het main-proces registreert.
  */
 const assetPath = (path: string | undefined): string => path ?? "";
+
+/**
+ * Where a Classic champion's splash art lives.
+ *
+ * `alias` is stored without the prefix, so it goes back on here: the assets are
+ * filed under the game's own name for the champion, Jade_Nasus.
+ */
+const jadeSplash = (alias: string, soort: "centered" | "uncentered" | "tile"): string =>
+  `/lol-game-data/assets/ASSETS/Characters/Jade_${alias}/Skins/Base/Images/Jade_${alias}_splash_${soort}_0.project_jade.jpg`;
 
 export class JadeCatalog {
   private constructor(
@@ -107,6 +120,12 @@ export class JadeCatalog {
         name: raw.name,
         alias,
         iconPath: assetPath(raw.squarePortraitPath),
+        // Derived rather than fetched. The per-champion JSON carries these paths,
+        // but that is 63 extra requests to learn a naming convention that holds
+        // for every one of them: Jade_Nasus_splash_centered_0.project_jade.jpg.
+        // Checked against Nasus, Ezreal, Miss Fortune and Cho'Gath.
+        splashPath: jadeSplash(alias, "centered"),
+        tilePath: jadeSplash(alias, "tile"),
         roles: raw.roles ?? [],
       });
     }

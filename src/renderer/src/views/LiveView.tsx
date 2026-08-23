@@ -6,13 +6,14 @@
  */
 import { bouwPad } from "../../../shared/build";
 import type {
-  AppSnapshot, BuildStep, ItemSummary, LiveGamePlayer, LiveGameSnapshot, RecentGameSummary,
+  AppSnapshot, BuildStep, ChampionSummary, ItemSummary, LiveGamePlayer, LiveGameSnapshot,
+  RecentGameSummary,
 } from "../../../shared/types";
 import { ChampSelectView } from "./ChampSelectView";
 import { Fragment } from "react";
 import {
-  asset, ChampionIcon, EmptyState, FormDots, ItemRow, Panel, RankPill, SectionTitle, SpellPair, Spinner,
-  Winrate,
+  asset, ChampionIcon, EmptyState, FormDots, ItemRow, Panel, RankPill, SectionTitle, SkillGrid,
+  SpellPair, Spinner, SplashBackdrop, Winrate,
 } from "../ui";
 
 const PHASE_LABELS: Record<string, string> = {
@@ -125,15 +126,25 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
       ) : null}
 
       <div className="grid grid-cols-2 gap-3">
-        {[orde, chaos].map((team, i) => (
-          <Panel key={i} className="divide-y divide-ink-900/60">
+        {([
+          ["Blue side", orde, "from-sky-500/12"],
+          ["Red side", chaos, "from-loss-500/12"],
+        ] as const).map(([naam, team, kleur], i) => (
+          <Panel key={i} className={`relative overflow-hidden divide-y divide-line/50 bg-gradient-to-b ${kleur} to-transparent`}>
+            <p className="px-3 pt-2.5 pb-1.5 text-[10px] tracking-[0.16em] text-ink-500 uppercase">{naam}</p>
             {team.length === 0 ? (
               <div className="p-4">
-                <EmptyState title="No players on this side yet" />
+                <EmptyState title="Nobody here yet" hint="Players appear as the game loads them in." />
               </div>
             ) : (
               team.map((p, j) => (
-                <LivePlayerRow key={`${p.championName}-${j}`} p={p} items={items} champions={champions} />
+                <LivePlayerRow
+                  key={`${p.championName}-${j}`}
+                  p={p}
+                  items={items}
+                  champions={champions}
+                  index={j}
+                />
               ))
             )}
           </Panel>
@@ -148,13 +159,17 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
         </Panel>
       ) : null}
 
-      {jij ? <JouwGame live={live} jij={jij} items={items} /> : null}
+      {jij ? (
+        <JouwGame
+          live={live}
+          jij={jij}
+          items={items}
+          champion={jij.championId === null ? undefined : champions.get(jij.championId)}
+        />
+      ) : null}
     </div>
   );
 }
-
-const SKILLS = ["Q", "W", "E", "R"] as const;
-const LEVELS = Array.from({ length: 18 }, (_, i) => i + 1);
 
 /**
  * The two things a finished match can never tell you, side by side.
@@ -167,28 +182,35 @@ function JouwGame({
   live,
   jij,
   items,
+  champion,
 }: {
   live: LiveGameSnapshot;
   jij: LiveGamePlayer;
   items: Map<number, ItemSummary>;
+  champion?: ChampionSummary;
 }): JSX.Element {
   // Reading the flat purchase list as a build needs the catalogue: only it knows
   // that a Long Sword and a Vampiric Scepter became a Bilgewater Cutlass.
   const groepen = bouwPad(jij.build, (id) => items.get(id)?.buildsFrom ?? []);
   return (
     <div className="space-y-3">
-      <SectionTitle hint={<span className="num">{jij.championName}</span>}>Your game</SectionTitle>
+      <SectionTitle hint={<span className="num text-gold-400">{jij.championName}</span>}>Your game</SectionTitle>
 
-      <Panel className="p-4">
+      <Panel className="relative overflow-hidden p-4">
+        <SplashBackdrop champion={champion} strip />
+        <div className="relative">
         <p className="text-[10px] tracking-[0.14em] text-ink-500 uppercase">Skill order</p>
         {live.skillOrder.length === 0 ? (
           <p className="mt-2 text-xs text-ink-600">Nothing levelled yet.</p>
         ) : (
-          <SkillRaster order={live.skillOrder} />
+          <div className="mt-3">
+            <SkillGrid order={live.skillOrder} />
+          </div>
         )}
         <p className="mt-3 text-[11px] text-ink-600">
           Yours only &mdash; the client does not reveal anyone else&rsquo;s abilities.
         </p>
+        </div>
       </Panel>
 
       <Panel className="p-4">
@@ -254,56 +276,23 @@ function ItemStap({
   );
 }
 
-/**
- * The grid every build guide uses: one row per ability, one column per level.
- *
- * The recorded order is the whole story -- entry n was the point spent at level
- * n -- so the grid needs nothing beyond it.
- */
-function SkillRaster({ order }: { order: string[] }): JSX.Element {
-  return (
-    <div className="mt-2 overflow-x-auto">
-      <div className="inline-grid gap-[3px]" style={{ gridTemplateColumns: "18px repeat(18, 18px)" }}>
-        <span />
-        {LEVELS.map((n) => (
-          <span key={n} className="num text-center text-[9px] leading-4 text-ink-600">
-            {n}
-          </span>
-        ))}
-        {SKILLS.map((skill) => (
-          <Fragment key={skill}>
-            <span className="num text-center text-[10px] leading-[18px] font-semibold text-ink-400">{skill}</span>
-            {LEVELS.map((n) => {
-              const gezet = order[n - 1] === skill;
-              return (
-                <span
-                  key={n}
-                  className={`h-[18px] rounded-[3px] ${
-                    gezet ? (skill === "R" ? "bg-gold-400" : "bg-gold-500/70") : "bg-ink-900/70"
-                  }`}
-                  title={gezet ? `Level ${n}: ${skill}` : undefined}
-                />
-              );
-            })}
-          </Fragment>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function LivePlayerRow({
   p,
   items,
   champions,
+  index,
 }: {
   p: LiveGamePlayer;
-  items: Map<number, { name: string; iconPath: string }>;
-  champions: Map<number, { name: string; iconPath: string }>;
+  items: Map<number, ItemSummary>;
+  champions: Map<number, ChampionSummary>;
+  index: number;
 }): JSX.Element {
   const champion = p.championId === null ? undefined : champions.get(p.championId);
   return (
-    <div className={`flex items-center gap-3 p-2.5 ${p.isYou ? "bg-gold-500/[0.07]" : ""}`}>
+    <div
+      className={`stagger flex items-center gap-3 p-2.5 ${p.isYou ? "bg-gold-500/[0.09] shadow-[inset_2px_0_0_var(--color-gold-400)]" : ""}`}
+      style={{ "--vertraging": `${index * 45}ms` } as React.CSSProperties}
+    >
       <ChampionIcon iconPath={champion?.iconPath} name={p.championName} size={34} dim={p.isDead} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-medium">

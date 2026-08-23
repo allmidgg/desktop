@@ -1,5 +1,5 @@
 /** Small building blocks shared by every view. */
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import type { RankedSummary } from "../../core/services/player";
 
 /** Client assets are proxied through the jade:// protocol in the main process. */
@@ -203,6 +203,103 @@ export function Spinner({ label }: { label?: string }): JSX.Element {
     <div className="flex items-center gap-2 text-sm text-ink-500">
       <span className="h-3 w-3 animate-spin rounded-full border-2 border-line-lit border-t-gold-400" />
       {label}
+    </div>
+  );
+}
+
+/**
+ * Splash art behind a screen that is about one champion.
+ *
+ * The lesson the website learned the hard way: a portrait you dim turns to mud.
+ * You brighten it and shape the darkness on top, with the gradient sitting
+ * exactly where the text does. So the image gets brightness above 1 and the veil
+ * closes fully at the bottom -- there is never a strip with art and no veil.
+ *
+ * Assets come through the client, so this quietly shows nothing when League is
+ * closed. That is the right failure: a missing backdrop is not worth an error.
+ */
+export function SplashBackdrop({
+  champion,
+  strip = false,
+  className = "",
+}: {
+  champion?: { splashPath: string; tilePath: string; name: string };
+  strip?: boolean;
+  className?: string;
+}): JSX.Element | null {
+  if (!champion) return null;
+  const pad = strip ? champion.tilePath : champion.splashPath;
+  if (!pad) return null;
+  return (
+    <div className={`splash ${strip ? "splash-strip" : ""} ${className}`} aria-hidden="true">
+      <img key={pad} src={asset(pad)} alt="" />
+    </div>
+  );
+}
+
+/**
+ * The grid every build guide uses: one row per ability, one column per level.
+ *
+ * The recorded order is the whole story, since entry n is the point spent at
+ * level n, so this needs nothing beyond it. Levels 6, 11 and 16 are marked
+ * because that is where the ultimate becomes available and it makes the row
+ * readable without counting columns.
+ */
+export function SkillGrid({ order, compact = false }: { order: string[]; compact?: boolean }): JSX.Element {
+  const skills = ["Q", "W", "E", "R"] as const;
+  const levels = Array.from({ length: 18 }, (_, i) => i + 1);
+  const cel = compact ? 16 : 22;
+
+  return (
+    <div className="overflow-x-auto">
+      <div
+        className="inline-grid gap-[3px]"
+        style={{ gridTemplateColumns: `${cel + 4}px repeat(18, ${cel}px)` }}
+      >
+        <span />
+        {levels.map((n) => (
+          <span
+            key={n}
+            className={`num text-center text-[9px] leading-4 ${
+              n === 6 || n === 11 || n === 16 ? "text-gold-500" : "text-ink-700"
+            }`}
+          >
+            {n}
+          </span>
+        ))}
+        {skills.map((skill) => {
+          const isUlt = skill === "R";
+          return (
+            <Fragment key={skill}>
+              <span
+                className={`num flex items-center justify-center rounded-[4px] text-[10px] font-bold ${
+                  isUlt ? "bg-gold-500/25 text-gold-300" : "bg-line/60 text-ink-300"
+                }`}
+                style={{ height: cel }}
+              >
+                {skill}
+              </span>
+              {levels.map((n) => {
+                const gezet = order[n - 1] === skill;
+                return (
+                  <span
+                    key={n}
+                    title={gezet ? `Level ${n}: ${skill}` : undefined}
+                    className={`rounded-[4px] transition-colors duration-300 ${
+                      gezet
+                        ? isUlt
+                          ? "bg-gold-300 shadow-[0_0_10px_-1px_var(--color-gold-400)]"
+                          : "bg-gold-400/85"
+                        : "bg-line/35"
+                    }`}
+                    style={{ height: cel }}
+                  />
+                );
+              })}
+            </Fragment>
+          );
+        })}
+      </div>
     </div>
   );
 }

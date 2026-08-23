@@ -159,3 +159,106 @@ body {
 .animate-pulse-ring {
   animation: pulse-ring 2s ease-out infinite;
 }
+
+/* ── Splash art als achtergrond ───────────────────────────────────────────
+   Dezelfde les als op de site: een portret dat je dimt wordt modder. Je moet
+   het juist oplichten en de duisternis vormgeven met verlopen die precies onder
+   de tekst liggen. Vandaar brightness boven de 1 op het beeld zelf, en een
+   sluier die aan de onderkant volledig dichtloopt zodat er nooit een strook
+   ontstaat met wel art en geen sluier. */
+.splash {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.splash img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 22%;
+  filter: saturate(1.1) contrast(1.03) brightness(1.15);
+  transform: scale(1.04);
+  animation: splash-in 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.splash::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-void) 62%, transparent) 0%,
+      color-mix(in oklab, var(--color-void) 80%, transparent) 38%,
+      color-mix(in oklab, var(--color-void) 94%, transparent) 68%,
+      var(--color-void) 92%
+    ),
+    radial-gradient(120% 80% at 50% 8%, transparent 0%, color-mix(in oklab, var(--color-void) 55%, transparent) 70%);
+}
+/* Smallere variant voor achter een enkel paneel. */
+.splash-strip::after {
+  background: linear-gradient(
+    90deg,
+    var(--color-void) 0%,
+    color-mix(in oklab, var(--color-void) 82%, transparent) 42%,
+    color-mix(in oklab, var(--color-void) 96%, transparent) 100%
+  );
+}
+
+@keyframes splash-in {
+  from {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+/* ── Beweging ─────────────────────────────────────────────────────────────
+   Eén ding tegelijk laten binnenkomen leest als iets dat gebeurt; alles
+   tegelijk leest als een pagina die er al stond. De vertraging staat als
+   inline-variabele op het element, zodat een lijst zichzelf kan uitdelen. */
+.stagger {
+  animation: rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--vertraging, 0ms);
+}
+
+/* De klok in champion select. Onder de tien seconden hoort hij te dringen. */
+@keyframes urgent {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-loss-400) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+.urgent {
+  animation: urgent 1s ease-out infinite;
+}
+
+/* Een rand die leeft: voor het paneel van de champion die jij speelt. */
+@keyframes rim {
+  0%,
+  100% {
+    border-color: color-mix(in oklab, var(--color-gold-400) 42%, transparent);
+  }
+  50% {
+    border-color: color-mix(in oklab, var(--color-gold-400) 78%, transparent);
+  }
+}
+.rim {
+  animation: rim 2.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash img,
+  .stagger,
+  .urgent,
+  .rim {
+    animation: none;
+  }
+}

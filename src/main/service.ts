@@ -1237,6 +1237,8 @@ const toChampionSummary = (champion: JadeChampion): ChampionSummary => ({
   name: champion.name,
   alias: champion.alias,
   iconPath: champion.iconPath,
+  splashPath: champion.splashPath,
+  tilePath: champion.tilePath,
   roles: champion.roles,
 });
 

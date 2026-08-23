@@ -23,6 +23,10 @@ export interface ChampionSummary {
   name: string;
   alias: string;
   iconPath: string;
+  /** Full splash, for backdrops behind a screen about this champion. */
+  splashPath: string;
+  /** The wide crop, for a strip of art rather than a whole scene. */
+  tilePath: string;
   roles: string[];
 }
 
