@@ -217,6 +217,48 @@ export interface AppSnapshot {
   upload: UploadStatus;
   /** Laatste melding van de automatische mastery-setter. */
   autoMasteryStatus: string | null;
+  /** The game currently running, read from the client on port 2999. */
+  liveGame: LiveGameSnapshot | null;
+}
+
+export interface LiveGamePlayer {
+  /** Resolved from the name the client reports. Null when we cannot place it. */
+  championId: number | null;
+  championName: string;
+  riotId: string | null;
+  team: "ORDER" | "CHAOS" | "UNKNOWN";
+  position: Position | null;
+  level: number;
+  isDead: boolean;
+  /** Seconds until respawn, 0 when alive. */
+  respawnIn: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  /** Jade item ids, trinket excluded, in slot order. Same keys as snapshot.items. */
+  items: number[];
+  isYou: boolean;
+}
+
+export interface LiveGameSnapshot {
+  /** What the client calls the mode. JADE for Classic. */
+  mode: string;
+  mapNumber: number;
+  /** False when a game is running but it is not Classic; we show it, we do not count it. */
+  isClassic: boolean;
+  gameTimeSeconds: number;
+  players: LiveGamePlayer[];
+  /**
+   * The order you levelled your own abilities in, so far.
+   *
+   * Only your own: the client does not reveal anyone else's abilities. This is
+   * the one thing match history can never give, because a finished game records
+   * levels but not the order they were taken in.
+   */
+  skillOrder: string[];
+  /** Set when something is worth saying about what we are looking at. */
+  note: string | null;
 }
 
 export interface TierEntry {

@@ -116,6 +116,12 @@ export class SkillOrderRecorder {
     return [...this.order];
   }
 
+  /** Start over. Needed when a second game begins in the same session. */
+  reset(): void {
+    this.levels.clear();
+    this.order.length = 0;
+  }
+
   /** Compacte weergave: "Q W Q E Q R" -> de eerste levels die ertoe doen. */
   summary(count = 6): string {
     return this.order.slice(0, count).join(" ");

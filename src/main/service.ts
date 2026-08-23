@@ -28,7 +28,10 @@ import { planMasteries } from "../core/services/masteryOptimizer";
 import {
   watchChampSelect, resolveBans, type ChampSelectView, type ChampSelectPlayer,
 } from "../core/services/champSelect";
+import { JADE_MAP_ID } from "../core/jade/ids";
+import { LiveClient } from "../core/lcu/liveClient";
 import { CommunityStatsCache, type CommunityLoad } from "../core/services/communityStats";
+import { LiveGameWatcher, championZoeker } from "../core/services/liveGame";
 import { MatchStore, defaultStorePath, type Position } from "../core/services/matchStore";
 import { MatchCrawler } from "../core/services/crawler";
 import { JadeStats, likelyPosition, MIN_MATCHUP_GAMES, type ChampionStat } from "../core/services/stats";
@@ -147,6 +150,15 @@ export class JadeService extends EventEmitter {
   private readonly backupDir: string;
   private readonly uploadStatePath: string;
   private readonly community: CommunityStatsCache;
+  /**
+   * The running game, read from port 2999.
+   *
+   * A separate server from the LCU that only exists while a game is in progress,
+   * so there is no event stream to subscribe to -- polling is the only option.
+   */
+  private readonly live = new LiveClient();
+  private liveWatcher: LiveGameWatcher | null = null;
+  private liveTimer: NodeJS.Timeout | null = null;
   /** Non-null once the community aggregate is in use, so we can say so. */
   private communityLoad: CommunityLoad | null = null;
 
@@ -212,6 +224,7 @@ export class JadeService extends EventEmitter {
       error: null,
     },
     autoMasteryStatus: null,
+    liveGame: null,
   };
 
   getSnapshot(): AppSnapshot {
@@ -333,6 +346,41 @@ export class JadeService extends EventEmitter {
     this.communityLoad = geladen;
     this.rebuildStats();
     this.publishDatabaseStatus();
+  }
+
+  /**
+   * Poll the running game.
+   *
+   * Every two seconds. Fast enough that a skill point taken and a second one
+   * taken shortly after are still seen in order, slow enough to be invisible --
+   * it is a local HTTP call to a server on the same machine.
+   */
+  private startLiveWatch(): void {
+    if (this.liveTimer) return;
+    this.liveWatcher ??= new LiveGameWatcher(championZoeker(this.snapshot.champions));
+    const tik = async () => {
+      const data = await this.live.allGameData();
+      if (!data) {
+        // Normal before the game is up and after it ends. Only clear what we
+        // show once there is nothing there, never mid-game.
+        if (this.snapshot.liveGame) this.update({ liveGame: null });
+        return;
+      }
+      this.update({
+        liveGame: this.liveWatcher!.verwerk(data, this.snapshot.summoner?.riotId ?? null, JADE_MAP_ID),
+      });
+    };
+    void tik().catch(reportBackgroundError);
+    this.liveTimer = setInterval(() => void tik().catch(reportBackgroundError), 2_000);
+  }
+
+  private stopLiveWatch(): void {
+    if (this.liveTimer) {
+      clearInterval(this.liveTimer);
+      this.liveTimer = null;
+    }
+    this.liveWatcher?.reset();
+    if (this.snapshot.liveGame) this.update({ liveGame: null });
   }
 
   private publishDatabaseStatus(): void {
@@ -519,6 +567,12 @@ export class JadeService extends EventEmitter {
         void this.crawlWhenIdle().catch(reportBackgroundError);
       }
       if (phase === "ChampSelect" || phase === "InProgress") this.crawler?.stop();
+
+      // The live server only answers while a game is up. Starting on GameStart
+      // rather than InProgress means the first ability point is not missed:
+      // loading screens are long enough to level one.
+      if (phase === "GameStart" || phase === "InProgress") this.startLiveWatch();
+      else this.stopLiveWatch();
     });
 
     stream.on_(/^\/lol-loadouts\/v4\/loadout/, () => {

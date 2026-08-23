@@ -4,7 +4,7 @@
  * During champion select it hands over to the scout; the rest of the time it
  * shows your recent Classic games.
  */
-import type { AppSnapshot, RecentGameSummary } from "../../../shared/types";
+import type { AppSnapshot, LiveGamePlayer, LiveGameSnapshot, RecentGameSummary } from "../../../shared/types";
 import { ChampSelectView } from "./ChampSelectView";
 import {
   ChampionIcon, EmptyState, FormDots, ItemRow, Panel, RankPill, SectionTitle, SpellPair, Spinner,
@@ -48,6 +48,7 @@ export function LiveView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
 
   return (
     <div className="animate-rise space-y-6">
+      {snapshot.liveGame ? <LiveGamePanel live={snapshot.liveGame} snapshot={snapshot} /> : null}
       <Panel className="flex items-center justify-between p-6">
         <div>
           <p className="text-xs tracking-[0.14em] text-ink-500 uppercase">Status</p>
@@ -81,6 +82,111 @@ export function LiveView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+const klok = (s: number): string =>
+  `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+/**
+ * The game as it stands right now, read from the client on port 2999.
+ *
+ * Everything here is live rather than remembered, so there is nothing to keep in
+ * sync: what the client says is what is shown.
+ */
+function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: AppSnapshot }): JSX.Element {
+  const items = new Map(snapshot.items.map((i) => [i.jadeId, i]));
+  const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
+  const orde = live.players.filter((p) => p.team === "ORDER");
+  const chaos = live.players.filter((p) => p.team === "CHAOS");
+  const rest = live.players.filter((p) => p.team === "UNKNOWN");
+
+  return (
+    <div className="space-y-3">
+      <SectionTitle
+        hint={
+          <span className="num">
+            {klok(live.gameTimeSeconds)}
+            {live.isClassic ? "" : ` · ${live.mode}`}
+          </span>
+        }
+      >
+        In game
+      </SectionTitle>
+
+      {live.note ? (
+        <Panel className="border-gold-500/30 p-3 text-xs text-ink-400">{live.note}</Panel>
+      ) : null}
+
+      <div className="grid grid-cols-2 gap-3">
+        {[orde, chaos].map((team, i) => (
+          <Panel key={i} className="divide-y divide-ink-900/60">
+            {team.length === 0 ? (
+              <div className="p-4">
+                <EmptyState title="No players on this side yet" />
+              </div>
+            ) : (
+              team.map((p, j) => (
+                <LivePlayerRow key={`${p.championName}-${j}`} p={p} items={items} champions={champions} />
+              ))
+            )}
+          </Panel>
+        ))}
+      </div>
+
+      {rest.length ? (
+        <Panel className="divide-y divide-ink-900/60">
+          {rest.map((p, j) => (
+            <LivePlayerRow key={`rest-${j}`} p={p} items={items} champions={champions} />
+          ))}
+        </Panel>
+      ) : null}
+
+      {live.skillOrder.length ? (
+        <Panel className="p-3">
+          <p className="text-[10px] tracking-[0.14em] text-ink-500 uppercase">Your skill order</p>
+          <p className="num mt-1 text-sm">{live.skillOrder.join(" ")}</p>
+          <p className="mt-1 text-[11px] text-ink-600">
+            Only yours — the client does not reveal anyone else&rsquo;s abilities. This is the one thing
+            match history can never say, because a finished game records levels but not their order.
+          </p>
+        </Panel>
+      ) : null}
+    </div>
+  );
+}
+
+function LivePlayerRow({
+  p,
+  items,
+  champions,
+}: {
+  p: LiveGamePlayer;
+  items: Map<number, { name: string; iconPath: string }>;
+  champions: Map<number, { name: string; iconPath: string }>;
+}): JSX.Element {
+  const champion = p.championId === null ? undefined : champions.get(p.championId);
+  return (
+    <div className={`flex items-center gap-3 p-2.5 ${p.isYou ? "bg-gold-500/[0.07]" : ""}`}>
+      <ChampionIcon iconPath={champion?.iconPath} name={p.championName} size={34} dim={p.isDead} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium">
+          {p.championName}
+          {p.position ? <span className="ml-1.5 text-[10px] text-ink-600">{p.position}</span> : null}
+        </p>
+        <p className="truncate text-[11px] text-ink-600">{p.riotId ?? "—"}</p>
+      </div>
+      <div className="num text-right text-[11px] whitespace-nowrap text-ink-400">
+        <div>
+          {p.kills}/{p.deaths}/{p.assists}
+        </div>
+        <div className="text-ink-600">
+          {p.cs} cs · lv {p.level}
+          {p.isDead && p.respawnIn > 0 ? <span className="text-red-400"> · {p.respawnIn}s</span> : null}
+        </div>
+      </div>
+      <ItemRow items={p.items} lookup={items} size={22} />
     </div>
   );
 }
