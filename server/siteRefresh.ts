@@ -613,6 +613,12 @@ export class SiteRefresher {
 
       // 5. Naar buiten. -SkipBuild omdat stap 4 dat al gedaan heeft; publish.ps1
       //    doet hier de robocopy /MIR, de uitsluitingen en web.config.
+      //
+      //    -NoPull is niet optioneel. Zonder die vlag doet publish.ps1 een
+      //    git reset --hard op origin/main, en dat gooit precies de site/data weg
+      //    die stap 3 er zojuist in heeft gepromoveerd plus de index.html van
+      //    stap 4. Elke ronde zou de gepubliceerde site dan terugvallen op de
+      //    momentopname uit de laatste commit -- ouder dan wat hier net geteld is.
       if (uit) {
         const publiceer = await draaiProces(
           "powershell.exe",
@@ -628,6 +634,7 @@ export class SiteRefresher {
             "-Target",
             uit,
             "-SkipBuild",
+            "-NoPull",
           ],
           repo,
           rest(),

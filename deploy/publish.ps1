@@ -145,7 +145,17 @@ if (-not (Test-Path $Target)) {
 # wat je wilt bij een site, anders blijven oude bestanden eeuwig staan.
 # fetch-icons.mjs en refresh.mjs zijn bouwgereedschap, net als build.mjs: ze
 # horen in de repo en niet op de webserver.
-$uitsluiten = @('_var-*.html', '_shot.html', '.nojekyll', 'CNAME', 'build.mjs', 'fetch-icons.mjs', 'refresh.mjs')
+$uitsluiten = @(
+    '_var-*.html', '_shot.html', '.nojekyll', 'CNAME',
+    # Build tooling. Belongs in the repository, not on a web server.
+    'build.mjs', 'fetch-icons.mjs', 'refresh.mjs',
+    # The site does not read these at runtime: index.html and the champion pages
+    # do no fetch at all, every figure is baked into the page at build time. They
+    # were only ever published because robocopy /MIR mirrors the whole folder,
+    # which meant 1.2 MB of the full dataset sitting there for anyone to take.
+    # app-stats.json stays, because the desktop app really does download it.
+    'champions.json', 'builds.json', 'meta.json'
+)
 
 $roboArgs = @(
     $bron, $Target,
@@ -175,7 +185,9 @@ $bestanden = (Get-ChildItem $Target -Recurse -File).Count
 $mb = [math]::Round(((Get-ChildItem $Target -Recurse -File | Measure-Object Length -Sum).Sum / 1MB), 1)
 Write-Host "   $bestanden bestanden, $mb MB in $Target" -ForegroundColor Gray
 
-foreach ($moet in @('index.html', 'web.config', 'data\champions.json', 'img\champions\icon\23.png')) {
+# app-stats.json instead of champions.json: the latter is deliberately no longer
+# published, so its absence is the point rather than a warning.
+foreach ($moet in @('index.html', 'style.css', 'web.config', 'data\app-stats.json', 'champion\nasus.html', 'img\champions\icon\23.png')) {
     $p = Join-Path $Target $moet
     if (Test-Path $p) { Goed "aanwezig: $moet" } else { Let "ONTBREEKT: $moet" }
 }
