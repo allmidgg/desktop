@@ -78,7 +78,17 @@ export interface ChampionPlan {
 
 export interface ChampSelectSnapshot {
   phase: string;
+  /**
+   * What the client said was left, at the moment it said it.
+   *
+   * A checkpoint, not a clock. The LCU only pushes an event when something
+   * actually happens -- a pick, a ban -- so between two picks this value does
+   * not change at all and a screen that renders it directly appears frozen.
+   * Pair it with timerAt and count down locally.
+   */
   timeLeftMs: number;
+  /** Date.now() when timeLeftMs was read, so the renderer can subtract elapsed time. */
+  timerAt: number;
   myTeam: ScoutEntry[];
   theirTeam: ScoutEntry[];
   bans: { myTeamBans: number[]; theirTeamBans: number[] };
@@ -93,6 +103,14 @@ export interface ItemSummary {
   jadeId: number;
   name: string;
   iconPath: string;
+  /**
+   * The components this is built out of, as Jade ids.
+   *
+   * Needed to read a purchase list as a build: a Long Sword followed by a
+   * Vampiric Scepter followed by a Bilgewater Cutlass is one item being
+   * assembled, not three unrelated buys, and only the catalogue knows that.
+   */
+  buildsFrom: number[];
 }
 
 export interface SpellSummary {

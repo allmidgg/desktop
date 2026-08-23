@@ -302,6 +302,7 @@ export class JadeService extends EventEmitter {
         jadeId: item.jadeId,
         name: item.name,
         iconPath: item.iconPath,
+        buildsFrom: item.buildsFrom,
       })),
       spells: [...jade.spells.values()].map((spell) => ({
         jadeId: spell.jadeId,
@@ -699,6 +700,7 @@ export class JadeService extends EventEmitter {
     return {
       phase: view.session.timer?.phase ?? "",
       timeLeftMs: view.session.timer?.adjustedTimeLeftInPhase ?? 0,
+      timerAt: Date.now(),
       myTeam,
       theirTeam,
       bans: resolveBans(view.session),
@@ -816,6 +818,7 @@ export class JadeService extends EventEmitter {
       champSelect: {
         phase: "BAN_PICK",
         timeLeftMs: 27_000,
+        timerAt: Date.now(),
         myTeam,
         theirTeam,
         // Twee champions die niet in de game zaten, zodat de banstrook zichtbaar is.

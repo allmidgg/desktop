@@ -10,13 +10,36 @@
  * usually plays according to our own match database -- if we cannot tell, the
  * lane stays empty instead of guessing.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   AppSnapshot, ChampionPlan, ChampionSummary, LaneAnalysis, ScoutEntry,
 } from "../../../shared/types";
 import {
   asset, ChampionIcon, FormDots, Panel, PositionIcon, POSITION_LABELS, RankPill, Streak, Winrate,
 } from "../ui";
+
+/**
+ * Ticks the champion select clock down between client events.
+ *
+ * The LCU sends a new session only when something happens, so the number it
+ * gives is a reading from a moment ago rather than a live value. Subtracting the
+ * time since that reading is what makes the seconds actually move; without it
+ * the timer sits on whatever it said at the last pick.
+ */
+function useAftellen(timeLeftMs: number, timerAt: number): number {
+  const bereken = (): number => Math.max(0, Math.round((timeLeftMs - (Date.now() - timerAt)) / 1000));
+  const [seconden, setSeconden] = useState(bereken);
+
+  useEffect(() => {
+    setSeconden(bereken());
+    // Four times a second rather than once: at exactly one second the displayed
+    // value would lag by up to a full second after every client event.
+    const t = setInterval(() => setSeconden(bereken()), 250);
+    return () => clearInterval(t);
+  }, [timeLeftMs, timerAt]);
+
+  return seconden;
+}
 
 export function ChampSelectView({
   snapshot,
@@ -29,7 +52,7 @@ export function ChampSelectView({
   if (!select) return null;
 
   const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
-  const seconds = Math.max(0, Math.round(select.timeLeftMs / 1000));
+  const seconds = useAftellen(select.timeLeftMs, select.timerAt);
   const assignedCells = new Set(
     select.lanes.flatMap((lane) => [lane.allyChampionId, lane.enemyChampionId]).filter(Boolean),
   );

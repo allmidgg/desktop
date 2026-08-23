@@ -4,7 +4,10 @@
  * During champion select it hands over to the scout; the rest of the time it
  * shows your recent Classic games.
  */
-import type { AppSnapshot, LiveGamePlayer, LiveGameSnapshot, RecentGameSummary } from "../../../shared/types";
+import { bouwPad } from "../../../shared/build";
+import type {
+  AppSnapshot, BuildStep, ItemSummary, LiveGamePlayer, LiveGameSnapshot, RecentGameSummary,
+} from "../../../shared/types";
 import { ChampSelectView } from "./ChampSelectView";
 import { Fragment } from "react";
 import {
@@ -167,8 +170,11 @@ function JouwGame({
 }: {
   live: LiveGameSnapshot;
   jij: LiveGamePlayer;
-  items: Map<number, { name: string; iconPath: string }>;
+  items: Map<number, ItemSummary>;
 }): JSX.Element {
+  // Reading the flat purchase list as a build needs the catalogue: only it knows
+  // that a Long Sword and a Vampiric Scepter became a Bilgewater Cutlass.
+  const groepen = bouwPad(jij.build, (id) => items.get(id)?.buildsFrom ?? []);
   return (
     <div className="space-y-3">
       <SectionTitle hint={<span className="num">{jij.championName}</span>}>Your game</SectionTitle>
@@ -187,23 +193,24 @@ function JouwGame({
 
       <Panel className="p-4">
         <p className="text-[10px] tracking-[0.14em] text-ink-500 uppercase">Purchase order</p>
-        {jij.build.length === 0 ? (
+        {groepen.length === 0 ? (
           <p className="mt-2 text-xs text-ink-600">Nothing bought yet.</p>
         ) : (
-          <div className="mt-3 flex flex-wrap gap-x-1.5 gap-y-3">
-            {jij.build.map((stap, i) => {
-              const item = items.get(stap.itemId);
-              return (
-                <div key={`${stap.itemId}-${i}`} className="flex flex-col items-center gap-1" title={item?.name}>
-                  {item ? (
-                    <img src={asset(item.iconPath)} alt={item.name} className="h-8 w-8 rounded border border-ink-800" />
-                  ) : (
-                    <div className="h-8 w-8 rounded border border-ink-800 bg-ink-900" />
-                  )}
-                  <span className="num text-[9px] text-ink-600">{klok(stap.at)}</span>
-                </div>
-              );
-            })}
+          <div className="mt-3 space-y-2">
+            {groepen.map((groep, i) => (
+              <div
+                key={`${groep.af.itemId}-${i}`}
+                className="flex flex-wrap items-center gap-1.5 rounded-md bg-ink-900/40 px-2 py-1.5"
+              >
+                {groep.weg.map((stap, j) => (
+                  <Fragment key={`w-${j}`}>
+                    <ItemStap stap={stap} items={items} klein />
+                    <span className="text-ink-700">&rsaquo;</span>
+                  </Fragment>
+                ))}
+                <ItemStap stap={groep.af} items={items} />
+              </div>
+            ))}
           </div>
         )}
         <p className="mt-3 text-[11px] text-ink-600">
@@ -213,6 +220,37 @@ function JouwGame({
         </p>
       </Panel>
     </div>
+  );
+}
+
+/** One purchase: icon, name, and the minute it happened. */
+function ItemStap({
+  stap,
+  items,
+  klein = false,
+}: {
+  stap: BuildStep;
+  items: Map<number, ItemSummary>;
+  klein?: boolean;
+}): JSX.Element {
+  const item = items.get(stap.itemId);
+  const maat = klein ? "h-7 w-7" : "h-9 w-9";
+  return (
+    <span className="flex items-center gap-1.5" title={`${item?.name ?? "Unknown item"} — ${klok(stap.at)}`}>
+      {item ? (
+        <img
+          src={asset(item.iconPath)}
+          alt={item.name}
+          className={`${maat} rounded border ${klein ? "border-ink-800" : "border-gold-500/40"}`}
+        />
+      ) : (
+        <span className={`${maat} rounded border border-ink-800 bg-ink-900`} />
+      )}
+      <span className="flex flex-col leading-tight">
+        <span className={`${klein ? "text-[10px] text-ink-500" : "text-xs text-ink-300"}`}>{item?.name ?? "?"}</span>
+        <span className="num text-[9px] text-ink-700">{klok(stap.at)}</span>
+      </span>
+    </span>
   );
 }
 

@@ -6,12 +6,14 @@
  * als het voorbij is -- zoals je van Porofessor gewend bent.
  */
 import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from "electron";
+import { Vensterplek } from "./vensterplek";
 import { join } from "node:path";
 import { JadeService } from "./service";
 import type { RuneKind } from "../core/jade/runes";
 import type { AppSnapshot } from "../shared/types";
 
 let service: JadeService | null = null;
+let plek: Vensterplek | null = null;
 let mainWindow: BrowserWindow | null = null;
 let champSelectWindow: BrowserWindow | null = null;
 /** Zodat we de popup niet bij elke update opnieuw naar voren duwen. */
@@ -36,8 +38,7 @@ function loadRenderer(window: BrowserWindow, hash: string): void {
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 820,
+    ...plek!.plaats("main", { width: 1280, height: 820 }),
     minWidth: 1020,
     minHeight: 640,
     show: false,
@@ -51,6 +52,8 @@ function createMainWindow(): void {
     },
   });
 
+  if (plek!.wasGemaximaliseerd("main")) mainWindow.maximize();
+  plek!.volg("main", mainWindow);
   mainWindow.once("ready-to-show", () => mainWindow?.show());
 
   // Externe links openen in de browser, niet in de app zelf.
@@ -67,14 +70,19 @@ function createMainWindow(): void {
  * zit, en steelt bewust geen focus zodat je gewoon door kunt picken.
  */
 function createChampSelectWindow(): BrowserWindow {
+  // Staying on top is only worth its nuisance on a single screen, where the
+  // client covers everything and the popup would never be seen otherwise. With a
+  // second monitor it already sits out of the way, and forcing it above every
+  // other window there just means it covers whatever you are actually doing.
+  const bovenop = !Vensterplek.meerdereSchermen();
+
   const window = new BrowserWindow({
-    width: 1200,
-    height: 700,
+    ...plek!.plaats("champselect", { width: 1200, height: 700 }),
     minWidth: 900,
     minHeight: 520,
     show: false,
     frame: false,
-    alwaysOnTop: true,
+    alwaysOnTop: bovenop,
     backgroundColor: "#07080a",
     webPreferences: {
       preload: join(import.meta.dirname, "../preload/index.mjs"),
@@ -82,7 +90,8 @@ function createChampSelectWindow(): BrowserWindow {
       contextIsolation: true,
     },
   });
-  window.setAlwaysOnTop(true, "screen-saver");
+  if (bovenop) window.setAlwaysOnTop(true, "screen-saver");
+  plek!.volg("champselect", window);
   loadRenderer(window, "champselect");
   window.on("closed", () => {
     champSelectWindow = null;
@@ -185,6 +194,7 @@ function registerIpc(): void {
 }
 
 void app.whenReady().then(() => {
+  plek = new Vensterplek(app.getAppPath());
   service = new JadeService(app.getAppPath());
   registerAssetProtocol();
   registerIpc();
