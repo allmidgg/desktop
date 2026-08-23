@@ -326,7 +326,7 @@ export class JadeService extends EventEmitter {
     // Ontwikkelhulp: speelt een echte gespeelde game na als champion select, zodat
     // de scout te controleren is zonder in de wachtrij te hoeven staan.
     if (process.env.ALLMID_DEMO_CHAMPSELECT === "1") {
-      void this.emitDemoChampSelect();
+      void this.emitDemoChampSelect().catch(reportBackgroundError);
       return;
     }
     void this.crawlWhenIdle().catch(reportBackgroundError);
