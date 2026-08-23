@@ -1,7 +1,7 @@
 # AllMid
 
 Stats, champion select scouting and build data for **League of Legends Classic** —
-the mode no existing tool supports.
+built from the client's own local APIs, because Riot's public API does not carry the mode.
 
 **[allmid.gg](https://allmid.gg)** &nbsp;·&nbsp; [Download](https://github.com/allmidgg/desktop/releases/latest) &nbsp;·&nbsp; [Report a bug](https://github.com/allmidgg/desktop/issues)
 
@@ -9,15 +9,29 @@ the mode no existing tool supports.
 
 ## Why this exists
 
-Open Blitz, Porofessor, Mobalytics or OP.GG during a League Classic game and you get
-nothing. Not because it is impossible, but because they all filter on `mapId` 11/12 and
-`gameMode: CLASSIC`. League Classic runs under a different name on a different map, so it
-falls through every filter. Riot's public API does not expose the mode at all — we
-verified this: every Classic match returns `403 Forbidden`, and every Classic queue filter
-returns zero results.
+Riot's public API does not carry League Classic. That part is easy to check and we did:
+[`maps.json`](https://static.developer.riotgames.com/docs/lol/maps.json) lists 17 maps with
+35 as the highest id and no sign of Classic's map `453`, and
+[`queues.json`](https://static.developer.riotgames.com/docs/lol/queues.json) lists 99
+queues with no Classic entry among them. Every Classic match id returns `403 Forbidden`.
+Riot said so themselves a day before launch: match history for the mode
+[will not be available through the API](https://gameriv.com/riot-confirms-league-classic-match-history-will-not-be-available-through-the-riot-api/),
+and they asked developers not to aggregate or display Classic data.
 
-So AllMid reads the League client directly, the same way Blitz and Porofessor do, and
-builds its own dataset from what it finds.
+So the numbers have to come from somewhere else. AllMid reads the League client's own
+local APIs on your machine and builds a dataset out of the games people choose to share.
+
+**This is not the only Classic tool.** An earlier version of this file claimed nobody
+covered the mode. That was wrong, and it is worth being straight about: Blitz, OP.GG and
+Mobalytics all have full Classic sections, and METAsrc had one running before the mode
+even shipped. OP.GG's desktop app added a Classic champion select page on 30 July. Of the
+four this file used to name, only Porofessor genuinely has nothing.
+
+What AllMid does differently is narrower and easier to state. It is MIT-licensed and the
+whole pipeline is in this repository, so every number can be traced back to the counting
+code that produced it. Every figure on [allmid.gg](https://allmid.gg) carries the sample
+size it rests on, and the method is written down rather than implied. It needs no account
+and sends no telemetry.
 
 ![Champion select](docs/screenshots/champion-select.png)
 
@@ -60,7 +74,9 @@ Fair question to ask of any executable that talks to your game client. The hones
 
 - Reads the **League Client API** (LCU) — the local HTTPS server your own client runs.
   This is the same interface Blitz, Porofessor and OP.GG's desktop app use.
-- Reads the **Live Client Data API** on port 2999 during a game, for skill order.
+- Reads the **Live Client Data API** on port 2999. This currently lives in a separate
+  command line tool (`npm run live`) for recording skill order, and is not wired into the
+  desktop app yet.
 - Writes your rune and mastery pages, but **only when you ask it to**, and it saves a
   backup of your loadout first.
 
