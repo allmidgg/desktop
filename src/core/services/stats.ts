@@ -11,6 +11,7 @@
  * 2. Een matchup is pas een matchup als beide champions in dezelfde lane staan.
  *    Een Ashe die tegen een Nasus in de toplane "wint" zegt niets over Ashe.
  */
+import { JADE_CHAMPION_OFFSET, JADE_ITEM_OFFSET } from "../jade/ids";
 import type { Position, StoredMatch } from "./matchStore";
 
 /** Hoe sterk we naar 50% trekken. 20 komt neer op: bij 20 games telt de data half mee. */
@@ -173,6 +174,33 @@ export class JadeStats {
     const stats = new JadeStats();
     stats.matchCount = raw.games;
 
+    /**
+     * The published file counts in base ids; everything in here is keyed by Jade
+     * ids, because that is what the client hands us.
+     *
+     * Getting this wrong is silent. Every lookup simply misses and the app says
+     * "not enough games" while reporting a database of 128,628 -- which is
+     * exactly what happened, because the first version of this loaded the keys
+     * as they came. Champions and their opponents shift by CHAMPION_OFFSET and
+     * items by ITEM_OFFSET; summoner spells are already stored as Jade ids on
+     * the other side, so those pass through untouched.
+     */
+    const deel = (sleutel: string): [string, string, string | undefined] => {
+      const i = sleutel.indexOf("|");
+      const j = sleutel.indexOf("|", i + 1);
+      return j === -1
+        ? [sleutel.slice(0, i), sleutel.slice(i + 1), undefined]
+        : [sleutel.slice(0, i), sleutel.slice(i + 1, j), sleutel.slice(j + 1)];
+    };
+    const champSleutel = (sleutel: string): string => {
+      const [lane, champ] = deel(sleutel);
+      return `${lane}|${Number(champ) + JADE_CHAMPION_OFFSET}`;
+    };
+    const staartSleutel = (sleutel: string, verschuif: (staart: string) => string): string => {
+      const [lane, champ, staart] = deel(sleutel);
+      return `${lane}|${Number(champ) + JADE_CHAMPION_OFFSET}|${verschuif(staart ?? "")}`;
+    };
+
     for (const [position, aantal] of Object.entries(raw.positionTotals)) {
       stats.positionTotals.set(position as Position, aantal);
     }
@@ -182,7 +210,7 @@ export class JadeStats {
       return x;
     };
     for (const [sleutel, v] of Object.entries(raw.champions)) {
-      stats.champions.set(sleutel, {
+      stats.champions.set(champSleutel(sleutel), {
         games: getal(v, 0, sleutel),
         wins: getal(v, 1, sleutel),
         kills: getal(v, 2, sleutel),
@@ -190,13 +218,15 @@ export class JadeStats {
         assists: getal(v, 4, sleutel),
       });
     }
-    for (const [naam, doel] of [
-      ["matchups", stats.matchups],
-      ["items", stats.items],
-      ["spells", stats.spells],
+    for (const [naam, doel, verschuif] of [
+      ["matchups", stats.matchups, (x: string) => String(Number(x) + JADE_CHAMPION_OFFSET)],
+      ["items", stats.items, (x: string) => String(Number(x) + JADE_ITEM_OFFSET)],
+      // Spell pairs are written as Jade ids already ("74-712" is Flash+Teleport),
+      // so only the champion in front of them needs shifting.
+      ["spells", stats.spells, (x: string) => x],
     ] as const) {
       for (const [sleutel, v] of Object.entries(raw[naam])) {
-        doel.set(sleutel, {
+        doel.set(staartSleutel(sleutel, verschuif), {
           games: getal(v, 0, sleutel),
           wins: getal(v, 1, sleutel),
           kills: 0,
