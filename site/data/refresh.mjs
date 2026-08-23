@@ -1029,7 +1029,10 @@ function appStats(t) {
     return uit;
   };
   return {
-    generatedAt: new Date(t.laatste).toISOString().replace(/\.\d{3}Z$/, "Z"),
+    // Two different questions, so two fields. newestGame is what tells you how
+    // fresh the advice is; generatedAt only says when the counting ran.
+    generatedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+    newestGame: new Date(t.laatste).toISOString().replace(/\.\d{3}Z$/, "Z"),
     games: t.games,
     players: t.spelers.size,
     // Field order matters: the app reads these back positionally.

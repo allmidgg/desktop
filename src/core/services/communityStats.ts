@@ -40,8 +40,10 @@ export interface CommunityLoad {
   stats: AggregateStats;
   /** "network" when just downloaded, "cache" when read from disk. */
   bron: "network" | "cache";
-  /** When the aggregate was generated, not when it was downloaded. */
+  /** When the counting ran, not when it was downloaded. */
   generatedAt: string;
+  /** Timestamp of the newest game in the aggregate. */
+  newestGame: string;
   games: number;
   players: number;
 }
@@ -76,6 +78,7 @@ export class CommunityStatsCache {
         stats,
         bron: "cache",
         generatedAt: stats.generatedAt,
+        newestGame: stats.newestGame ?? stats.generatedAt,
         games: stats.games,
         players: stats.players,
       };
@@ -137,6 +140,7 @@ export class CommunityStatsCache {
         stats,
         bron: "network",
         generatedAt: stats.generatedAt,
+        newestGame: stats.newestGame ?? stats.generatedAt,
         games: stats.games,
         players: stats.players,
       };

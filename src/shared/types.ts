@@ -113,7 +113,7 @@ export interface DatabaseStatus {
    * back to locally crawled games. These are not added to `matches`: everything
    * crawled here is uploaded, so it is already counted in there.
    */
-  community: { games: number; players: number; generatedAt: string } | null;
+  community: { games: number; players: number; newestGame: string } | null;
 }
 
 export interface MasteryPageSummary {

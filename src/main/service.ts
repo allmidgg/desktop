@@ -346,7 +346,7 @@ export class JadeService extends EventEmitter {
         // Where the advice comes from. Without this the window shows "412 games"
         // next to numbers drawn from 128,628, which reads as a bug.
         community: gedeeld
-          ? { games: gedeeld.games, players: gedeeld.players, generatedAt: gedeeld.generatedAt }
+          ? { games: gedeeld.games, players: gedeeld.players, newestGame: gedeeld.newestGame }
           : null,
       },
     });

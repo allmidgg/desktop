@@ -144,7 +144,7 @@ function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
             className="num text-[11px] text-ink-700"
             title={
               database.community
-                ? `${database.community.games.toLocaleString("en-US")} shared games from ${database.community.players.toLocaleString("en-US")} players, collected up to ${new Date(database.community.generatedAt).toLocaleString()}. You have crawled ${database.matches.toLocaleString("en-US")} yourself; those are already included.`
+                ? `${database.community.games.toLocaleString("en-US")} shared games from ${database.community.players.toLocaleString("en-US")} players, collected up to ${new Date(database.community.newestGame).toLocaleString()}. You have crawled ${database.matches.toLocaleString("en-US")} yourself; those are already included.`
                 : "Games in your local Classic database"
             }
           >

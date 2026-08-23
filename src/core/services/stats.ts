@@ -111,7 +111,10 @@ interface Tally {
  * because a silent reorder would turn deaths into assists without any error.
  */
 export interface AggregateStats {
+  /** When the counting ran. */
   generatedAt: string;
+  /** Timestamp of the newest game in it: how fresh the numbers actually are. */
+  newestGame: string;
   games: number;
   players: number;
   velden: { champions: string[]; paar: string[] };
