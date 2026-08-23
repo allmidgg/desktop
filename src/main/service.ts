@@ -8,6 +8,7 @@
  * geen counters -- niemand anders verzamelt deze modus.
  */
 import { EventEmitter } from "node:events";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { LcuClient, LcuNotRunningError } from "../core/lcu/connector";
 import { LcuEventStream } from "../core/lcu/events";
@@ -159,6 +160,18 @@ export class JadeService extends EventEmitter {
   private readonly live = new LiveClient();
   private liveWatcher: LiveGameWatcher | null = null;
   private liveTimer: NodeJS.Timeout | null = null;
+  /**
+   * Writes the first raw response of each run to disk, once.
+   *
+   * Everything this reads from a live game was written against the documented
+   * shape of the API, never against a real Classic match -- and Classic has its
+   * own id space, so the champion names in particular are an assumption. One
+   * real sample settles it.
+   *
+   * Stays on this machine: it holds the Riot IDs of the other nine players, so
+   * it is gitignored and never uploaded. Delete it whenever.
+   */
+  private liveSampleGeschreven = false;
   /** Non-null once the community aggregate is in use, so we can say so. */
   private communityLoad: CommunityLoad | null = null;
 
@@ -357,7 +370,12 @@ export class JadeService extends EventEmitter {
    */
   private startLiveWatch(): void {
     if (this.liveTimer) return;
-    this.liveWatcher ??= new LiveGameWatcher(championZoeker(this.snapshot.champions));
+    // Look the champion list up per call instead of capturing it once: the
+    // catalogue can still be loading when a game starts, and a lookup frozen
+    // while it was empty would report every champion as unrecognised.
+    this.liveWatcher ??= new LiveGameWatcher((naam) =>
+      championZoeker(this.snapshot.champions)(naam),
+    );
     const tik = async () => {
       const data = await this.live.allGameData();
       if (!data) {
@@ -365,6 +383,16 @@ export class JadeService extends EventEmitter {
         // show once there is nothing there, never mid-game.
         if (this.snapshot.liveGame) this.update({ liveGame: null });
         return;
+      }
+      if (!this.liveSampleGeschreven) {
+        this.liveSampleGeschreven = true;
+        try {
+          const pad = join(this.backupDir, "..", "live-sample.json");
+          writeFileSync(pad, JSON.stringify(data, null, 2), "utf8");
+          console.log(`[allmid] ruwe live-data weggeschreven naar ${pad}`);
+        } catch (err) {
+          reportBackgroundError(err as Error);
+        }
       }
       this.update({
         liveGame: this.liveWatcher!.verwerk(data, this.snapshot.summoner?.riotId ?? null, JADE_MAP_ID),

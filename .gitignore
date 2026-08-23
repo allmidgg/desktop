@@ -64,3 +64,6 @@ site/_shot.html
 
 # Gebouwde hulpprogrammas -- bouw ze zelf met build.cmd
 tools/pfx-maker/PfxMaker.exe
+
+# Ruwe momentopname van een lopende game. Bevat de Riot ID's van je medespelers.
+live-sample.json
