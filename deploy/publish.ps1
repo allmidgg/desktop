@@ -8,16 +8,27 @@
     opnamebestand. Die staan al in .gitignore, maar iemand kan ze lokaal hebben
     staan en ze horen niet op een publieke site.
 
-    Draaien op de server, als Administrator:
-        powershell -ExecutionPolicy Bypass -File deploy\publish.ps1
+    Het script haalt zelf de nieuwste code op. Doe daar GEEN "git pull" voor: de
+    checkout op de server is een spiegel en geen werkmap. De collectieserver
+    schrijft er continu in -- site\data\*.json, index.html, style.css en champion\
+    worden bij elke automatische verversing opnieuw weggeschreven -- dus een
+    gewone pull botst gegarandeerd op lokale wijzigingen. Hier gaat het met een
+    harde reset op origin/main, waarna de data opnieuw uit de database op deze
+    machine gegenereerd wordt. Alles in site\ dat niet in git staat gaat daarbij
+    verloren; dat hoort ook zo, het is allemaal bouwsel.
 
-    Of vanaf je eigen machine met -Target op een netwerkpad.
+    Draaien op de server, als Administrator:
+        powershell -ExecutionPolicy Bypass -File C:\allmid\desktop\deploy\publish.ps1
+
+    Of vanaf je eigen machine met -Target op een netwerkpad, en -NoPull.
 #>
 [CmdletBinding()]
 param(
     [string] $Target   = 'C:\inetpub\allmid',
-    [string] $RepoRoot = (Split-Path $PSScriptRoot -Parent),
-    [switch] $SkipBuild
+    [string] $RepoRoot,
+    [string] $Database,
+    [switch] $SkipBuild,
+    [switch] $NoPull
 )
 
 $ErrorActionPreference = 'Stop'
@@ -26,8 +37,69 @@ function Stap($t) { Write-Host "`n== $t" -ForegroundColor Cyan }
 function Goed($t) { Write-Host "   $t" -ForegroundColor Green }
 function Let($t)  { Write-Host "   $t" -ForegroundColor Yellow }
 
+# $PSScriptRoot is in een param()-standaardwaarde niet betrouwbaar gevuld: bij de
+# aanroep op de server kwam het er leeg uit en viel Split-Path om met
+# "Cannot bind argument to parameter 'Path'". In de body van het script is het wel
+# gezet, met $MyInvocation als terugval.
+if (-not $RepoRoot) {
+    $hier = $PSScriptRoot
+    if (-not $hier) { $hier = Split-Path -Parent $MyInvocation.MyCommand.Path }
+    if (-not $hier) { throw 'Kan de scriptmap niet bepalen. Geef -RepoRoot mee.' }
+    $RepoRoot = Split-Path $hier -Parent
+}
+
 $bron = Join-Path $RepoRoot 'site'
 if (-not (Test-Path $bron)) { throw "Niet gevonden: $bron" }
+
+# -- Code ophalen -----------------------------------------------------------
+if (-not $NoPull) {
+    Stap 'Nieuwste code ophalen'
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw 'git niet gevonden in PATH.' }
+
+    & git -C $RepoRoot fetch --prune origin
+    if ($LASTEXITCODE -ne 0) { throw "git fetch mislukte met code $LASTEXITCODE" }
+
+    # Harde reset en geen merge: alles wat hier lokaal afwijkt is door de
+    # automatische verversing geschreven en wordt hieronder opnieuw gemaakt.
+    & git -C $RepoRoot reset --hard origin/main
+    if ($LASTEXITCODE -ne 0) { throw "git reset mislukte met code $LASTEXITCODE" }
+    Goed "op commit $(& git -C $RepoRoot rev-parse --short HEAD)"
+}
+
+# -- Data verversen ---------------------------------------------------------
+# De reset hierboven zet site\data terug op de momentopname uit de repo, en die
+# is zo oud als de laatste commit. De verse cijfers staan in de database op deze
+# machine, dus die gebruiken we. Anders zou publiceren de site terugzetten in de
+# tijd tot de volgende automatische verversing hem weer bijtrekt.
+if (-not $SkipBuild) {
+    if (-not $Database) {
+        $kandidaten = @()
+        if ($env:ALLMID_DATA) { $kandidaten += (Join-Path $env:ALLMID_DATA 'data\matches.jsonl') }
+        $kandidaten += @(
+            'C:\allmid\server\data\matches.jsonl',
+            'C:\allmid\data\matches.jsonl',
+            (Join-Path $RepoRoot 'data\matches.jsonl')
+        )
+        $Database = $kandidaten | Where-Object { Test-Path $_ } | Select-Object -First 1
+    }
+
+    if ($Database) {
+        Stap 'Data verversen uit de database'
+        $nodeExe = (Get-Command node -ErrorAction SilentlyContinue).Source
+        if (-not $nodeExe) { throw 'node niet gevonden in PATH.' }
+        Push-Location $RepoRoot
+        try {
+            & $nodeExe 'site\data\refresh.mjs' '--in' $Database '--out' 'site\data'
+            if ($LASTEXITCODE -ne 0) { throw "refresh.mjs eindigde met code $LASTEXITCODE" }
+        } finally {
+            Pop-Location
+        }
+        Goed "ververst uit $Database"
+    } else {
+        Let 'Geen database gevonden. De site wordt gebouwd met de momentopname uit de repo,'
+        Let 'en die kan ouder zijn dan wat hier inmiddels verzameld is. Geef anders -Database mee.'
+    }
+}
 
 # ── Opnieuw bouwen ─────────────────────────────────────────────────────────
 if (-not $SkipBuild) {
