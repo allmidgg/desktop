@@ -15,7 +15,6 @@ import type { AppSnapshot } from "../shared/types";
 let service: JadeService | null = null;
 let plek: Vensterplek | null = null;
 let mainWindow: BrowserWindow | null = null;
-let champSelectWindow: BrowserWindow | null = null;
 /** Zodat we de popup niet bij elke update opnieuw naar voren duwen. */
 let champSelectShown = false;
 
@@ -65,49 +64,16 @@ function createMainWindow(): void {
   loadRenderer(mainWindow, "main");
 }
 
-/**
- * De champion select-popup. Blijft boven de client hangen zolang je in select
- * zit, en steelt bewust geen focus zodat je gewoon door kunt picken.
- */
-function createChampSelectWindow(): BrowserWindow {
-  // Staying on top is only worth its nuisance on a single screen, where the
-  // client covers everything and the popup would never be seen otherwise. With a
-  // second monitor it already sits out of the way, and forcing it above every
-  // other window there just means it covers whatever you are actually doing.
-  const bovenop = !Vensterplek.meerdereSchermen();
-
-  const window = new BrowserWindow({
-    ...plek!.plaats("champselect", { width: 1200, height: 700 }),
-    minWidth: 900,
-    minHeight: 520,
-    show: false,
-    frame: false,
-    alwaysOnTop: bovenop,
-    backgroundColor: "#07080a",
-    webPreferences: {
-      preload: join(import.meta.dirname, "../preload/index.mjs"),
-      sandbox: false,
-      contextIsolation: true,
-    },
-  });
-  if (bovenop) window.setAlwaysOnTop(true, "screen-saver");
-  plek!.volg("champselect", window);
-  loadRenderer(window, "champselect");
-  window.on("closed", () => {
-    champSelectWindow = null;
-  });
-  return window;
-}
-
 function syncChampSelectWindow(snapshot: AppSnapshot): void {
   const inSelect = Boolean(snapshot.champSelect);
   if (inSelect && !champSelectShown) {
     champSelectShown = true;
-    champSelectWindow ??= createChampSelectWindow();
-    champSelectWindow.showInactive();
-  } else if (!inSelect && champSelectShown) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.showInactive();
+    }
+  } else if (!inSelect) {
     champSelectShown = false;
-    champSelectWindow?.hide();
   }
 }
 
@@ -183,13 +149,7 @@ function registerIpc(): void {
     else window.maximize();
   });
   ipcMain.on("window:close", (event) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    if (window && window === champSelectWindow) {
-      champSelectShown = false;
-      window.hide();
-      return;
-    }
-    window?.close();
+    BrowserWindow.fromWebContents(event.sender)?.close();
   });
 }
 
@@ -202,7 +162,6 @@ void app.whenReady().then(() => {
 
   service.on("snapshot", (snapshot: AppSnapshot) => {
     mainWindow?.webContents.send("app:snapshot", snapshot);
-    champSelectWindow?.webContents.send("app:snapshot", snapshot);
     syncChampSelectWindow(snapshot);
   });
   void service.start();

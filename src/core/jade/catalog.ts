@@ -60,13 +60,61 @@ export interface JadeSpell {
 const assetPath = (path: string | undefined): string => path ?? "";
 
 /**
- * Where a Classic champion's splash art lives.
+ * A guess at where a Classic champion's splash art lives.
  *
- * `alias` is stored without the prefix, so it goes back on here: the assets are
- * filed under the game's own name for the champion, Jade_Nasus.
+ * Only a fallback, and worth being honest about why. The first version of this
+ * derived every path from the alias and was checked against Nasus, Ezreal, Miss
+ * Fortune and Cho'Gath -- four champions that happened to agree. They do not all
+ * agree: Ashe, Blitzcrank, Kennen and Lux carry a _16_16 suffix, and Kayle's base
+ * art sits under Skins/Skin302 with 302 in the filename. Five of sixty-three
+ * showed no background at all.
+ *
+ * The real paths come from each champion's own file; see vulSplashPaden. This
+ * stays as the value to fall back on when that lookup cannot be made.
  */
-const jadeSplash = (alias: string, soort: "centered" | "uncentered" | "tile"): string =>
+const jadeSplashGok = (alias: string, soort: "centered" | "uncentered" | "tile"): string =>
   `/lol-game-data/assets/ASSETS/Characters/Jade_${alias}/Skins/Base/Images/Jade_${alias}_splash_${soort}_0.project_jade.jpg`;
+
+/** The shape of the per-champion file, limited to the bit we want. */
+interface RawChampionDetail {
+  skins?: Array<{ splashPath?: string; tilePath?: string }>;
+}
+
+/**
+ * Replace the guessed splash paths with the ones the game actually publishes.
+ *
+ * One request per champion, which is why it is not the first thing you reach
+ * for -- but the naming is not consistent enough to derive, and a champion with
+ * no backdrop is exactly the kind of gap nobody reports because it just looks
+ * like a design choice.
+ *
+ * Deliberately forgiving: a champion whose file will not load keeps the guess.
+ * Losing a background is not worth failing to build a catalogue over.
+ */
+async function vulSplashPaden(
+  champions: Map<number, JadeChampion>,
+  fetchAsset: (path: string) => Promise<unknown>,
+): Promise<void> {
+  const ids = [...champions.keys()];
+  // In batches, so a cold client does not get sixty-three requests at once.
+  const grootte = 12;
+  for (let i = 0; i < ids.length; i += grootte) {
+    await Promise.all(
+      ids.slice(i, i + grootte).map(async (id) => {
+        try {
+          const detail = (await fetchAsset(`/lol-game-data/assets/v1/champions/${id}.json`)) as RawChampionDetail;
+          const skin = detail?.skins?.[0];
+          const champion = champions.get(id);
+          if (!champion || !skin) return;
+          if (skin.splashPath) champion.splashPath = skin.splashPath;
+          if (skin.tilePath) champion.tilePath = skin.tilePath;
+        } catch {
+          // Keep the guess.
+        }
+      }),
+    );
+  }
+}
 
 export class JadeCatalog {
   private constructor(
@@ -124,8 +172,8 @@ export class JadeCatalog {
         // but that is 63 extra requests to learn a naming convention that holds
         // for every one of them: Jade_Nasus_splash_centered_0.project_jade.jpg.
         // Checked against Nasus, Ezreal, Miss Fortune and Cho'Gath.
-        splashPath: jadeSplash(alias, "centered"),
-        tilePath: jadeSplash(alias, "tile"),
+        splashPath: jadeSplashGok(alias, "centered"),
+        tilePath: jadeSplashGok(alias, "tile"),
         roles: raw.roles ?? [],
       });
     }
@@ -157,6 +205,7 @@ export class JadeCatalog {
     }
 
     if (champions.size === 0) warnings.push("Geen enkele JADE-champion gevonden -- is League Classic nog actief?");
+    await vulSplashPaden(champions, fetchAsset);
     return new JadeCatalog(champions, items, spells, warnings);
   }
 

@@ -159,12 +159,23 @@ export function RankPill({ rank, compact = false }: { rank: RankedSummary | null
 }
 
 export function Winrate({ winrate, games }: { winrate: number; games: number }): JSX.Element {
-  if (games === 0) return <span className="text-[11px] text-ink-700">no data</span>;
+  if (games === 0) return <span className="text-[11px] text-ink-700">no games yet</span>;
   const pct = Math.round(winrate * 100);
-  const tone = pct >= 55 ? "text-jade-400" : pct <= 45 ? "text-loss-400" : "text-ink-300";
+  const sterk = pct >= 55;
+  const zwak = pct <= 45;
+  const tone = sterk ? "text-jade-300" : zwak ? "text-loss-400" : "text-ink-100";
+  const veld = sterk
+    ? "border-jade-500/30 bg-jade-500/10"
+    : zwak
+      ? "border-loss-500/30 bg-loss-500/10"
+      : "border-line bg-white/[0.03]";
   return (
-    <span className={`num text-[13px] font-semibold ${tone}`}>
-      {pct}%<span className="ml-1 text-[11px] font-normal text-ink-500">({games})</span>
+    <span
+      className={`inline-flex items-baseline gap-1 rounded-lg border px-2 py-0.5 ${veld}`}
+      title={`${pct}% won over ${games} games`}
+    >
+      <span className={`num text-[13px] leading-none font-semibold ${tone}`}>{pct}%</span>
+      <span className="num text-[9px] text-ink-500">{games}g</span>
     </span>
   );
 }

@@ -297,11 +297,11 @@ function PlayerCard({
           {entry.likelyPosition && entry.positionShare > 0 ? (
             <span
               className="flex items-center gap-1 text-[10px] text-ink-500"
-              title={`This player picks ${POSITION_LABELS[entry.likelyPosition]} in ${Math.round(entry.positionShare * 100)}% of the games we have of them. Nothing to do with the champion.`}
+              title={`Where this player usually goes: ${POSITION_LABELS[entry.likelyPosition]} in ${Math.round(entry.positionShare * 100)}% of the games we have of them. It says nothing about the champion.`}
             >
               <PositionIcon position={entry.likelyPosition} size={11} />
-              <span className="num">{Math.round(entry.positionShare * 100)}%</span>
-              <span className="text-ink-700">of their games</span>
+              <span className="text-ink-600">usually</span>
+              <span className="num text-ink-300">{POSITION_LABELS[entry.likelyPosition]}</span>
             </span>
           ) : null}
         </div>
@@ -551,12 +551,27 @@ function BuildPanel({
             </div>
 
             {plan.weakAgainst.length > 0 ? (
-              <p className="mt-2 text-[10px] text-ink-500">
-                <span className="text-loss-400">Careful against:</span>{" "}
-                {plan.weakAgainst
-                  .map((m) => `${champions.get(m.championId)?.name ?? m.championId} ${pct(m.winrate)}`)
-                  .join(" · ")}
-              </p>
+              <div className="mt-3">
+                <p className="text-[10px] tracking-[0.13em] text-loss-400 uppercase">Careful against</p>
+                {/* Faces, like the items above. A row of names is something you
+                    have to read; a row of portraits is something you recognise
+                    the moment the enemy locks one in. */}
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {plan.weakAgainst.map((m) => {
+                    const champion = champions.get(m.championId);
+                    return (
+                      <span
+                        key={m.championId}
+                        className="flex items-center gap-1.5 rounded-lg border border-loss-500/25 bg-loss-500/[0.07] py-1 pr-2 pl-1"
+                        title={`${champion?.name ?? m.championId} beats this pick in ${pct(m.winrate)} of ${m.games} games`}
+                      >
+                        <ChampionIcon iconPath={champion?.iconPath} name={champion?.name} size={22} />
+                        <span className="num text-[10px] font-semibold text-loss-400">{pct(m.winrate)}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
             ) : null}
           </div>
 

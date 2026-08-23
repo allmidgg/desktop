@@ -11,7 +11,7 @@
  * 2. Een matchup is pas een matchup als beide champions in dezelfde lane staan.
  *    Een Ashe die tegen een Nasus in de toplane "wint" zegt niets over Ashe.
  */
-import { JADE_CHAMPION_OFFSET, JADE_ITEM_OFFSET } from "../jade/ids";
+import { JADE_CHAMPION_OFFSET, JADE_ITEM_OFFSET, JADE_QUEUES } from "../jade/ids";
 import type { Position, StoredMatch } from "./matchStore";
 
 /** Hoe sterk we naar 50% trekken. 20 komt neer op: bij 20 games telt de data half mee. */
@@ -244,6 +244,7 @@ export class JadeStats {
   }
 
   ingest(match: StoredMatch): void {
+    if (match.queueId === JADE_QUEUES.BOT) return;
     this.matchCount++;
     for (const player of match.players) {
       if (player.position === "UNKNOWN") continue;
@@ -473,10 +474,28 @@ export class JadeStats {
  * De positie waarop iemand het vaakst speelt, uit zijn eigen games.
  * In champion select weten we van tegenstanders niets -- behalve dit.
  */
+/**
+ * Bots and hidden players all share this one. It is not a person.
+ *
+ * In the local store it turned up 7,915 times, more than seventy times the
+ * busiest real account, because every bot in every Co-op vs AI game reports it.
+ */
+export const LEGE_PUUID = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * Below this many games with a known position, we say nothing.
+ *
+ * The median player in a crawled store has been seen exactly once. "Plays mid
+ * 100% of the time" off a single game is not a read on anyone, and presenting it
+ * next to real numbers makes the whole card less trustworthy.
+ */
+export const MIN_POSITIE_GAMES = 4;
+
 export function likelyPosition(
   matches: StoredMatch[],
   puuid: string,
 ): { position: Position; share: number; games: number } | null {
+  if (!puuid || puuid === LEGE_PUUID) return null;
   const counts = new Map<Position, number>();
   let total = 0;
   for (const match of matches) {
@@ -485,7 +504,7 @@ export function likelyPosition(
     counts.set(player.position, (counts.get(player.position) ?? 0) + 1);
     total++;
   }
-  if (total === 0) return null;
+  if (total < MIN_POSITIE_GAMES) return null;
   const [best] = [...counts.entries()].sort((a, b) => b[1] - a[1]);
   if (!best) return null;
   return { position: best[0], share: best[1] / total, games: total };

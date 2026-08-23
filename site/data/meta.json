@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-23T07:31:27.344Z",
+  "generatedAt": "2026-08-23T10:27:56.928Z",
   "bron": "data/matches.jsonl",
   "methode": {
     "beschrijving": "Zelfde berekening als src/core/services/stats.ts, zodat site en app dezelfde cijfers tonen.",
@@ -16,23 +16,23 @@
     }
   },
   "totals": {
-    "games": 128628,
-    "players": 366025,
+    "games": 125096,
+    "players": 362263,
     "champions": 63,
     "patches": [
       "16.16",
       "16.15"
     ],
-    "generatedAt": "2026-08-23T07:31:27.344Z",
+    "generatedAt": "2026-08-23T10:27:56.928Z",
     "gamesPerPatch": {
-      "16.16": 67662,
-      "16.15": 60966
+      "16.16": 64999,
+      "16.15": 60097
     },
-    "spelersloten": 1286280,
-    "slotenZonderPositie": 201020,
-    "gemiddeldeDuurSeconden": 1764.4,
+    "spelersloten": 1250960,
+    "slotenZonderPositie": 164160,
+    "gemiddeldeDuurSeconden": 1799.6,
     "eersteGame": "2026-07-29T18:15:39.494Z",
-    "laatsteGame": "2026-08-22T14:17:23.484Z",
+    "laatsteGame": "2026-08-22T22:59:47.556Z",
     "overgeslagenDubbeleGameIds": 9,
     "onleesbareRegels": 0
   },
@@ -42,16 +42,16 @@
         "baseId": 55,
         "classicId": 60055,
         "naam": "Katarina",
-        "games": 2534,
-        "winrate": 58.7,
-        "winrateRuw": 58.8,
+        "games": 2528,
+        "winrate": 58.8,
+        "winrateRuw": 58.9,
         "pickRate": 1.12
       },
       {
         "baseId": 23,
         "classicId": 60023,
         "naam": "Tryndamere",
-        "games": 12372,
+        "games": 12397,
         "winrate": 58,
         "winrateRuw": 58,
         "pickRate": 5.47
@@ -60,7 +60,7 @@
         "baseId": 103,
         "classicId": 60103,
         "naam": "Ahri",
-        "games": 1597,
+        "games": 1601,
         "winrate": 57.2,
         "winrateRuw": 57.3,
         "pickRate": 0.71
@@ -69,64 +69,64 @@
         "baseId": 28,
         "classicId": 60028,
         "naam": "Evelynn",
-        "games": 253,
-        "winrate": 56.8,
-        "winrateRuw": 57.3,
+        "games": 252,
+        "winrate": 56.6,
+        "winrateRuw": 57.1,
         "pickRate": 0.11
       },
       {
         "baseId": 74,
         "classicId": 60074,
         "naam": "Heimerdinger",
-        "games": 3692,
+        "games": 3696,
         "winrate": 56.5,
-        "winrateRuw": 56.6,
+        "winrateRuw": 56.5,
         "pickRate": 1.63
       },
       {
         "baseId": 90,
         "classicId": 60090,
         "naam": "Malzahar",
-        "games": 2297,
-        "winrate": 56.3,
+        "games": 2300,
+        "winrate": 56.4,
         "winrateRuw": 56.4,
         "pickRate": 1.01
+      },
+      {
+        "baseId": 32,
+        "classicId": 60032,
+        "naam": "Amumu",
+        "games": 160,
+        "winrate": 56.1,
+        "winrateRuw": 56.9,
+        "pickRate": 0.07
       },
       {
         "baseId": 34,
         "classicId": 60034,
         "naam": "Anivia",
-        "games": 840,
+        "games": 839,
         "winrate": 56,
-        "winrateRuw": 56.2,
+        "winrateRuw": 56.1,
         "pickRate": 0.37
       },
       {
         "baseId": 33,
         "classicId": 60033,
         "naam": "Rammus",
-        "games": 513,
-        "winrate": 55.5,
-        "winrateRuw": 55.8,
+        "games": 511,
+        "winrate": 55.9,
+        "winrateRuw": 56.2,
         "pickRate": 0.23
       },
       {
         "baseId": 62,
         "classicId": 60062,
         "naam": "Wukong",
-        "games": 2132,
+        "games": 2137,
         "winrate": 55.5,
-        "winrateRuw": 55.5,
+        "winrateRuw": 55.6,
         "pickRate": 0.94
-      },
-      {
-        "baseId": 40,
-        "classicId": 60040,
-        "naam": "Janna",
-        "games": 876,
-        "winrate": 55.4,
-        "winrateRuw": 55.5,
-        "pickRate": 0.39
       }
     ],
     "JUNGLE": [
@@ -134,16 +134,16 @@
         "baseId": 23,
         "classicId": 60023,
         "naam": "Tryndamere",
-        "games": 9098,
+        "games": 9110,
         "winrate": 58.6,
-        "winrateRuw": 58.7,
+        "winrateRuw": 58.6,
         "pickRate": 3.61
       },
       {
         "baseId": 19,
         "classicId": 60019,
         "naam": "Warwick",
-        "games": 37635,
+        "games": 37696,
         "winrate": 54.1,
         "winrateRuw": 54.1,
         "pickRate": 14.94
@@ -152,7 +152,7 @@
         "baseId": 24,
         "classicId": 60024,
         "naam": "Jax",
-        "games": 8890,
+        "games": 8905,
         "winrate": 53.6,
         "winrateRuw": 53.6,
         "pickRate": 3.53
@@ -161,34 +161,25 @@
         "baseId": 62,
         "classicId": 60062,
         "naam": "Wukong",
-        "games": 5885,
+        "games": 5890,
         "winrate": 52.7,
         "winrateRuw": 52.7,
-        "pickRate": 2.34
+        "pickRate": 2.33
       },
       {
         "baseId": 75,
         "classicId": 60075,
         "naam": "Nasus",
-        "games": 2477,
-        "winrate": 52.1,
+        "games": 2481,
+        "winrate": 52.2,
         "winrateRuw": 52.2,
         "pickRate": 0.98
-      },
-      {
-        "baseId": 4,
-        "classicId": 60004,
-        "naam": "Twisted Fate",
-        "games": 313,
-        "winrate": 52,
-        "winrateRuw": 52.1,
-        "pickRate": 0.12
       },
       {
         "baseId": 33,
         "classicId": 60033,
         "naam": "Rammus",
-        "games": 7611,
+        "games": 7628,
         "winrate": 51.8,
         "winrateRuw": 51.8,
         "pickRate": 3.02
@@ -197,28 +188,37 @@
         "baseId": 59,
         "classicId": 60059,
         "naam": "Jarvan IV",
-        "games": 11872,
+        "games": 11894,
         "winrate": 51.7,
         "winrateRuw": 51.7,
         "pickRate": 4.71
       },
       {
+        "baseId": 4,
+        "classicId": 60004,
+        "naam": "Twisted Fate",
+        "games": 311,
+        "winrate": 51.7,
+        "winrateRuw": 51.8,
+        "pickRate": 0.12
+      },
+      {
+        "baseId": 26,
+        "classicId": 60026,
+        "naam": "Zilean",
+        "games": 134,
+        "winrate": 51.3,
+        "winrateRuw": 51.5,
+        "pickRate": 0.05
+      },
+      {
         "baseId": 28,
         "classicId": 60028,
         "naam": "Evelynn",
-        "games": 17667,
+        "games": 17707,
         "winrate": 51.2,
         "winrateRuw": 51.2,
-        "pickRate": 7.01
-      },
-      {
-        "baseId": 27,
-        "classicId": 60027,
-        "naam": "Singed",
-        "games": 1842,
-        "winrate": 51.1,
-        "winrateRuw": 51.1,
-        "pickRate": 0.73
+        "pickRate": 7.02
       }
     ],
     "MIDDLE": [
@@ -238,40 +238,40 @@
         "games": 3209,
         "winrate": 59.2,
         "winrateRuw": 59.2,
-        "pickRate": 1.45
+        "pickRate": 1.44
       },
       {
         "baseId": 40,
         "classicId": 60040,
         "naam": "Janna",
-        "games": 593,
-        "winrate": 57.6,
-        "winrateRuw": 57.8,
+        "games": 594,
+        "winrate": 57.5,
+        "winrateRuw": 57.7,
         "pickRate": 0.27
       },
       {
         "baseId": 75,
         "classicId": 60075,
         "naam": "Nasus",
-        "games": 962,
-        "winrate": 57.4,
-        "winrateRuw": 57.6,
+        "games": 963,
+        "winrate": 57.3,
+        "winrateRuw": 57.4,
         "pickRate": 0.43
       },
       {
         "baseId": 23,
         "classicId": 60023,
         "naam": "Tryndamere",
-        "games": 1249,
-        "winrate": 57.2,
-        "winrateRuw": 57.3,
+        "games": 1253,
+        "winrate": 57.3,
+        "winrateRuw": 57.4,
         "pickRate": 0.56
       },
       {
         "baseId": 29,
         "classicId": 60029,
         "naam": "Twitch",
-        "games": 1210,
+        "games": 1214,
         "winrate": 55.8,
         "winrateRuw": 55.9,
         "pickRate": 0.55
@@ -298,16 +298,16 @@
         "baseId": 90,
         "classicId": 60090,
         "naam": "Malzahar",
-        "games": 12544,
+        "games": 12567,
         "winrate": 54.4,
         "winrateRuw": 54.4,
-        "pickRate": 5.65
+        "pickRate": 5.66
       },
       {
         "baseId": 25,
         "classicId": 60025,
         "naam": "Morgana",
-        "games": 3772,
+        "games": 3776,
         "winrate": 54.4,
         "winrateRuw": 54.4,
         "pickRate": 1.7
@@ -318,36 +318,36 @@
         "baseId": 74,
         "classicId": 60074,
         "naam": "Heimerdinger",
-        "games": 1745,
-        "winrate": 54.6,
-        "winrateRuw": 54.7,
+        "games": 1748,
+        "winrate": 54.5,
+        "winrateRuw": 54.6,
         "pickRate": 0.81
       },
       {
         "baseId": 29,
         "classicId": 60029,
         "naam": "Twitch",
-        "games": 18985,
+        "games": 19026,
         "winrate": 53.8,
         "winrateRuw": 53.8,
-        "pickRate": 8.77
+        "pickRate": 8.78
       },
       {
         "baseId": 53,
         "classicId": 60053,
         "naam": "Blitzcrank",
-        "games": 3478,
-        "winrate": 53.6,
-        "winrateRuw": 53.6,
+        "games": 3480,
+        "winrate": 53.5,
+        "winrateRuw": 53.5,
         "pickRate": 1.61
       },
       {
         "baseId": 62,
         "classicId": 60062,
         "naam": "Wukong",
-        "games": 191,
-        "winrate": 53.1,
-        "winrateRuw": 53.4,
+        "games": 192,
+        "winrate": 53.3,
+        "winrateRuw": 53.6,
         "pickRate": 0.09
       },
       {
@@ -364,24 +364,33 @@
         "classicId": 60040,
         "naam": "Janna",
         "games": 1014,
-        "winrate": 53,
-        "winrateRuw": 53.1,
+        "winrate": 52.8,
+        "winrateRuw": 52.9,
         "pickRate": 0.47
       },
       {
         "baseId": 96,
         "classicId": 60096,
         "naam": "Kog'Maw",
-        "games": 6627,
+        "games": 6640,
         "winrate": 52.7,
-        "winrateRuw": 52.8,
+        "winrateRuw": 52.7,
         "pickRate": 3.06
+      },
+      {
+        "baseId": 10,
+        "classicId": 60010,
+        "naam": "Kayle",
+        "games": 478,
+        "winrate": 52.4,
+        "winrateRuw": 52.5,
+        "pickRate": 0.22
       },
       {
         "baseId": 4,
         "classicId": 60004,
         "naam": "Twisted Fate",
-        "games": 1308,
+        "games": 1311,
         "winrate": 52.4,
         "winrateRuw": 52.4,
         "pickRate": 0.6
@@ -390,19 +399,10 @@
         "baseId": 18,
         "classicId": 60018,
         "naam": "Tristana",
-        "games": 20669,
+        "games": 20681,
         "winrate": 52.2,
         "winrateRuw": 52.2,
-        "pickRate": 9.55
-      },
-      {
-        "baseId": 34,
-        "classicId": 60034,
-        "naam": "Anivia",
-        "games": 546,
-        "winrate": 51.8,
-        "winrateRuw": 51.8,
-        "pickRate": 0.25
+        "pickRate": 9.54
       }
     ],
     "SUPPORT": [
@@ -410,16 +410,25 @@
         "baseId": 40,
         "classicId": 60040,
         "naam": "Janna",
-        "games": 8174,
+        "games": 8190,
         "winrate": 55.8,
         "winrateRuw": 55.8,
         "pickRate": 4.85
       },
       {
+        "baseId": 10,
+        "classicId": 60010,
+        "naam": "Kayle",
+        "games": 516,
+        "winrate": 54.9,
+        "winrateRuw": 55,
+        "pickRate": 0.31
+      },
+      {
         "baseId": 53,
         "classicId": 60053,
         "naam": "Blitzcrank",
-        "games": 23859,
+        "games": 23903,
         "winrate": 54.8,
         "winrateRuw": 54.8,
         "pickRate": 14.16
@@ -428,25 +437,16 @@
         "baseId": 4,
         "classicId": 60004,
         "naam": "Twisted Fate",
-        "games": 1516,
+        "games": 1517,
         "winrate": 54.8,
         "winrateRuw": 54.8,
         "pickRate": 0.9
       },
       {
-        "baseId": 10,
-        "classicId": 60010,
-        "naam": "Kayle",
-        "games": 515,
-        "winrate": 54.6,
-        "winrateRuw": 54.8,
-        "pickRate": 0.31
-      },
-      {
         "baseId": 37,
         "classicId": 60037,
         "naam": "Sona",
-        "games": 10956,
+        "games": 10971,
         "winrate": 52.7,
         "winrateRuw": 52.7,
         "pickRate": 6.5
@@ -455,7 +455,7 @@
         "baseId": 9,
         "classicId": 60009,
         "naam": "Fiddlesticks",
-        "games": 6837,
+        "games": 6857,
         "winrate": 51.7,
         "winrateRuw": 51.7,
         "pickRate": 4.06
@@ -464,7 +464,7 @@
         "baseId": 44,
         "classicId": 60044,
         "naam": "Taric",
-        "games": 11133,
+        "games": 11149,
         "winrate": 51.7,
         "winrateRuw": 51.7,
         "pickRate": 6.61
@@ -473,16 +473,16 @@
         "baseId": 26,
         "classicId": 60026,
         "naam": "Zilean",
-        "games": 7310,
-        "winrate": 51.1,
-        "winrateRuw": 51.1,
+        "games": 7332,
+        "winrate": 51.2,
+        "winrateRuw": 51.2,
         "pickRate": 4.34
       },
       {
         "baseId": 54,
         "classicId": 60054,
         "naam": "Malphite",
-        "games": 1186,
+        "games": 1189,
         "winrate": 50.9,
         "winrateRuw": 50.9,
         "pickRate": 0.7
@@ -491,10 +491,10 @@
         "baseId": 117,
         "classicId": 60117,
         "naam": "Lulu",
-        "games": 8231,
-        "winrate": 50.3,
-        "winrateRuw": 50.3,
-        "pickRate": 4.89
+        "games": 8244,
+        "winrate": 50.4,
+        "winrateRuw": 50.4,
+        "pickRate": 4.88
       }
     ]
   },
@@ -511,8 +511,8 @@
       "classicId": 60081,
       "naam": "Ezreal",
       "lane": "BOTTOM",
-      "laneGames": 32040,
-      "totaleGames": 40841,
+      "laneGames": 32102,
+      "totaleGames": 40922,
       "counters": [
         {
           "baseId": 23,
@@ -534,9 +534,9 @@
           "baseId": 103,
           "classicId": 60103,
           "naam": "Ahri",
-          "winrateTegen": 56.5,
-          "winrateTegenRuw": 57.7,
-          "games": 111
+          "winrateTegen": 56.1,
+          "winrateTegenRuw": 57.1,
+          "games": 112
         },
         {
           "baseId": 30,
@@ -553,8 +553,8 @@
       "classicId": 60019,
       "naam": "Warwick",
       "lane": "JUNGLE",
-      "laneGames": 37635,
-      "totaleGames": 40622,
+      "laneGames": 37696,
+      "totaleGames": 40675,
       "counters": [
         {
           "baseId": 37,
@@ -578,7 +578,7 @@
           "naam": "Tryndamere",
           "winrateTegen": 55.1,
           "winrateTegenRuw": 55.2,
-          "games": 1531
+          "games": 1532
         },
         {
           "baseId": 45,
@@ -595,8 +595,8 @@
       "classicId": 60053,
       "naam": "Blitzcrank",
       "lane": "SUPPORT",
-      "laneGames": 23859,
-      "totaleGames": 33196,
+      "laneGames": 23903,
+      "totaleGames": 33227,
       "counters": [
         {
           "baseId": 85,
@@ -637,8 +637,8 @@
       "classicId": 60011,
       "naam": "Master Yi",
       "lane": "JUNGLE",
-      "laneGames": 23163,
-      "totaleGames": 32571,
+      "laneGames": 23210,
+      "totaleGames": 32617,
       "counters": [
         {
           "baseId": 23,
@@ -646,7 +646,7 @@
           "naam": "Tryndamere",
           "winrateTegen": 60.7,
           "winrateTegenRuw": 60.9,
-          "games": 921
+          "games": 923
         },
         {
           "baseId": 4,
@@ -668,9 +668,9 @@
           "baseId": 59,
           "classicId": 60059,
           "naam": "Jarvan IV",
-          "winrateTegen": 57.8,
+          "winrateTegen": 57.9,
           "winrateTegenRuw": 58,
-          "games": 1094
+          "games": 1096
         }
       ]
     },
@@ -679,8 +679,8 @@
       "classicId": 60018,
       "naam": "Tristana",
       "lane": "BOTTOM",
-      "laneGames": 20669,
-      "totaleGames": 32069,
+      "laneGames": 20681,
+      "totaleGames": 32109,
       "counters": [
         {
           "baseId": 75,
@@ -721,8 +721,8 @@
       "classicId": 60067,
       "naam": "Vayne",
       "lane": "BOTTOM",
-      "laneGames": 25499,
-      "totaleGames": 31407,
+      "laneGames": 25558,
+      "totaleGames": 31470,
       "counters": [
         {
           "baseId": 23,
@@ -749,12 +749,12 @@
           "games": 84
         },
         {
-          "baseId": 96,
-          "classicId": 60096,
-          "naam": "Kog'Maw",
-          "winrateTegen": 54.5,
-          "winrateTegenRuw": 54.7,
-          "games": 849
+          "baseId": 10,
+          "classicId": 60010,
+          "naam": "Kayle",
+          "winrateTegen": 54.7,
+          "winrateTegenRuw": 56.1,
+          "games": 66
         }
       ]
     },
@@ -763,16 +763,16 @@
       "classicId": 60041,
       "naam": "Gangplank",
       "lane": "TOP",
-      "laneGames": 18999,
-      "totaleGames": 29019,
+      "laneGames": 19028,
+      "totaleGames": 29055,
       "counters": [
         {
           "baseId": 79,
           "classicId": 60079,
           "naam": "Gragas",
-          "winrateTegen": 62.7,
-          "winrateTegenRuw": 63.8,
-          "games": 232
+          "winrateTegen": 62,
+          "winrateTegenRuw": 63,
+          "games": 235
         },
         {
           "baseId": 32,
@@ -794,9 +794,9 @@
           "baseId": 23,
           "classicId": 60023,
           "naam": "Tryndamere",
-          "winrateTegen": 60.6,
-          "winrateTegenRuw": 60.8,
-          "games": 1132
+          "winrateTegen": 60.5,
+          "winrateTegenRuw": 60.7,
+          "games": 1133
         }
       ]
     },
@@ -805,8 +805,8 @@
       "classicId": 60080,
       "naam": "Pantheon",
       "lane": "TOP",
-      "laneGames": 13611,
-      "totaleGames": 28294,
+      "laneGames": 13639,
+      "totaleGames": 28349,
       "counters": [
         {
           "baseId": 90,
@@ -820,9 +820,9 @@
           "baseId": 55,
           "classicId": 60055,
           "naam": "Katarina",
-          "winrateTegen": 62.2,
-          "winrateTegenRuw": 64,
-          "games": 136
+          "winrateTegen": 62,
+          "winrateTegenRuw": 63.8,
+          "games": 138
         },
         {
           "baseId": 32,
@@ -847,16 +847,16 @@
       "classicId": 60009,
       "naam": "Fiddlesticks",
       "lane": "JUNGLE",
-      "laneGames": 14570,
-      "totaleGames": 27147,
+      "laneGames": 14597,
+      "totaleGames": 27198,
       "counters": [
         {
           "baseId": 23,
           "classicId": 60023,
           "naam": "Tryndamere",
-          "winrateTegen": 58.9,
-          "winrateTegenRuw": 59.2,
-          "games": 547
+          "winrateTegen": 59,
+          "winrateTegenRuw": 59.3,
+          "games": 548
         },
         {
           "baseId": 12,
@@ -870,9 +870,9 @@
           "baseId": 54,
           "classicId": 60054,
           "naam": "Malphite",
-          "winrateTegen": 55.9,
-          "winrateTegenRuw": 58.3,
-          "games": 48
+          "winrateTegen": 56.5,
+          "winrateTegenRuw": 59.2,
+          "games": 49
         },
         {
           "baseId": 13,
@@ -889,16 +889,16 @@
       "classicId": 60025,
       "naam": "Morgana",
       "lane": "SUPPORT",
-      "laneGames": 17589,
-      "totaleGames": 26994,
+      "laneGames": 17628,
+      "totaleGames": 27048,
       "counters": [
         {
           "baseId": 10,
           "classicId": 60010,
           "naam": "Kayle",
-          "winrateTegen": 58.3,
-          "winrateTegenRuw": 62.5,
-          "games": 40
+          "winrateTegen": 59.7,
+          "winrateTegenRuw": 64.3,
+          "games": 42
         },
         {
           "baseId": 72,
@@ -931,8 +931,8 @@
       "classicId": 60022,
       "naam": "Ashe",
       "lane": "BOTTOM",
-      "laneGames": 22249,
-      "totaleGames": 26551,
+      "laneGames": 22277,
+      "totaleGames": 26574,
       "counters": [
         {
           "baseId": 75,
@@ -946,17 +946,17 @@
           "baseId": 31,
           "classicId": 60031,
           "naam": "Cho'Gath",
-          "winrateTegen": 59.7,
-          "winrateTegenRuw": 64.3,
-          "games": 42
+          "winrateTegen": 60.7,
+          "winrateTegenRuw": 65.9,
+          "games": 41
         },
         {
           "baseId": 4,
           "classicId": 60004,
           "naam": "Twisted Fate",
-          "winrateTegen": 57.2,
-          "winrateTegenRuw": 58.4,
-          "games": 125
+          "winrateTegen": 56.8,
+          "winrateTegenRuw": 57.9,
+          "games": 126
         },
         {
           "baseId": 23,
@@ -973,8 +973,8 @@
       "classicId": 60055,
       "naam": "Katarina",
       "lane": "MIDDLE",
-      "laneGames": 21044,
-      "totaleGames": 25374,
+      "laneGames": 21080,
+      "totaleGames": 25410,
       "counters": [
         {
           "baseId": 27,
@@ -988,9 +988,9 @@
           "baseId": 75,
           "classicId": 60075,
           "naam": "Nasus",
-          "winrateTegen": 58.3,
-          "winrateTegenRuw": 60,
-          "games": 100
+          "winrateTegen": 57.9,
+          "winrateTegenRuw": 59.4,
+          "games": 101
         },
         {
           "baseId": 26,
@@ -1014,53 +1014,53 @@
   "highlights": [
     {
       "titel": "Tryndamere is over alle lanes heen de sterkste champion",
-      "tekst": "Tryndamere wint 58.1% van 23.083 gespeelde games (13.416 overwinningen), gladgestreken 58.1%. Dat is de hoogste winrate van alle 63 champions; onderaan staat Lux met 42.5% over 18.287 games. Een verschil van 15.6 procentpunt.",
+      "tekst": "Tryndamere wint 58.1% van 23.124 gespeelde games (13.435 overwinningen), gladgestreken 58.1%. Dat is de hoogste winrate van alle 63 champions; onderaan staat Lux met 42.5% over 18.274 games. Een verschil van 15.6 procentpunt.",
       "cijfers": {
         "champion": "Tryndamere",
         "baseId": 23,
         "classicId": 60023,
-        "games": 23083,
-        "wins": 13416,
+        "games": 23124,
+        "wins": 13435,
         "winrate": 58.1,
         "winrateRuw": 58.1,
         "zwakste": {
           "champion": "Lux",
           "baseId": 99,
           "classicId": 60099,
-          "games": 18287,
-          "wins": 7764,
+          "games": 18274,
+          "wins": 7762,
           "winrate": 42.5,
           "winrateRuw": 42.5
         },
         "verschilProcentpunt": 15.6,
-        "alleChampionsMinimaalGames": 5982
+        "alleChampionsMinimaalGames": 5998
       }
     },
     {
       "titel": "Blauwe kant wint vaker dan rode kant",
-      "tekst": "Team 100 (blauw) wint 51.6% van alle 128.628 games: 66.345 overwinningen tegen 62.283 voor rood (48.4%), een verschil van 4.062 games.",
+      "tekst": "Team 100 (blauw) wint 50.1% van alle 125.096 games: 62.690 overwinningen tegen 62.406 voor rood (49.9%), een verschil van 284 games.",
       "cijfers": {
-        "games": 128628,
-        "winsBlauw": 66345,
-        "winsRood": 62283,
-        "winrateBlauw": 51.6,
-        "winrateRood": 48.4
+        "games": 125096,
+        "winsBlauw": 62690,
+        "winsRood": 62406,
+        "winrateBlauw": 50.1,
+        "winrateRood": 49.9
       }
     },
     {
       "titel": "Blitzcrank tegen Lux is de meest eenzijdige lane-matchup",
-      "tekst": "In de MIDDLE-lane wint Blitzcrank 72.8% van de 103 directe duels met Lux (75 van 103), gladgestreken 69.1%. Dat is de scheefste matchup van alle 2.025 matchups met minimaal 100 onderlinge games.",
+      "tekst": "In de MIDDLE-lane wint Blitzcrank 72.5% van de 102 directe duels met Lux (74 van 102), gladgestreken 68.9%. Dat is de scheefste matchup van alle 2.028 matchups met minimaal 100 onderlinge games.",
       "cijfers": {
         "lane": "MIDDLE",
         "champion": "Blitzcrank",
         "championBaseId": 53,
         "tegenstander": "Lux",
         "tegenstanderBaseId": 99,
-        "games": 103,
-        "wins": 75,
-        "winrate": 69.1,
-        "winrateRuw": 72.8,
-        "vergelekenMatchups": 2025,
+        "games": 102,
+        "wins": 74,
+        "winrate": 68.9,
+        "winrateRuw": 72.5,
+        "vergelekenMatchups": 2028,
         "drempelGames": 100
       }
     }
