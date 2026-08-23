@@ -189,6 +189,37 @@ export interface MasteryTreeInfo {
 }
 
 /**
+ * One finished game, everyone in it.
+ *
+ * Comes out of the local store rather than the client, so it keeps working when
+ * League is closed and it holds exactly what was actually kept.
+ */
+export interface GameDetail {
+  gameId: number;
+  createdAt: number;
+  durationSeconds: number;
+  queueId: number;
+  patch: string;
+  players: GameDetailPlayer[];
+}
+
+export interface GameDetailPlayer {
+  championId: number;
+  team: 100 | 200 | number;
+  position: Position;
+  win: boolean;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  gold: number;
+  items: number[];
+  spells: [number, number];
+  /** True for the player whose profile this was opened from. */
+  isYou: boolean;
+}
+
+/**
  * The mastery page suggested for one champion.
  *
  * points is a plain list rather than a Map because it has to survive the trip

@@ -201,6 +201,7 @@ function registerIpc(): void {
     await service?.uploadNow();
     return service?.getSnapshot();
   });
+  ipcMain.handle("game:detail", (_event, gameId: number) => service?.gameDetail(gameId) ?? null);
   ipcMain.handle("masteries:plan", (_event, championId: number) =>
     service?.masteryPlanFor(championId) ?? null,
   );

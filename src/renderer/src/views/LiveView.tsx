@@ -6,11 +6,11 @@
  */
 import { bouwPad } from "../../../shared/build";
 import type {
-  AppSnapshot, BuildStep, ChampionSummary, ItemSummary, LiveGamePlayer, LiveGameSnapshot,
-  RecentGameSummary,
+  AppSnapshot, BuildStep, ChampionSummary, GameDetail, GameDetailPlayer, ItemSummary,
+  LiveGamePlayer, LiveGameSnapshot, RecentGameSummary,
 } from "../../../shared/types";
 import { ChampSelectView } from "./ChampSelectView";
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   asset, ChampionIcon, EmptyState, FormDots, ItemRow, Panel, RankPill, SectionTitle, SkillGrid,
   SpellPair, Spinner, SplashBackdrop, Winrate,
@@ -50,6 +50,11 @@ export function LiveView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
   }
 
   if (snapshot.champSelect) return <ChampSelectView snapshot={snapshot} />;
+  return <LiveInhoud snapshot={snapshot} />;
+}
+
+function LiveInhoud({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
+  const [geopend, setGeopend] = useState<number | null>(null);
 
   return (
     <div className="animate-rise space-y-6">
@@ -82,7 +87,13 @@ export function LiveView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
         ) : (
           <div className="space-y-2">
             {snapshot.recentGames.map((game) => (
-              <GameRow key={game.gameId} game={game} snapshot={snapshot} />
+              <GameRow
+                key={game.gameId}
+                game={game}
+                snapshot={snapshot}
+                open={geopend === game.gameId}
+                onToggle={() => setGeopend(geopend === game.gameId ? null : game.gameId)}
+              />
             ))}
           </div>
         )}
@@ -315,7 +326,169 @@ function LivePlayerRow({
   );
 }
 
-function GameRow({ game, snapshot }: { game: RecentGameSummary; snapshot: AppSnapshot }): JSX.Element {
+/**
+ * One finished game, everyone in it.
+ *
+ * Only what was really recorded. There is no timeline in this data -- no gold
+ * over time, no first blood, no objectives -- so the honest thing to draw is how
+ * the ten players compare to each other, which the numbers do support.
+ */
+function GameDetailPaneel({
+  gameId,
+  snapshot,
+}: {
+  gameId: number;
+  snapshot: AppSnapshot;
+}): JSX.Element {
+  const [detail, setDetail] = useState<GameDetail | null>(null);
+  const [bezig, setBezig] = useState(true);
+
+  useEffect(() => {
+    let levend = true;
+    setBezig(true);
+    void window.jade
+      .gameDetail(gameId)
+      .then((d) => {
+        if (levend) {
+          setDetail(d);
+          setBezig(false);
+        }
+      })
+      .catch(() => levend && setBezig(false));
+    return () => {
+      levend = false;
+    };
+  }, [gameId]);
+
+  if (bezig) return <div className="px-4 py-6"><Spinner label="Opening the game..." /></div>;
+  if (!detail) {
+    return (
+      <div className="px-4 py-5">
+        <EmptyState
+          title="This game is not in your database"
+          hint="Only games the crawler has picked up can be opened. It fills in over time."
+        />
+      </div>
+    );
+  }
+
+  const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
+  const items = new Map(snapshot.items.map((i) => [i.jadeId, i]));
+  const minuten = detail.durationSeconds / 60;
+  const teams = [100, 200].map((id) => detail.players.filter((p) => p.team === id));
+  const maxGold = Math.max(1, ...detail.players.map((p) => p.gold));
+  const maxCs = Math.max(1, ...detail.players.map((p) => p.cs));
+  const totaal = (spelers: GameDetailPlayer[], veld: "kills" | "gold") =>
+    spelers.reduce((a, p) => a + p[veld], 0);
+
+  return (
+    <div className="space-y-4 border-t border-line px-4 py-4">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-[11px] text-ink-500">
+        <span className="num">{klok(detail.durationSeconds)} long</span>
+        <span className="num">patch {detail.patch}</span>
+        <span className="num">
+          {totaal(teams[0]!, "kills")} &ndash; {totaal(teams[1]!, "kills")} kills
+        </span>
+        <span className="num">
+          {Math.round(totaal(teams[0]!, "gold") / 1000)}k &ndash; {Math.round(totaal(teams[1]!, "gold") / 1000)}k gold
+        </span>
+      </div>
+
+      {teams.map((team, i) => (
+        <div key={i}>
+          <p className={`mb-1.5 text-[10px] tracking-[0.16em] uppercase ${i === 0 ? "text-sky-400/70" : "text-loss-400/70"}`}>
+            {i === 0 ? "Blue side" : "Red side"}
+            <span className="ml-2 text-ink-700">{team[0]?.win ? "won" : "lost"}</span>
+          </p>
+          <div className="space-y-1">
+            {team.map((p, j) => (
+              <DetailSpeler
+                key={j}
+                p={p}
+                champions={champions}
+                items={items}
+                minuten={minuten}
+                maxGold={maxGold}
+                maxCs={maxCs}
+                blauw={i === 0}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <p className="text-[11px] text-ink-600">
+        Bars compare the ten players in this game, nothing more. Classic match history carries no
+        timeline, so there is no gold curve to draw and no first blood to report &mdash; only what each
+        player finished with.
+      </p>
+    </div>
+  );
+}
+
+function DetailSpeler({
+  p,
+  champions,
+  items,
+  minuten,
+  maxGold,
+  maxCs,
+  blauw,
+}: {
+  p: GameDetailPlayer;
+  champions: Map<number, ChampionSummary>;
+  items: Map<number, ItemSummary>;
+  minuten: number;
+  maxGold: number;
+  maxCs: number;
+  blauw: boolean;
+}): JSX.Element {
+  const champion = champions.get(p.championId);
+  const kda = p.deaths === 0 ? p.kills + p.assists : (p.kills + p.assists) / p.deaths;
+  const kleur = blauw ? "bg-sky-500/70" : "bg-loss-500/70";
+  return (
+    <div className={`flex items-center gap-3 rounded-lg px-2 py-1.5 ${p.isYou ? "bg-gold-500/[0.09]" : "bg-white/[0.02]"}`}>
+      <ChampionIcon iconPath={champion?.iconPath} name={champion?.name} size={28} />
+      <span className="w-24 shrink-0 truncate text-[11px]">{champion?.name ?? p.championId}</span>
+      <span className="num w-16 shrink-0 text-[11px] text-ink-300">
+        {p.kills}/{p.deaths}/{p.assists}
+      </span>
+      <span className="num w-10 shrink-0 text-[10px] text-ink-600">{kda.toFixed(1)}</span>
+
+      <span className="flex w-28 shrink-0 items-center gap-1.5" title={`${p.cs} CS`}>
+        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-line/50">
+          <span className={`block h-full ${kleur}`} style={{ width: `${(p.cs / maxCs) * 100}%` }} />
+        </span>
+        <span className="num w-12 text-right text-[10px] text-ink-500">
+          {minuten > 0 ? (p.cs / minuten).toFixed(1) : "0"}/m
+        </span>
+      </span>
+
+      <span className="flex w-28 shrink-0 items-center gap-1.5" title={`${p.gold} gold`}>
+        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-line/50">
+          <span className="block h-full bg-gold-400/70" style={{ width: `${(p.gold / maxGold) * 100}%` }} />
+        </span>
+        <span className="num w-10 text-right text-[10px] text-ink-500">{(p.gold / 1000).toFixed(1)}k</span>
+      </span>
+
+      <span className="ml-auto">
+        <ItemRow items={p.items} lookup={items} size={20} />
+      </span>
+    </div>
+  );
+}
+
+function GameRow({
+  game,
+  snapshot,
+  open,
+  onToggle,
+}: {
+  game: RecentGameSummary;
+  snapshot: AppSnapshot;
+  open: boolean;
+  onToggle: () => void;
+}): JSX.Element {
   const champion = snapshot.champions.find((c) => c.jadeId === game.championId);
   const items = new Map(snapshot.items.map((i) => [i.jadeId, i]));
   const spells = new Map(snapshot.spells.map((s) => [s.jadeId, s]));
@@ -325,8 +498,11 @@ function GameRow({ game, snapshot }: { game: RecentGameSummary; snapshot: AppSna
   const csPerMin = minutes > 0 ? game.cs / minutes : 0;
 
   return (
-    <Panel
-      className={`group relative flex items-center gap-4 overflow-hidden py-3 pr-5 pl-4 transition-colors hover:border-line-lit ${
+    <Panel className={`overflow-hidden transition-colors ${open ? "border-gold-400/40" : ""}`}>
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`group relative flex w-full items-center gap-4 py-3 pr-5 pl-4 text-left transition-colors hover:bg-white/[0.03] ${
         game.win ? "bg-jade-500/[0.035]" : "bg-loss-500/[0.03]"
       }`}
     >
@@ -374,6 +550,9 @@ function GameRow({ game, snapshot }: { game: RecentGameSummary; snapshot: AppSna
         <p className="num text-[12px] text-ink-300">{Math.floor(minutes)} min</p>
         <p className="num text-[11px] text-ink-700">{relativeDate(game.createdAt)}</p>
       </div>
+      <span className={`ml-1 text-ink-600 transition-transform ${open ? "rotate-90" : ""}`}>&rsaquo;</span>
+    </button>
+    {open ? <GameDetailPaneel gameId={game.gameId} snapshot={snapshot} /> : null}
     </Panel>
   );
 }

@@ -7,7 +7,8 @@
  */
 import { contextBridge, ipcRenderer } from "electron";
 import type {
-  AppSnapshot, ApplyResult, ChampionDetail, MasteryPlanSummary, MasteryTreeInfo, Position, RuneInfo,
+  AppSnapshot, ApplyResult, ChampionDetail, GameDetail, MasteryPlanSummary, MasteryTreeInfo, Position,
+  RuneInfo,
   RunePlanSummary, Settings, TierEntry,
 } from "../shared/types";
 import type { RuneKind } from "../core/jade/runes";
@@ -25,6 +26,7 @@ const api = {
     ipcRenderer.invoke("runes:apply", pageIndex, slots),
   activateMasteryPage: (pageIndex: number): Promise<ApplyResult> =>
     ipcRenderer.invoke("masteries:activate", pageIndex),
+  gameDetail: (gameId: number): Promise<GameDetail | null> => ipcRenderer.invoke("game:detail", gameId),
   masteryPlan: (championId: number): Promise<MasteryPlanSummary | null> =>
     ipcRenderer.invoke("masteries:plan", championId),
   autoMasteries: (championId: number | null): Promise<ApplyResult> =>

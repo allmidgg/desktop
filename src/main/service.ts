@@ -42,8 +42,8 @@ import {
 import { MatchUploader, defaultUploadStatePath } from "../core/services/uploader";
 import type {
   AppSnapshot, ApplyResult, ChampSelectSnapshot, ChampionSummary, GameflowPhase, LaneAnalysis,
-  ChampionDetail, ChampionPlan, ItemEntry, MasteryPlanSummary, MasteryTreeInfo, MatchupEntry,
-  RecentGameSummary,
+  ChampionDetail, ChampionPlan, GameDetail, ItemEntry, MasteryPlanSummary, MasteryTreeInfo,
+  MatchupEntry, RecentGameSummary,
   RuneInfo, RunePlanSummary, ScoutEntry, TierEntry, UploadStatus,
 } from "../shared/types";
 
@@ -987,6 +987,39 @@ export class JadeService extends EventEmitter {
     } catch (err) {
       return { ok: false, message: (err as Error).message };
     }
+  }
+
+  /**
+   * One finished game with everyone in it.
+   *
+   * Read from the local store, not the client: it is the same data the numbers
+   * elsewhere are built from, and it still answers with League closed.
+   */
+  gameDetail(gameId: number): GameDetail | null {
+    const match = this.store.all().find((m) => m.gameId === gameId);
+    if (!match) return null;
+    const jouwPuuid = this.snapshot.summoner?.puuid ?? null;
+    return {
+      gameId: match.gameId,
+      createdAt: match.createdAt,
+      durationSeconds: match.duration,
+      queueId: match.queueId,
+      patch: match.patch,
+      players: match.players.map((p) => ({
+        championId: p.championId,
+        team: p.teamId,
+        position: p.position,
+        win: p.win,
+        kills: p.kills,
+        deaths: p.deaths,
+        assists: p.assists,
+        cs: p.cs,
+        gold: p.gold,
+        items: p.items,
+        spells: p.spells,
+        isYou: jouwPuuid !== null && p.puuid === jouwPuuid,
+      })),
+    };
   }
 
   /**
