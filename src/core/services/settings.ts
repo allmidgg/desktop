@@ -69,7 +69,17 @@ export interface StoredSettings extends Settings {
  * instellingen in plaats van hard in de code, zodat je kunt zien waar je data
  * heen gaat en het kunt veranderen zonder de app opnieuw te bouwen.
  */
-export const DEFAULT_UPLOAD_SERVER = "https://api.allmid.gg";
+export const DEFAULT_UPLOAD_SERVER = "https://allmid.gg";
+
+/**
+ * Addresses that were shipped, are stored in people's settings, and do not work.
+ *
+ * api.allmid.gg was the default from the start and the hostname was never
+ * created: it does not resolve, so every upload every user ever attempted failed
+ * on DNS. Changing the default is not enough on its own, because the broken
+ * value is sitting in settings.json on every machine that has ever run this.
+ */
+const DODE_SERVERS = new Set(["https://api.allmid.gg", "http://api.allmid.gg", "https://api.allmid.gg/"]);
 
 export const DEFAULT_SETTINGS: StoredSettings = {
   autoMasteries: false,
@@ -109,6 +119,11 @@ export class SettingsStore {
     try {
       const raw = JSON.parse(await readFile(this.path, "utf8")) as Partial<StoredSettings>;
       this.current = { ...DEFAULT_SETTINGS, ...raw };
+      // Only a value nobody chose gets replaced. Someone running their own
+      // server has picked that address deliberately and it stays put.
+      if (DODE_SERVERS.has(this.current.uploadServer.trim())) {
+        this.current.uploadServer = DEFAULT_UPLOAD_SERVER;
+      }
     } catch {
       this.current = { ...DEFAULT_SETTINGS };
     }

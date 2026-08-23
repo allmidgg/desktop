@@ -122,7 +122,25 @@ export class JadeCatalog {
     readonly items: Map<number, JadeItem>,
     readonly spells: Map<number, JadeSpell>,
     readonly warnings: string[],
+    private readonly fetchAsset: (path: string) => Promise<unknown>,
   ) {}
+
+  /**
+   * Look up the real splash paths, afterwards.
+   *
+   * Sixty-three requests, and the catalogue is complete without them -- every
+   * champion already carries a guessed path. Waiting for this before handing the
+   * catalogue over meant the window sat empty until they all came back, which is
+   * a poor trade for artwork that can appear a second later.
+   *
+   * Resolves to true when something actually changed, so the caller knows
+   * whether it is worth telling the interface again.
+   */
+  async verrijkSplashPaden(): Promise<boolean> {
+    const voor = [...this.champions.values()].map((c) => c.splashPath).join("|");
+    await vulSplashPaden(this.champions, this.fetchAsset);
+    return [...this.champions.values()].map((c) => c.splashPath).join("|") !== voor;
+  }
 
   static async load(client: LcuClient): Promise<JadeCatalog> {
     return JadeCatalog.build((path) => client.get(path));
@@ -205,8 +223,7 @@ export class JadeCatalog {
     }
 
     if (champions.size === 0) warnings.push("Geen enkele JADE-champion gevonden -- is League Classic nog actief?");
-    await vulSplashPaden(champions, fetchAsset);
-    return new JadeCatalog(champions, items, spells, warnings);
+    return new JadeCatalog(champions, items, spells, warnings, fetchAsset);
   }
 
   /**
@@ -237,6 +254,9 @@ export class JadeCatalog {
         new Map(data.items.map((i) => [i.jadeId, i])),
         new Map(data.spells.map((s) => [s.baseId, s])),
         [],
+        // A catalogue read back from disk already has its real paths in it, so
+        // there is nothing left to look up.
+        () => Promise.reject(new Error("catalogus uit bestand: niets op te halen")),
       );
     } catch {
       return null; // kapotte cache is geen fout; we halen hem gewoon opnieuw op

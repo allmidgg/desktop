@@ -83,6 +83,20 @@ function createMainWindow(): void {
     mainWindow = null;
   });
 
+  // Renderer errors are otherwise invisible: they land in a devtools console
+  // nobody has open, and the window just sits there black.
+  mainWindow.webContents.on("console-message", (details) => {
+    if (details.level === "error") {
+      console.error(`[renderer] ${details.sourceId}:${details.lineNumber} ${details.message}`);
+    }
+  });
+  mainWindow.webContents.on("did-fail-load", (_e, code, beschrijving, url) => {
+    console.error(`[renderer] laden mislukt (${code}) ${beschrijving} -- ${url}`);
+  });
+  mainWindow.webContents.on("render-process-gone", (_e, details) => {
+    console.error("[renderer] proces weg:", details.reason);
+  });
+
   // Externe links openen in de browser, niet in de app zelf.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell
@@ -102,7 +116,11 @@ function syncChampSelectWindow(snapshot: AppSnapshot): void {
     champSelectShown = true;
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) mainWindow.restore();
+      // showInactive does nothing for a window that is already open but buried
+      // behind the client, which is exactly the case that matters. moveTop
+      // raises it without taking the keyboard, because you are still picking.
       mainWindow.showInactive();
+      mainWindow.moveTop();
     }
   } else if (!inSelect) {
     champSelectShown = false;

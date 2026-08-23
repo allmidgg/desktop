@@ -293,6 +293,16 @@ export class JadeService extends EventEmitter {
     this.masteries = masteries;
     this.runes = runes;
 
+    // Splash art comes in behind the app rather than in front of it: sixty-three
+    // lookups is long enough that waiting for them leaves the window empty, and
+    // artwork arriving a second late costs nobody anything.
+    void jade
+      .verrijkSplashPaden()
+      .then((veranderd) => {
+        if (veranderd) this.update({ champions: [...jade.champions.values()].map(toChampionSummary) });
+      })
+      .catch(reportBackgroundError);
+
     const summoner = await fetchCurrentSummoner(client);
     this.update({
       connection: "connected",
