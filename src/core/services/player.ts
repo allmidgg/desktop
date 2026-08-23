@@ -66,13 +66,27 @@ export async function fetchCurrentSummoner(client: LcuClient): Promise<Summoner>
   return client.get<Summoner>("/lol-summoner/v1/current-summoner");
 }
 
+/**
+ * Riot ID to summoner.
+ *
+ * Not the obvious endpoint. /lol-summoner/v1/summoners?gameName=&tagLine= looks
+ * like it should work and answers 400: "Unknown argument 'gameName' for
+ * GetLolSummonerV1Summoners". It never worked, so neither did player search --
+ * every lookup came back empty and the screen said "not found" for names that
+ * plainly exist.
+ *
+ * The alias endpoint is the one that resolves a Riot ID, and it hands back a
+ * puuid rather than a summoner, so that is a second hop.
+ */
 export async function fetchSummonerByRiotId(
   client: LcuClient,
   gameName: string,
   tagLine: string,
 ): Promise<Summoner | null> {
   const query = new URLSearchParams({ gameName, tagLine }).toString();
-  return client.tryGet<Summoner>("/lol-summoner/v1/summoners?" + query);
+  const alias = await client.tryGet<{ puuid?: string }>("/lol-summoner/v1/alias/lookup?" + query);
+  if (!alias?.puuid) return null;
+  return client.tryGet<Summoner>(`/lol-summoner/v2/summoners/puuid/${alias.puuid}`);
 }
 
 /**
