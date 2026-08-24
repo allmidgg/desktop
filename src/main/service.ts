@@ -665,10 +665,6 @@ export class JadeService extends EventEmitter {
   private toChampSelectSnapshot(view: ChampSelectView): ChampSelectSnapshot {
     const matches = this.store.all();
 
-    // Stable numbering, so Ally 3 stays Ally 3 for the whole of champion select.
-    // Riot asks for "consistent designations across clients" and cell order is
-    // the only ordering every client agrees on.
-    let allyNummer = 0;
     const toEntry = (scouted: {
       cell: ChampSelectPlayer;
       profile: PlayerProfile | null;
@@ -689,14 +685,9 @@ export class JadeService extends EventEmitter {
         likelyPosition: position?.position ?? null,
         positionShare: position?.share ?? 0,
         championRecord: record ? { games: record.games, wins: record.wins } : null,
-        // The name never leaves the main process for a teammate. Doing this in
-        // the renderer would mean the real one still crossed the wire, and the
-        // point of the rule is that it is not available to be shown at all.
-        toonNaam: scouted.isLocalPlayer
-          ? (scouted.profile?.riotId ?? "You")
-          : scouted.profile
-            ? `Ally ${++allyNummer}`
-            : "Hidden player",
+        // The real Riot ID, when the client gives us one. Null means the lobby
+        // is hiding that player, and the screen falls back to their champion.
+        toonNaam: scouted.profile?.riotId ?? null,
       };
     };
 
@@ -740,9 +731,23 @@ export class JadeService extends EventEmitter {
       }
       // Wie geen toewijzing heeft, plaatsen we op zijn gebruikelijke positie --
       // maar alleen als die nog vrij is.
+      const rest: ScoutEntry[] = [];
       for (const entry of leftovers) {
         const guess = entry.likelyPosition;
         if (guess && guess !== "UNKNOWN" && !byPosition.has(guess)) byPosition.set(guess, entry);
+        else rest.push(entry);
+      }
+      // Still unplaced: fall back to the lane the champion is normally played in.
+      // Weaker than someone's own history, but it is the only guess that works
+      // for a fresh account -- and without it your own pick dropped out of the
+      // grid entirely until you had four games on record.
+      for (const entry of rest) {
+        const championId = entry.championId || entry.championPickIntent;
+        if (!championId) continue;
+        const vrij = this.stats
+          .positionsFor(championId)
+          .find((p) => p.position !== "UNKNOWN" && !byPosition.has(p.position));
+        if (vrij) byPosition.set(vrij.position, entry);
       }
       return byPosition;
     };
@@ -814,10 +819,7 @@ export class JadeService extends EventEmitter {
         likelyPosition: position?.position ?? null,
         positionShare: position?.share ?? 0,
         championRecord: record ? { games: record.games, wins: record.wins } : null,
-        toonNaam:
-          player.puuid === this.snapshot.summoner?.puuid
-            ? (profile?.riotId ?? "You")
-            : `Ally ${index + 1}`,
+        toonNaam: profile?.riotId ?? null,
       };
     };
 

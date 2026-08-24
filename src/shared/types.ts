@@ -55,7 +55,8 @@ export interface ScoutEntry {
    * that is exactly what an app resolving a puuid back into a name would undo.
    * Your own name stays; teammates become Ally 1 to Ally 5.
    */
-  toonNaam: string;
+  /** Real Riot ID, or null when the lobby hides that player. */
+  toonNaam: string | null;
 }
 
 export interface CounterSuggestion {
