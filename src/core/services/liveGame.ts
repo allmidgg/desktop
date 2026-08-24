@@ -12,6 +12,7 @@
  */
 import type { LiveGameData, LivePlayer } from "../lcu/liveClient";
 import { SkillOrderRecorder } from "../lcu/liveClient";
+import { berekenInzichten, spelerSleutel, trinketLeeg } from "./liveInzichten";
 import type { BuildStep, LiveGamePlayer, LiveGameSnapshot, Position } from "../../shared/types";
 
 /**
@@ -103,7 +104,11 @@ export class LiveGameWatcher {
   /** The last thing we saw, so a finished game can still be written down. */
   private laatsteSnapshot: LiveGameSnapshot | null = null;
 
-  constructor(private readonly zoekChampion: ChampionZoeker) {}
+  constructor(
+    private readonly zoekChampion: ChampionZoeker,
+    /** Item prices, for the value a player is carrying. Unknown counts as zero. */
+    private readonly prijsVan: (itemId: number) => number = () => 0,
+  ) {}
 
   /**
    * A new game means a new recording.
@@ -227,6 +232,15 @@ export class LiveGameWatcher {
       note = `No stats for ${onbekend.join(", ")} -- the client reports a name we do not recognise.`;
     }
 
+    // Derived numbers need every player read first, so they land here rather
+    // than inside the per-player mapping.
+    const inzichten = berekenInzichten(spelers, data.events?.Events ?? [], gameTime, this.prijsVan);
+    for (const p of spelers) {
+      const sleutel = spelerSleutel(p);
+      p.itemWaarde = inzichten.itemWaarde.get(sleutel) ?? 0;
+      p.killDeelname = inzichten.killDeelname.get(sleutel) ?? 0;
+    }
+
     this.laatsteSnapshot = {
       mode,
       mapNumber,
@@ -235,6 +249,12 @@ export class LiveGameWatcher {
       players: spelers,
       skillOrder: this.recorder.skillOrder,
       note,
+      inzichten: {
+        order: inzichten.order,
+        chaos: inzichten.chaos,
+        itemVerschil: inzichten.itemVerschil,
+        objectieven: inzichten.objectieven,
+      },
     };
     return this.laatsteSnapshot;
   }
@@ -257,7 +277,13 @@ export class LiveGameWatcher {
       deaths: p.scores?.deaths ?? 0,
       assists: p.scores?.assists ?? 0,
       cs: p.scores?.creepScore ?? 0,
+      wards: p.scores?.wardScore ?? 0,
       items,
+      // Filled in a moment, once every player has been read: both of these need
+      // the whole team before they mean anything.
+      itemWaarde: 0,
+      killDeelname: 0,
+      trinketLeeg: trinketLeeg(p.items ?? []),
       isYou: jouwGenormaliseerdeNaam !== null && normaliseerNaam(naam) === jouwGenormaliseerdeNaam,
     };
   }

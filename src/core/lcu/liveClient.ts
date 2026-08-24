@@ -21,6 +21,13 @@ export interface LiveAbility {
 }
 
 export interface LiveActivePlayer {
+  /**
+   * Present instead of the rest while spectating.
+   *
+   * Seen for real: {"error":"Spectator mode doesn't currently support this
+   * feature"}. Everything below is optional because of it.
+   */
+  error?: string;
   summonerName: string;
   level: number;
   currentGold: number;
@@ -44,11 +51,32 @@ export interface LivePlayer {
   runes?: Record<string, unknown>;
 }
 
+/**
+ * One thing that happened, as the running game reports it.
+ *
+ * Everything here is announced to both teams in-game anyway -- a dragon falling
+ * puts a banner on everyone's screen. That matters: a timer built on these is
+ * arithmetic on something you already saw, not a peek at something hidden.
+ */
+export interface LiveEvent {
+  EventID?: number;
+  EventName: string;
+  EventTime: number;
+  KillerName?: string;
+  VictimName?: string;
+  Assisters?: string[];
+  DragonType?: string;
+  Stolen?: string;
+  TurretKilled?: string;
+  InhibKilled?: string;
+  Recipient?: string;
+}
+
 export interface LiveGameData {
   gameData: { gameMode: string; gameTime: number; mapNumber: number; mapName: string };
   activePlayer: LiveActivePlayer;
   allPlayers: LivePlayer[];
-  events: { Events: Array<Record<string, unknown>> };
+  events: { Events: LiveEvent[] };
 }
 
 export class LiveClient {

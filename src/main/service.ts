@@ -385,8 +385,9 @@ export class JadeService extends EventEmitter {
     // Look the champion list up per call instead of capturing it once: the
     // catalogue can still be loading when a game starts, and a lookup frozen
     // while it was empty would report every champion as unrecognised.
-    this.liveWatcher ??= new LiveGameWatcher((naam) =>
-      championZoeker(this.snapshot.champions)(naam),
+    this.liveWatcher ??= new LiveGameWatcher(
+      (naam) => championZoeker(this.snapshot.champions)(naam),
+      (itemId) => this.jade?.item(itemId)?.price ?? 0,
     );
     const tik = async () => {
       const data = await this.live.allGameData();

@@ -306,6 +306,14 @@ export interface LiveGamePlayer {
   cs: number;
   /** Jade item ids, trinket excluded, in slot order. Same keys as snapshot.items. */
   items: number[];
+  /** Gold sitting in this player's inventory. */
+  itemWaarde: number;
+  /** Share of their team's kills this player was part of, 0-1. */
+  killDeelname: number;
+  /** Wards placed, which the running game does report per player. */
+  wards: number;
+  /** True when slot 6 is empty. Only ever set for you. */
+  trinketLeeg: boolean;
   /**
    * Every item seen appearing in this player's inventory, in the order it did.
    *
@@ -345,6 +353,32 @@ export interface LiveGameSnapshot {
   skillOrder: string[];
   /** Set when something is worth saying about what we are looking at. */
   note: string | null;
+  /** Team totals, timers and shares. Everything derived, computed once. */
+  inzichten: LiveInzichtenUit | null;
+}
+
+/** The derived numbers, flattened so they survive IPC. */
+export interface LiveInzichtenUit {
+  order: TeamTotaalUit;
+  chaos: TeamTotaalUit;
+  /** Positive when blue side carries more item gold. Not a gold lead: see TeamTotaal. */
+  itemVerschil: number;
+  objectieven: Array<{
+    soort: "dragon" | "baron" | "inhibitor";
+    detail: string | null;
+    gevallenOp: number;
+    terugOp: number;
+    overSeconden: number;
+  }>;
+}
+
+export interface TeamTotaalUit {
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  wards: number;
+  itemWaarde: number;
 }
 
 export interface TierEntry {

@@ -7,7 +7,7 @@
 import { bouwPad } from "../../../shared/build";
 import type {
   AppSnapshot, BuildStep, ChampionSummary, GameDetail, GameDetailPlayer, ItemSummary,
-  LiveGamePlayer, LiveGameSnapshot, RecentGameSummary,
+  LiveGamePlayer, LiveGameSnapshot, LiveInzichtenUit, RecentGameSummary, TeamTotaalUit,
 } from "../../../shared/types";
 import { ChampSelectView } from "./ChampSelectView";
 import { Fragment, useEffect, useState } from "react";
@@ -134,6 +134,14 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
 
       {live.note ? (
         <Panel className="border-gold-500/30 p-3 text-xs text-ink-400">{live.note}</Panel>
+      ) : null}
+
+      {live.inzichten ? <Inzichtenbalk inzichten={live.inzichten} /> : null}
+
+      {jij?.trinketLeeg ? (
+        <Panel className="rim border-gold-400/40 bg-gold-400/[0.06] p-3 text-xs text-gold-300">
+          Your trinket slot is empty.
+        </Panel>
       ) : null}
 
       <div className="grid grid-cols-2 gap-3">
@@ -287,6 +295,71 @@ function ItemStap({
   );
 }
 
+/**
+ * Team totals and objective timers.
+ *
+ * The item difference stands in for a gold lead, which the running game does not
+ * report for anyone but you. It is not the same number -- gold still in a pocket
+ * counts towards a real lead and not towards this one -- so it is labelled for
+ * what it is rather than dressed up as gold.
+ */
+function Inzichtenbalk({ inzichten }: { inzichten: LiveInzichtenUit }): JSX.Element {
+  const { order, chaos, itemVerschil, objectieven } = inzichten;
+  const blauwVoor = itemVerschil >= 0;
+  const NAAM: Record<string, string> = { dragon: "Dragon", baron: "Baron", inhibitor: "Inhibitor" };
+
+  return (
+    <Panel className="grid gap-3 p-3.5">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+        <TeamKant totaal={order} blauw />
+        <div className="text-center">
+          <p className="text-[9px] tracking-[0.14em] text-ink-700 uppercase">Item gold</p>
+          <p className={`num text-lg font-semibold ${blauwVoor ? "text-sky-400" : "text-loss-400"}`}>
+            {itemVerschil === 0 ? "even" : `${blauwVoor ? "+" : ""}${(itemVerschil / 1000).toFixed(1)}k`}
+          </p>
+        </div>
+        <TeamKant totaal={chaos} blauw={false} />
+      </div>
+
+      {objectieven.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5 border-t border-line pt-3">
+          {objectieven.map((o, i) => {
+            const terug = o.overSeconden <= 0;
+            return (
+              <span
+                key={`${o.soort}-${o.detail ?? i}`}
+                title={`Fell at ${klok(o.gevallenOp)}, back at ${klok(o.terugOp)}`}
+                className={`num flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] ${
+                  terug
+                    ? "border-jade-500/40 bg-jade-500/10 text-jade-300"
+                    : "border-line-lit bg-white/[0.03] text-ink-300"
+                }`}
+              >
+                <span className="text-ink-500">{NAAM[o.soort] ?? o.soort}</span>
+                {o.detail && o.soort === "dragon" ? <span className="text-ink-600">{o.detail}</span> : null}
+                <span>{terug ? "up" : klok(o.overSeconden)}</span>
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
+    </Panel>
+  );
+}
+
+function TeamKant({ totaal, blauw }: { totaal: TeamTotaalUit; blauw: boolean }): JSX.Element {
+  return (
+    <div className={blauw ? "" : "text-right"}>
+      <p className={`num text-sm font-semibold ${blauw ? "text-sky-400" : "text-loss-400"}`}>
+        {totaal.kills} <span className="text-[11px] font-normal text-ink-600">kills</span>
+      </p>
+      <p className="num mt-0.5 text-[10px] text-ink-600">
+        {totaal.cs.toLocaleString("en-US")} cs · {totaal.wards} wards · {(totaal.itemWaarde / 1000).toFixed(1)}k in items
+      </p>
+    </div>
+  );
+}
+
 function LivePlayerRow({
   p,
   items,
@@ -319,6 +392,9 @@ function LivePlayerRow({
         <div className="text-ink-600">
           {p.cs} cs · lv {p.level}
           {p.isDead && p.respawnIn > 0 ? <span className="text-red-400"> · {p.respawnIn}s</span> : null}
+        </div>
+        <div className="text-ink-700" title="Share of the team's kills · wards placed · gold in items">
+          {Math.round(p.killDeelname * 100)}% kp · {p.wards}w · {(p.itemWaarde / 1000).toFixed(1)}k
         </div>
       </div>
       <ItemRow items={p.items} lookup={items} size={22} />
