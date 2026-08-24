@@ -270,7 +270,7 @@ function PlayerCard({
               entry.isLocalPlayer ? "text-gold-300" : "text-ink-100"
             }`}
           >
-            {profile?.riotId ?? "Hidden player"}
+            {entry.toonNaam}
           </span>
           {entry.isLocalPlayer ? (
             <span className="rounded bg-gold-400/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-gold-300 uppercase">
@@ -386,7 +386,7 @@ function MiniPlayer({
     <div className="flex items-center gap-2 rounded-lg bg-white/[0.04] py-1 pr-2.5 pl-1">
       <ChampionIcon iconPath={champion?.iconPath} name={champion?.name} size={22} />
       <span className="text-[11px] text-ink-300">
-        {entry.profile?.riotId ?? champion?.name ?? "Hidden player"}
+        {entry.toonNaam}
       </span>
       {entry.profile ? <RankPill rank={entry.profile.rank} compact /> : null}
     </div>

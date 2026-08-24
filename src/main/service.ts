@@ -678,6 +678,10 @@ export class JadeService extends EventEmitter {
   private toChampSelectSnapshot(view: ChampSelectView): ChampSelectSnapshot {
     const matches = this.store.all();
 
+    // Stable numbering, so Ally 3 stays Ally 3 for the whole of champion select.
+    // Riot asks for "consistent designations across clients" and cell order is
+    // the only ordering every client agrees on.
+    let allyNummer = 0;
     const toEntry = (scouted: {
       cell: ChampSelectPlayer;
       profile: PlayerProfile | null;
@@ -698,6 +702,14 @@ export class JadeService extends EventEmitter {
         likelyPosition: position?.position ?? null,
         positionShare: position?.share ?? 0,
         championRecord: record ? { games: record.games, wins: record.wins } : null,
+        // The name never leaves the main process for a teammate. Doing this in
+        // the renderer would mean the real one still crossed the wire, and the
+        // point of the rule is that it is not available to be shown at all.
+        toonNaam: scouted.isLocalPlayer
+          ? (scouted.profile?.riotId ?? "You")
+          : scouted.profile
+            ? `Ally ${++allyNummer}`
+            : "Hidden player",
       };
     };
 
@@ -815,6 +827,10 @@ export class JadeService extends EventEmitter {
         likelyPosition: position?.position ?? null,
         positionShare: position?.share ?? 0,
         championRecord: record ? { games: record.games, wins: record.wins } : null,
+        toonNaam:
+          player.puuid === this.snapshot.summoner?.puuid
+            ? (profile?.riotId ?? "You")
+            : `Ally ${index + 1}`,
       };
     };
 

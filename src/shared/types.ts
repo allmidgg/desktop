@@ -47,6 +47,15 @@ export interface ScoutEntry {
   positionShare: number;
   /** Hoe deze speler het doet op de champion die hij nu pakt. */
   championRecord: { games: number; wins: number } | null;
+  /**
+   * The name to put on screen during champion select.
+   *
+   * Not always the Riot ID. Riot's overlay guidance requires that "summoner
+   * names in Ranked Solo/Duo must be obfuscated as 'Ally #' in draft areas", and
+   * that is exactly what an app resolving a puuid back into a name would undo.
+   * Your own name stays; teammates become Ally 1 to Ally 5.
+   */
+  toonNaam: string;
 }
 
 export interface CounterSuggestion {
