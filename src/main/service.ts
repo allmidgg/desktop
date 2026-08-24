@@ -621,20 +621,7 @@ export class JadeService extends EventEmitter {
     this.stream = stream;
 
     stream.on_(/^\/lol-gameflow\/v1\/gameflow-phase$/, (event) => {
-      const phase = (event.data as GameflowPhase) ?? "None";
-      this.update({ phase });
-      if (phase === "EndOfGame" || phase === "None") {
-        void this.refreshOwnProfile().catch(reportBackgroundError);
-        void this.refreshLoadout().catch(reportBackgroundError);
-        void this.crawlWhenIdle().catch(reportBackgroundError);
-      }
-      if (phase === "ChampSelect" || phase === "InProgress") this.crawler?.stop();
-
-      // The live server only answers while a game is up. Starting on GameStart
-      // rather than InProgress means the first ability point is not missed:
-      // loading screens are long enough to level one.
-      if (phase === "GameStart" || phase === "InProgress") this.startLiveWatch();
-      else this.stopLiveWatch();
+      this.pasFaseToe((event.data as GameflowPhase) ?? "None", true);
     });
 
     stream.on_(/^\/lol-loadouts\/v4\/loadout/, () => {
@@ -867,7 +854,35 @@ export class JadeService extends EventEmitter {
 
   private async refreshPhase(): Promise<void> {
     const phase = await this.client?.tryGet<GameflowPhase>("/lol-gameflow/v1/gameflow-phase");
-    if (phase) this.update({ phase });
+    // Same handling as an event, because the app can start up while a game is
+    // already running. That was the bug: watching only ever began on a phase
+    // *change*, and there is no change to hear when you were already in a game
+    // before the app opened. It said "Game in progress" and showed nothing.
+    if (phase) this.pasFaseToe(phase, false);
+  }
+
+  /**
+   * React to whatever phase the client is in, however we learned about it.
+   *
+   * `gewisseld` separates a real transition from reading the current state at
+   * startup: profile and loadout only need refreshing when a game has actually
+   * just ended, not every time we look.
+   */
+  private pasFaseToe(phase: GameflowPhase, gewisseld: boolean): void {
+    this.update({ phase });
+
+    if (gewisseld && (phase === "EndOfGame" || phase === "None")) {
+      void this.refreshOwnProfile().catch(reportBackgroundError);
+      void this.refreshLoadout().catch(reportBackgroundError);
+      void this.crawlWhenIdle().catch(reportBackgroundError);
+    }
+    if (phase === "ChampSelect" || phase === "InProgress") this.crawler?.stop();
+
+    // The live server only answers while a game is up. Starting on GameStart
+    // rather than InProgress means the first ability point is not missed:
+    // loading screens are long enough to level one.
+    if (phase === "GameStart" || phase === "InProgress" || phase === "Reconnect") this.startLiveWatch();
+    else this.stopLiveWatch();
   }
 
   async refreshLoadout(): Promise<void> {
