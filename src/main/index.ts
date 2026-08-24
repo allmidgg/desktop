@@ -5,7 +5,7 @@
  * is een popup die vanzelf verschijnt zodra je in select zit en weer verdwijnt
  * als het voorbij is -- zoals je van Porofessor gewend bent.
  */
-import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, protocol, screen, shell } from "electron";
 import { Vensterplek } from "./vensterplek";
 import { join } from "node:path";
 import { JadeService } from "./service";
@@ -117,12 +117,36 @@ function createMainWindow(): void {
  * The panel that sits on top of the game.
  *
  * Transparent, frameless and click-through, so it never swallows a click meant
- * for the game. It cannot draw over exclusive fullscreen -- nothing can, not
- * Discord and not Overwolf -- so League has to run borderless or windowed.
+ * for the game.
+ *
+ * Nothing external can draw over true exclusive fullscreen without injecting
+ * code into the game process. Overwolf's platform does reach it, and Discord
+ * still ships its old injecting overlay behind a setting for exactly that case.
+ * We do neither, on purpose: Vanguard blocks injection into League by design,
+ * and Riot has said the blocking is intended. So League has to run borderless --
+ * or Fullscreen, which Windows quietly composites for DX11 games anyway.
  *
  * Unlocking makes it clickable so it can be dragged elsewhere; where it ends up
  * is remembered like any other window.
  */
+/**
+ * Push the overlay back to the top of the topmost pile.
+ *
+ * Being "always on top" is not a rank, it is a flag: every topmost window sits
+ * in the same band, ordered by who claimed it last. A game taking the
+ * foreground restacks that band, and a window that staked its claim minutes ago
+ * loses it. Discord solves this by re-asserting on every foreground change; we
+ * do it on the live poll we already run, which costs nothing extra.
+ *
+ * Off and on again, deliberately: setting the flag to a value it already holds
+ * is a no-op on some Chromium paths, so it would never reach SetWindowPos.
+ */
+function herbevestigBovenaan(w: BrowserWindow): void {
+  if (w.isDestroyed()) return;
+  w.setAlwaysOnTop(false);
+  w.setAlwaysOnTop(true, "screen-saver");
+}
+
 function createOverlayWindow(): BrowserWindow {
   const window = new BrowserWindow({
     ...plek!.plaats("overlay", { width: 260, height: 240 }),
@@ -142,28 +166,55 @@ function createOverlayWindow(): BrowserWindow {
       preload: join(import.meta.dirname, "../preload/index.mjs"),
       sandbox: false,
       contextIsolation: true,
+      // A game covering this window makes Chromium call it occluded, and an
+      // occluded renderer has its timers squeezed to about once a second. The
+      // panel would not vanish, it would freeze -- which looks the same in a
+      // bug report and is worse to debug.
+      backgroundThrottling: false,
     },
   });
 
-  // "screen-saver" is the highest level Electron offers, which is what a panel
-  // over a game needs. Discord's current overlay works the same way: a topmost
-  // window rather than a DLL hooked into the renderer. Injection would reach
-  // true exclusive fullscreen, and it is exactly what this app promises never to
-  // do -- no DLLs, no hooking the game process.
-  window.setAlwaysOnTop(true, "screen-saver");
+  // Windows has no z-order levels: Chromium collapses every one of them to a
+  // plain "always on top" boolean. The string still matters for one thing --
+  // "screen-saver" and "pop-up-menu" are the only two Electron does not push
+  // below the taskbar. So it is the right value, for a reason that has nothing
+  // to do with being "highest".
+  herbevestigBovenaan(window);
 
   // forward:false, deliberately. With forwarding on, mouse moves still reach the
   // window, so CSS hover fires and the cursor turns into a text caret over the
   // panel -- which is what you saw. Off means the pointer belongs entirely to
   // the game.
   window.setIgnoreMouseEvents(true, { forward: false });
-  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   plek!.volg("overlay", window);
   loadRenderer(window, "overlay");
   window.on("closed", () => {
     overlayWindow = null;
   });
   return window;
+}
+
+/**
+ * Say where the overlay actually landed.
+ *
+ * A transparent click-through window that is on the wrong monitor, behind the
+ * game, or simply drawing nothing all look the same from the outside: "it isn't
+ * there". One line in the log separates them.
+ */
+function meldOverlayPlek(w: BrowserWindow): void {
+  const bounds = w.getBounds();
+  const op = screen.getDisplayMatching(bounds);
+  const primair = screen.getPrimaryDisplay();
+  console.log(
+    "[overlay] shown",
+    JSON.stringify({
+      bounds,
+      display: op.id,
+      onPrimary: op.id === primair.id,
+      displays: screen.getAllDisplays().length,
+      scale: op.scaleFactor,
+    }),
+  );
 }
 
 /** Locked means click-through. Unlocked means you can grab it and move it. */
@@ -189,7 +240,11 @@ function syncOverlayWindow(snapshot: AppSnapshot): void {
     if (!overlayWindow.isVisible()) {
       overlayWindow.showInactive();
       zetOverlayVergrendeld(overlayVergrendeld);
+      meldOverlayPlek(overlayWindow);
     }
+    // Every tick, not just the first: the game restacks the topmost band each
+    // time it takes the foreground, and that happens more than once a game.
+    herbevestigBovenaan(overlayWindow);
   } else if (overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()) {
     overlayWindow.hide();
   }
@@ -327,6 +382,11 @@ function registerIpc(): void {
     BrowserWindow.fromWebContents(event.sender)?.close();
   });
 }
+
+// Chromium stops painting windows it believes are covered. A fullscreen game
+// covers the overlay by definition, so without this the panel is throttled for
+// exactly as long as it is useful.
+app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
 
 // The .then body sets everything up; anything it throws would otherwise land
 // in the global rejection handler and pop an error box before there is even a
