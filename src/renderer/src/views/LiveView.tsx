@@ -138,7 +138,7 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
 
       {live.inzichten ? <Inzichtenbalk inzichten={live.inzichten} /> : null}
 
-      <OverlayKnoppen aan={snapshot.settings.overlay} />
+      <OverlayKnoppen aan={snapshot.settings.overlay} beeldmodus={snapshot.beeldmodus} />
 
       {jij?.trinketLeeg ? (
         <Panel className="rim border-gold-400/40 bg-gold-400/[0.06] p-3 text-xs text-gold-300">
@@ -369,8 +369,17 @@ function TeamKant({ totaal, blauw }: { totaal: TeamTotaalUit; blauw: boolean }):
  * also what makes it impossible to drag. Unlocking hands the mouse back for as
  * long as it takes to put it somewhere; where it ends up is remembered.
  */
-function OverlayKnoppen({ aan }: { aan: boolean }): JSX.Element {
+function OverlayKnoppen({
+  aan,
+  beeldmodus,
+}: {
+  aan: boolean;
+  beeldmodus: AppSnapshot["beeldmodus"];
+}): JSX.Element {
   const [ontgrendeld, setOntgrendeld] = useState(false);
+  // Only worth saying when we actually read the setting and it is the one that
+  // makes the panel impossible to see.
+  const geblokkeerd = aan && beeldmodus === "fullscreen";
   return (
     <Panel className="flex flex-wrap items-center gap-2 p-2.5 text-[11px]">
       <button
@@ -404,9 +413,23 @@ function OverlayKnoppen({ aan }: { aan: boolean }): JSX.Element {
         {aan
           ? ontgrendeld
             ? "Drag it where you want it, then lock it again."
-            : "Shown over the game. League has to run borderless or windowed — nothing can draw over exclusive fullscreen."
+            : "Shown over the game while League runs borderless or windowed."
           : "A small panel on top of the game: objective timers, item gold, your skill order."}
       </span>
+
+      {geblokkeerd ? (
+        <div className="w-full rounded-lg border border-gold-400/30 bg-gold-400/[0.06] p-2.5">
+          <p className="text-[12px] font-medium text-gold-300">
+            League is set to Full Screen, so the overlay can&apos;t be drawn over it.
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-ink-400">
+            In that mode Windows hands the whole display to the game and no other app can put
+            anything on top — not us, and not Discord either. In League:{" "}
+            <span className="text-ink-200">Settings → Video → Window Mode → Borderless</span>.
+            Borderless still fills the screen at the same resolution, and alt-tab gets faster.
+          </p>
+        </div>
+      ) : null}
     </Panel>
   );
 }

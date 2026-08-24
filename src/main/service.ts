@@ -36,6 +36,7 @@ import { LiveGameWatcher, championZoeker } from "../core/services/liveGame";
 import { MatchStore, defaultStorePath, type Position } from "../core/services/matchStore";
 import { MatchCrawler } from "../core/services/crawler";
 import { JadeStats, likelyPosition, MIN_MATCHUP_GAMES, type ChampionStat } from "../core/services/stats";
+import { leesBeeldmodus } from "../core/lcu/beeldmodus";
 import {
   SettingsStore, defaultSettingsPath, publicSettings, DEFAULT_SETTINGS, type Settings,
 } from "../core/services/settings";
@@ -239,6 +240,7 @@ export class JadeService extends EventEmitter {
     },
     autoMasteryStatus: null,
     liveGame: null,
+    beeldmodus: null,
   };
 
   getSnapshot(): AppSnapshot {
@@ -271,6 +273,7 @@ export class JadeService extends EventEmitter {
       // closed, still restarting, or simply confused about what it launched.
       // Nothing here needs the client.
       this.startLiveWatch();
+      void this.ververisBeeldmodus().catch(reportBackgroundError);
 
       this.client = await LcuClient.connect();
       await this.onConnected();
@@ -430,9 +433,14 @@ export class JadeService extends EventEmitter {
           reportBackgroundError(err as Error);
         }
       }
+      // A game appearing is the one moment the setting is worth re-reading:
+      // it is what someone changes when they are trying to get the overlay to
+      // show up, and they change it between games.
+      const eersteTik = !this.snapshot.liveGame;
       this.update({
         liveGame: this.liveWatcher!.verwerk(data, this.snapshot.summoner?.riotId ?? null, JADE_MAP_ID),
       });
+      if (eersteTik) void this.ververisBeeldmodus().catch(reportBackgroundError);
     };
     // A timeout that reschedules itself rather than a fixed interval, so the
     // gap can widen while nothing is running. A refused connection on localhost
@@ -451,6 +459,12 @@ export class JadeService extends EventEmitter {
     void tik()
       .catch(reportBackgroundError)
       .finally(plan);
+  }
+
+  /** Re-read League's window mode. Failing to find it is not an error. */
+  private async ververisBeeldmodus(): Promise<void> {
+    const modus = await leesBeeldmodus();
+    if (modus !== this.snapshot.beeldmodus) this.update({ beeldmodus: modus });
   }
 
   private stopLiveWatch(): void {

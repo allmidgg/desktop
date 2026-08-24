@@ -297,6 +297,12 @@ export interface AppSnapshot {
   autoMasteryStatus: string | null;
   /** The game currently running, read from the client on port 2999. */
   liveGame: LiveGameSnapshot | null;
+  /**
+   * League's window mode, or null when we cannot tell.
+   *
+   * Only interesting because the overlay cannot draw over exclusive fullscreen.
+   */
+  beeldmodus: "fullscreen" | "borderless" | "windowed" | null;
 }
 
 export interface LiveGamePlayer {
