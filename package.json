@@ -42,7 +42,6 @@
     "vite": "^6.4.3"
   },
   "dependencies": {
-    "electron-overlay-window": "^4.1.0",
     "undici": "^7.2.0",
     "ws": "^8.18.0"
   },
