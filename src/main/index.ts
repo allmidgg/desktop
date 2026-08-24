@@ -18,6 +18,8 @@ let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
 /** True means click-through: every click goes to the game. */
 let overlayVergrendeld = true;
+/** Keeps the overlay above a game that keeps re-claiming the top. */
+let overlayTopTimer: NodeJS.Timeout | null = null;
 /** Zodat we de popup niet bij elke update opnieuw naar voren duwen. */
 let champSelectShown = false;
 
@@ -145,6 +147,37 @@ function herbevestigBovenaan(w: BrowserWindow): void {
   if (w.isDestroyed()) return;
   w.setAlwaysOnTop(false);
   w.setAlwaysOnTop(true, "screen-saver");
+  w.moveTop();
+}
+
+/**
+ * Keep winning the z-order race for as long as the panel is up.
+ *
+ * Measured on a real Classic game: League's own window carries WS_EX_TOPMOST
+ * and re-claims it every time it takes the foreground. Topmost is not a rank,
+ * it is one shared band ordered by who asked last, so a claim we staked two
+ * seconds ago loses to a game that just took focus -- and a game takes focus
+ * many times a match. Discord answers this with a foreground event hook; that
+ * needs native code, and a short timer buys the same outcome for a SetWindowPos
+ * every quarter second, which is nothing.
+ *
+ * Only while the panel is actually visible, so it costs nothing between games.
+ */
+function startBovenaanHerhaling(): void {
+  if (overlayTopTimer) return;
+  overlayTopTimer = setInterval(() => {
+    const w = overlayWindow;
+    if (!w || w.isDestroyed() || !w.isVisible()) return;
+    // Not the full off/on dance at this rate: moveTop is the cheap half and it
+    // is the half that decides the order.
+    w.moveTop();
+  }, 250);
+}
+
+function stopBovenaanHerhaling(): void {
+  if (!overlayTopTimer) return;
+  clearInterval(overlayTopTimer);
+  overlayTopTimer = null;
 }
 
 function createOverlayWindow(): BrowserWindow {
@@ -189,6 +222,7 @@ function createOverlayWindow(): BrowserWindow {
   plek!.volg("overlay", window);
   loadRenderer(window, "overlay");
   window.on("closed", () => {
+    stopBovenaanHerhaling();
     overlayWindow = null;
   });
   return window;
@@ -245,7 +279,9 @@ function syncOverlayWindow(snapshot: AppSnapshot): void {
     // Every tick, not just the first: the game restacks the topmost band each
     // time it takes the foreground, and that happens more than once a game.
     herbevestigBovenaan(overlayWindow);
+    startBovenaanHerhaling();
   } else if (overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()) {
+    stopBovenaanHerhaling();
     overlayWindow.hide();
   }
 }
