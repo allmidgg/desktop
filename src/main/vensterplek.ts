@@ -16,7 +16,7 @@ import { screen, type BrowserWindow, type Rectangle } from "electron";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-export type VensterSleutel = "main" | "champselect";
+export type VensterSleutel = "main" | "champselect" | "overlay";
 
 interface Onthouden {
   bounds: Rectangle;

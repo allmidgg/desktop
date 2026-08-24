@@ -441,6 +441,8 @@ export interface ChampionDetail {
  * blijven en staat daarom niet in deze vorm. Zie daar waarom.
  */
 export interface Settings {
+  /** Show the panel on top of the game while a Classic game is running. */
+  overlay: boolean;
   autoMasteries: boolean;
   shareMatches: boolean;
   uploadServer: string;

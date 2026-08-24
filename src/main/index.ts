@@ -15,6 +15,9 @@ import type { AppSnapshot } from "../shared/types";
 let service: JadeService | null = null;
 let plek: Vensterplek | null = null;
 let mainWindow: BrowserWindow | null = null;
+let overlayWindow: BrowserWindow | null = null;
+/** True means click-through: every click goes to the game. */
+let overlayVergrendeld = true;
 /** Zodat we de popup niet bij elke update opnieuw naar voren duwen. */
 let champSelectShown = false;
 
@@ -110,6 +113,78 @@ function createMainWindow(): void {
   loadRenderer(mainWindow, "main");
 }
 
+/**
+ * The panel that sits on top of the game.
+ *
+ * Transparent, frameless and click-through, so it never swallows a click meant
+ * for the game. It cannot draw over exclusive fullscreen -- nothing can, not
+ * Discord and not Overwolf -- so League has to run borderless or windowed.
+ *
+ * Unlocking makes it clickable so it can be dragged elsewhere; where it ends up
+ * is remembered like any other window.
+ */
+function createOverlayWindow(): BrowserWindow {
+  const window = new BrowserWindow({
+    ...plek!.plaats("overlay", { width: 260, height: 240 }),
+    show: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    // Not focusable while locked: a window that steals focus mid-fight is worse
+    // than no window at all.
+    focusable: false,
+    backgroundColor: "#00000000",
+    webPreferences: {
+      preload: join(import.meta.dirname, "../preload/index.mjs"),
+      sandbox: false,
+      contextIsolation: true,
+    },
+  });
+
+  window.setAlwaysOnTop(true, "screen-saver");
+  window.setIgnoreMouseEvents(true, { forward: true });
+  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  plek!.volg("overlay", window);
+  loadRenderer(window, "overlay");
+  window.on("closed", () => {
+    overlayWindow = null;
+  });
+  return window;
+}
+
+/** Locked means click-through. Unlocked means you can grab it and move it. */
+function zetOverlayVergrendeld(vergrendeld: boolean): void {
+  overlayVergrendeld = vergrendeld;
+  const w = overlayWindow;
+  if (!w || w.isDestroyed()) return;
+  w.setIgnoreMouseEvents(vergrendeld, { forward: true });
+  w.setFocusable(!vergrendeld);
+  if (!w.webContents.isDestroyed()) w.webContents.send("overlay:locked", vergrendeld);
+}
+
+/**
+ * Show the overlay while a Classic game is running, and only then.
+ *
+ * There is nothing to say outside a game, and a panel hanging over the client
+ * between matches is the kind of thing people uninstall an app over.
+ */
+function syncOverlayWindow(snapshot: AppSnapshot): void {
+  const wil = Boolean(snapshot.liveGame?.isClassic) && snapshot.settings.overlay;
+  if (wil) {
+    overlayWindow ??= createOverlayWindow();
+    if (!overlayWindow.isVisible()) {
+      overlayWindow.showInactive();
+      zetOverlayVergrendeld(overlayVergrendeld);
+    }
+  } else if (overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()) {
+    overlayWindow.hide();
+  }
+}
+
 function syncChampSelectWindow(snapshot: AppSnapshot): void {
   const inSelect = Boolean(snapshot.champSelect);
   if (inSelect && !champSelectShown) {
@@ -202,6 +277,10 @@ function registerIpc(): void {
     return service?.getSnapshot();
   });
   ipcMain.handle("game:detail", (_event, gameId: number) => service?.gameDetail(gameId) ?? null);
+  ipcMain.handle("overlay:lock", (_event, vergrendeld: boolean) => {
+    zetOverlayVergrendeld(vergrendeld);
+    return vergrendeld;
+  });
   ipcMain.handle("masteries:plan", (_event, championId: number) =>
     service?.masteryPlanFor(championId) ?? null,
   );
@@ -253,7 +332,11 @@ void app
 
     service.on("snapshot", (snapshot: AppSnapshot) => {
       stuurNaarVenster("app:snapshot", snapshot);
+      if (overlayWindow && !overlayWindow.isDestroyed() && !overlayWindow.webContents.isDestroyed()) {
+        overlayWindow.webContents.send("app:snapshot", snapshot);
+      }
       syncChampSelectWindow(snapshot);
+      syncOverlayWindow(snapshot);
     });
     service
       .start()

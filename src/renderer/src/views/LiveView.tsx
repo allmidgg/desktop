@@ -138,6 +138,8 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
 
       {live.inzichten ? <Inzichtenbalk inzichten={live.inzichten} /> : null}
 
+      <OverlayKnoppen aan={snapshot.settings.overlay} />
+
       {jij?.trinketLeeg ? (
         <Panel className="rim border-gold-400/40 bg-gold-400/[0.06] p-3 text-xs text-gold-300">
           Your trinket slot is empty.
@@ -357,6 +359,55 @@ function TeamKant({ totaal, blauw }: { totaal: TeamTotaalUit; blauw: boolean }):
         {totaal.cs.toLocaleString("en-US")} cs · {totaal.wards} wards · {(totaal.itemWaarde / 1000).toFixed(1)}k in items
       </p>
     </div>
+  );
+}
+
+/**
+ * Turning the on-top panel on, and moving it.
+ *
+ * It is click-through by default, which is what makes it usable in a fight and
+ * also what makes it impossible to drag. Unlocking hands the mouse back for as
+ * long as it takes to put it somewhere; where it ends up is remembered.
+ */
+function OverlayKnoppen({ aan }: { aan: boolean }): JSX.Element {
+  const [ontgrendeld, setOntgrendeld] = useState(false);
+  return (
+    <Panel className="flex flex-wrap items-center gap-2 p-2.5 text-[11px]">
+      <button
+        onClick={() => {
+          void window.jade.updateSettings({ overlay: !aan });
+          if (aan) setOntgrendeld(false);
+        }}
+        className={`rounded-lg border px-2.5 py-1 font-medium transition-colors ${
+          aan
+            ? "border-gold-400/40 bg-gold-400/10 text-gold-300"
+            : "border-line text-ink-400 hover:border-line-lit"
+        }`}
+      >
+        {aan ? "Overlay on" : "Overlay off"}
+      </button>
+
+      {aan ? (
+        <button
+          onClick={() => {
+            const nieuw = !ontgrendeld;
+            setOntgrendeld(nieuw);
+            void window.jade.lockOverlay(!nieuw);
+          }}
+          className="rounded-lg border border-line px-2.5 py-1 text-ink-400 transition-colors hover:border-line-lit"
+        >
+          {ontgrendeld ? "Lock in place" : "Move it"}
+        </button>
+      ) : null}
+
+      <span className="text-ink-700">
+        {aan
+          ? ontgrendeld
+            ? "Drag it where you want it, then lock it again."
+            : "Shown over the game. League has to run borderless or windowed — nothing can draw over exclusive fullscreen."
+          : "A small panel on top of the game: objective timers, item gold, your skill order."}
+      </span>
+    </Panel>
   );
 }
 

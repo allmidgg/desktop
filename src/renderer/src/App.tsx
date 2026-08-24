@@ -6,6 +6,7 @@ import { ProfileView } from "./views/ProfileView";
 import { RunesView } from "./views/RunesView";
 import { MasteriesView } from "./views/MasteriesView";
 import { MetaView } from "./views/MetaView";
+import { OverlayView } from "./views/OverlayView";
 import { ChampSelectView } from "./views/ChampSelectView";
 import { Spinner } from "./ui";
 
@@ -20,7 +21,9 @@ const TABS: Array<{ id: Tab; label: string; icon: string }> = [
 ];
 
 /** Both windows load the same bundle; the hash decides which one this is. */
-const isChampSelectWindow = window.location.hash.replace("#", "") === "champselect";
+const venster = window.location.hash.replace("#", "");
+const isChampSelectWindow = venster === "champselect";
+const isOverlayWindow = venster === "overlay";
 
 export function App(): JSX.Element {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
@@ -30,6 +33,7 @@ export function App(): JSX.Element {
     return window.jade.onSnapshot(setSnapshot);
   }, []);
 
+  if (isOverlayWindow) return <OverlayView snapshot={snapshot} />;
   if (isChampSelectWindow) return <ChampSelectWindow snapshot={snapshot} />;
   return <MainWindow snapshot={snapshot} />;
 }

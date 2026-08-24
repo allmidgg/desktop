@@ -17,6 +17,15 @@ import { dirname, join } from "node:path";
  * niet kunt zien is geen schakelaar.
  */
 export interface Settings {
+  /**
+   * Toon het paneel over de game heen zolang er een Classic-game draait.
+   *
+   * Standaard uit. Een overlay die ongevraagd over iemands game verschijnt is
+   * iets wat je aanzet, niet iets wat je midden in een gevecht ontdekt. En hij
+   * werkt alleen als League borderless of windowed draait -- over exclusive
+   * fullscreen kan geen enkele overlay tekenen.
+   */
+  overlay: boolean;
   /** Zet automatisch de beste masteries zodra je een champion pickt. */
   autoMasteries: boolean;
   /**
@@ -82,6 +91,9 @@ export const DEFAULT_UPLOAD_SERVER = "https://allmid.gg";
 const DODE_SERVERS = new Set(["https://api.allmid.gg", "http://api.allmid.gg", "https://api.allmid.gg/"]);
 
 export const DEFAULT_SETTINGS: StoredSettings = {
+  // Off by default. An overlay that appears over someone's game without being
+  // asked for is a thing you turn on, not something you discover mid-fight.
+  overlay: false,
   autoMasteries: false,
   shareMatches: true,
   uploadServer: DEFAULT_UPLOAD_SERVER,
@@ -95,6 +107,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
  * hier om met een typefout in plaats van dat het stilletjes meelift.
  */
 export const publicSettings = (settings: StoredSettings): Settings => ({
+  overlay: settings.overlay,
   autoMasteries: settings.autoMasteries,
   shareMatches: settings.shareMatches,
   uploadServer: settings.uploadServer,

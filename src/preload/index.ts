@@ -27,6 +27,8 @@ const api = {
   activateMasteryPage: (pageIndex: number): Promise<ApplyResult> =>
     ipcRenderer.invoke("masteries:activate", pageIndex),
   gameDetail: (gameId: number): Promise<GameDetail | null> => ipcRenderer.invoke("game:detail", gameId),
+  /** Locked means click-through; unlocked lets you drag the overlay somewhere else. */
+  lockOverlay: (locked: boolean): Promise<boolean> => ipcRenderer.invoke("overlay:lock", locked),
   masteryPlan: (championId: number): Promise<MasteryPlanSummary | null> =>
     ipcRenderer.invoke("masteries:plan", championId),
   autoMasteries: (championId: number | null): Promise<ApplyResult> =>
