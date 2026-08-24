@@ -34,12 +34,17 @@ const MODI: Record<string, Beeldmodus> = {
   "2": "windowed",
 };
 
-/** The usual places, tried before asking Windows anything. */
+/**
+ * The usual places, tried before asking Windows anything.
+ *
+ * Forward slashes on purpose: Node accepts them on Windows, and a backslash in
+ * a TypeScript string is an escape waiting to eat the next letter.
+ */
 const GOKJES = [
-  "C:\Riot Games\League of Legends",
-  "D:\Riot Games\League of Legends",
-  "C:\Program Files\Riot Games\League of Legends",
-  "C:\Program Files (x86)\Riot Games\League of Legends",
+  "C:/Riot Games/League of Legends",
+  "D:/Riot Games/League of Legends",
+  "C:/Program Files/Riot Games/League of Legends",
+  "C:/Program Files (x86)/Riot Games/League of Legends",
 ];
 
 /** Where League is installed, from the client's own command line. */
