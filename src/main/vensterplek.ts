@@ -52,7 +52,24 @@ export class Vensterplek {
   plaats(sleutel: VensterSleutel, standaard: { width: number; height: number }): Partial<Rectangle> {
     const onthouden = this.opslag[sleutel]?.bounds;
     if (onthouden && this.zichtbaarOpEenScherm(onthouden)) return onthouden;
+    // The overlay is the one window that must NOT go to a second screen: it
+    // belongs on top of the game, and the game is on the primary display. The
+    // rule that sends everything else away from the primary screen was exactly
+    // wrong here, and put the panel in the middle of nowhere.
+    if (sleutel === "overlay") return this.hoekVanHetSpel(standaard);
     return this.eerstePlaats(standaard);
+  }
+
+  /** Top right of the primary display, tucked in from the edge. */
+  private hoekVanHetSpel(standaard: { width: number; height: number }): Partial<Rectangle> {
+    const w = screen.getPrimaryDisplay().workArea;
+    const marge = 16;
+    return {
+      x: Math.round(w.x + w.width - standaard.width - marge),
+      y: Math.round(w.y + marge),
+      width: standaard.width,
+      height: standaard.height,
+    };
   }
 
   wasGemaximaliseerd(sleutel: VensterSleutel): boolean {

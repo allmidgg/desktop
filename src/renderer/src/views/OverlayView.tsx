@@ -11,6 +11,7 @@
  * It draws nothing while no Classic game is running, and nothing at all that the
  * game has not already announced.
  */
+import { useEffect, useState } from "react";
 import type { AppSnapshot } from "../../../shared/types";
 
 const klok = (s: number): string =>
@@ -19,6 +20,12 @@ const klok = (s: number): string =>
 const NAAM: Record<string, string> = { dragon: "Drake", baron: "Baron", inhibitor: "Inhib" };
 
 export function OverlayView({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element | null {
+  // Locked is the normal state and the one that has to be invisible to the mouse.
+  // Unlocked gets a visible frame and a drag region, because you are moving it
+  // and need to see what you are grabbing.
+  const [vergrendeld, setVergrendeld] = useState(true);
+  useEffect(() => window.jade.onOverlayLocked(setVergrendeld), []);
+
   const live = snapshot?.liveGame;
   if (!live || !live.isClassic) return null;
 
@@ -30,9 +37,22 @@ export function OverlayView({ snapshot }: { snapshot: AppSnapshot | null }): JSX
 
   return (
     <div className="flex h-full w-full items-start justify-end p-2">
-      {/* The panel itself is draggable when the window is unlocked; the region
-          is harmless while locked because the whole window ignores the mouse. */}
-      <div style={{ WebkitAppRegion: "drag" } as React.CSSProperties} className="w-[230px] rounded-xl border border-white/10 bg-[#070810]/85 p-2.5 text-ink-100 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.9)] backdrop-blur-md">
+      {/* A drag region only while unlocked. Leaving it on permanently is what
+          turns the cursor into a caret over a panel you are supposed to be able
+          to look straight past. */}
+      <div
+        style={vergrendeld ? undefined : ({ WebkitAppRegion: "drag" } as React.CSSProperties)}
+        className={`w-[230px] rounded-xl p-2.5 text-ink-100 backdrop-blur-[3px] transition-colors ${
+          vergrendeld
+            ? "border border-white/[0.07] bg-[#070810]/55 shadow-[0_8px_28px_-14px_rgba(0,0,0,0.9)]"
+            : "cursor-move border-2 border-dashed border-gold-400/70 bg-[#070810]/90"
+        }`}
+      >
+        {!vergrendeld ? (
+          <p className="mb-1.5 text-center text-[9px] tracking-[0.14em] text-gold-300 uppercase">
+            Drag me
+          </p>
+        ) : null}
         <div className="mb-1.5 flex items-baseline justify-between">
           <span className="text-[9px] tracking-[0.16em] text-gold-400 uppercase">AllMid</span>
           <span className="num text-[10px] text-ink-600">{klok(live.gameTimeSeconds)}</span>

@@ -145,8 +145,18 @@ function createOverlayWindow(): BrowserWindow {
     },
   });
 
+  // "screen-saver" is the highest level Electron offers, which is what a panel
+  // over a game needs. Discord's current overlay works the same way: a topmost
+  // window rather than a DLL hooked into the renderer. Injection would reach
+  // true exclusive fullscreen, and it is exactly what this app promises never to
+  // do -- no DLLs, no hooking the game process.
   window.setAlwaysOnTop(true, "screen-saver");
-  window.setIgnoreMouseEvents(true, { forward: true });
+
+  // forward:false, deliberately. With forwarding on, mouse moves still reach the
+  // window, so CSS hover fires and the cursor turns into a text caret over the
+  // panel -- which is what you saw. Off means the pointer belongs entirely to
+  // the game.
+  window.setIgnoreMouseEvents(true, { forward: false });
   window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   plek!.volg("overlay", window);
   loadRenderer(window, "overlay");
@@ -161,7 +171,7 @@ function zetOverlayVergrendeld(vergrendeld: boolean): void {
   overlayVergrendeld = vergrendeld;
   const w = overlayWindow;
   if (!w || w.isDestroyed()) return;
-  w.setIgnoreMouseEvents(vergrendeld, { forward: true });
+  w.setIgnoreMouseEvents(vergrendeld, { forward: false });
   w.setFocusable(!vergrendeld);
   if (!w.webContents.isDestroyed()) w.webContents.send("overlay:locked", vergrendeld);
 }
