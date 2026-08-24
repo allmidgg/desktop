@@ -267,6 +267,11 @@ export class JadeService extends EventEmitter {
       // instead of the window staying blank.
       void this.loadCommunityStats().catch(reportBackgroundError);
 
+      // Before connecting, not after: a game can be running while the client is
+      // closed, still restarting, or simply confused about what it launched.
+      // Nothing here needs the client.
+      this.startLiveWatch();
+
       this.client = await LcuClient.connect();
       await this.onConnected();
     } catch (err) {
@@ -380,6 +385,18 @@ export class JadeService extends EventEmitter {
    * taken shortly after are still seen in order, slow enough to be invisible --
    * it is a local HTTP call to a server on the same machine.
    */
+  /**
+   * Watch for a running game, and never stop watching.
+   *
+   * The gameflow phase used to be the trigger, and it was the wrong one. A
+   * custom game the client has lost track of reports phase "None" -- the
+   * session endpoint even 404s -- while the game itself is still up and still
+   * answering on 2999 with a mode, a map and a clock. Asking the client first
+   * only added a way to miss the game entirely.
+   *
+   * The Live Client Data API exists only while a game is running, so its
+   * answering IS the signal. Nothing else has to agree.
+   */
   private startLiveWatch(): void {
     if (this.liveTimer) return;
     // Look the champion list up per call instead of capturing it once: the
@@ -392,9 +409,15 @@ export class JadeService extends EventEmitter {
     const tik = async () => {
       const data = await this.live.allGameData();
       if (!data) {
-        // Normal before the game is up and after it ends. Only clear what we
-        // show once there is nothing there, never mid-game.
-        if (this.snapshot.liveGame) this.update({ liveGame: null });
+        // Normal before the game is up and after it ends. A game that was there
+        // a moment ago and is not there now has just finished, and that is the
+        // last chance to keep what we watched -- nothing else tells us.
+        if (this.snapshot.liveGame) {
+          this.bewaarBuildOrders();
+          this.liveWatcher?.reset();
+          this.liveSampleGeschreven = false;
+          this.update({ liveGame: null });
+        }
         return;
       }
       if (!this.liveSampleGeschreven) {
@@ -411,13 +434,28 @@ export class JadeService extends EventEmitter {
         liveGame: this.liveWatcher!.verwerk(data, this.snapshot.summoner?.riotId ?? null, JADE_MAP_ID),
       });
     };
-    void tik().catch(reportBackgroundError);
-    this.liveTimer = setInterval(() => void tik().catch(reportBackgroundError), 2_000);
+    // A timeout that reschedules itself rather than a fixed interval, so the
+    // gap can widen while nothing is running. A refused connection on localhost
+    // fails in well under a millisecond, but there is no reason to ask twice a
+    // second for hours on end.
+    const plan = (): void => {
+      if (!this.liveTimer) return;
+      this.liveTimer = setTimeout(() => {
+        void tik()
+          .catch(reportBackgroundError)
+          .finally(plan);
+      }, this.snapshot.liveGame ? 2_000 : 5_000);
+    };
+    // Set before the first tick so plan() knows the watch is live.
+    this.liveTimer = setTimeout(() => undefined, 0);
+    void tik()
+      .catch(reportBackgroundError)
+      .finally(plan);
   }
 
   private stopLiveWatch(): void {
     if (this.liveTimer) {
-      clearInterval(this.liveTimer);
+      clearTimeout(this.liveTimer);
       this.liveTimer = null;
     }
     this.bewaarBuildOrders();
@@ -880,11 +918,8 @@ export class JadeService extends EventEmitter {
     }
     if (phase === "ChampSelect" || phase === "InProgress") this.crawler?.stop();
 
-    // The live server only answers while a game is up. Starting on GameStart
-    // rather than InProgress means the first ability point is not missed:
-    // loading screens are long enough to level one.
-    if (phase === "GameStart" || phase === "InProgress" || phase === "Reconnect") this.startLiveWatch();
-    else this.stopLiveWatch();
+    // Deliberately not tied to the phase any more -- see startLiveWatch. It is
+    // already running; this only makes sure it is.
   }
 
   async refreshLoadout(): Promise<void> {
