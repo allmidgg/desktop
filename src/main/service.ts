@@ -273,6 +273,12 @@ export class JadeService extends EventEmitter {
       // closed, still restarting, or simply confused about what it launched.
       // Nothing here needs the client.
       this.startLiveWatch();
+
+      // The champion catalogue too. Waiting for the client meant a first-time
+      // user who opened AllMid before League saw a tier list of raw ids --
+      // 60062, 60053 -- instead of champions. The cache on disk, or Community
+      // Dragon, answers just as well and needs nobody to be logged in.
+      void this.laadCatalogusVastAlvast().catch(reportBackgroundError);
       void this.ververisBeeldmodus().catch(reportBackgroundError);
 
       this.client = await LcuClient.connect();
@@ -459,6 +465,40 @@ export class JadeService extends EventEmitter {
     void tik()
       .catch(reportBackgroundError)
       .finally(plan);
+  }
+
+  /**
+   * Get champion, item and spell names on screen without waiting for a client.
+   *
+   * Uses the cache written by a previous run, and falls back to Community
+   * Dragon's copy of the same files. Skipped once a real catalogue is loaded,
+   * because the client's own assets are the authoritative ones.
+   */
+  private async laadCatalogusVastAlvast(): Promise<void> {
+    if (this.jade) return;
+    const pad = join(this.backupDir, "..", "catalog.json");
+    const cached = await JadeCatalog.fromCache(pad).catch(() => null);
+    const catalogus = cached ?? (await JadeCatalog.fromCommunityDragon().catch(() => null));
+    if (!catalogus) return;
+    // A client that connected while we were fetching wins: its assets are the
+    // real ones, and overwriting them with a cache would be a downgrade.
+    if (this.jade) return;
+    this.jade = catalogus;
+    if (!cached) await catalogus.save(pad).catch(() => undefined);
+    this.update({
+      champions: [...catalogus.champions.values()].map(toChampionSummary),
+      items: [...catalogus.items.values()].map((item) => ({
+        jadeId: item.jadeId,
+        name: item.name,
+        iconPath: item.iconPath,
+        buildsFrom: item.buildsFrom,
+      })),
+      spells: [...catalogus.spells.values()].map((spell) => ({
+        jadeId: spell.jadeId,
+        name: spell.name,
+        iconPath: spell.iconPath,
+      })),
+    });
   }
 
   /** Re-read League's window mode. Failing to find it is not an error. */
@@ -1321,10 +1361,46 @@ export class JadeService extends EventEmitter {
   }
 
   /** Haalt een asset op bij de client; het jade://-protocol gebruikt dit. */
+  /**
+   * An icon, from the client if it is running and from Community Dragon if not.
+   *
+   * The client is authoritative and stays first. But returning null without one
+   * meant every portrait in the app was a broken image until League was open --
+   * a tier list of names with no faces, on the very first run. Community Dragon
+   * mirrors the same asset tree under the same paths, so the fallback is the
+   * identical file from a public host.
+   */
   async fetchAsset(path: string): Promise<{ body: ArrayBuffer; contentType: string } | null> {
     const client = this.client;
-    if (!client) return null;
-    return client.getBinary(path);
+    if (client) {
+      try {
+        return await client.getBinary(path);
+      } catch {
+        // Client closed mid-request. Fall through and try the mirror.
+      }
+    }
+    return this.fetchAssetVanSpiegel(path);
+  }
+
+  /** The same asset from Community Dragon. Null when it has no copy either. */
+  private async fetchAssetVanSpiegel(
+    path: string,
+  ): Promise<{ body: ArrayBuffer; contentType: string } | null> {
+    // Client paths look like /lol-game-data/assets/v1/champion-icons/60001.png;
+    // the mirror serves everything below the assets root, lowercased.
+    const rest = path.replace(/^\/lol-game-data\/assets\//, "").toLowerCase();
+    if (rest === path.toLowerCase()) return null;
+    const url = `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/${rest}`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return {
+        body: await res.arrayBuffer(),
+        contentType: res.headers.get("content-type") ?? "image/png",
+      };
+    } catch {
+      return null;
+    }
   }
 
   dispose(): void {

@@ -1,0 +1,261 @@
+/* ── Bewijs: waar 125.096 games uit bestaat ───────────────────────────────────
+   The homepage makes a claim in one sentence; this section is where the claim
+   becomes checkable. So it is built like a document and not like a hero: ruled
+   rows, mono figures, and gold used for one thing only -- a number that was
+   actually counted. Grey means counted and then deliberately not used.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.bewijs .vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.bewijs .sectiekop code {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  color: var(--gold);
+  background: rgba(231, 199, 110, 0.08);
+  border: 1px solid rgba(231, 199, 110, 0.18);
+  border-radius: 4px;
+  padding: 0.06em 0.36em;
+}
+
+/* ── Het merkenveld ───────────────────────────────────────────────────────── */
+
+.bewijs-veld {
+  margin: 0;
+  padding: clamp(1.1rem, 2.6vw, 2rem);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.veld-kop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.7rem 2rem;
+  margin-bottom: clamp(1rem, 2vw, 1.5rem);
+}
+
+.veld-groot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 1.1rem;
+  margin: 0;
+  max-width: 62ch;
+}
+
+.veld-groot b {
+  font-size: clamp(2.1rem, 6.4vw, 3.9rem);
+  font-weight: 700;
+  line-height: 0.94;
+  letter-spacing: -0.035em;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  /* The counter runs up on arrival; without a fixed box the line reflows on
+     every frame and drags the paragraph next to it along with it. */
+  min-width: 9ch;
+}
+
+.veld-groot span {
+  color: var(--muted);
+  font-size: 0.95rem;
+  max-width: 34ch;
+}
+
+.veld-kop .block-label {
+  margin: 0;
+  text-align: right;
+}
+
+.veld-svg {
+  display: block;
+  width: 100%;
+  height: clamp(72px, 7.4vw, 104px);
+}
+
+.veld-svg path { transition: opacity var(--dur-mid) var(--ease-io); }
+.veld-svg path.stil { opacity: 0.09; }
+
+@media (prefers-reduced-motion: reduce) {
+  .veld-svg path { transition: none; }
+}
+
+/* ── De legenda: dezelfde cijfers, maar leesbaar ──────────────────────────── */
+
+.veld-rol { overflow-x: auto; margin-top: clamp(1rem, 2vw, 1.6rem); }
+.veld-legenda { min-width: 30rem; font-size: 0.92rem; }
+
+.veld-legenda th,
+.veld-legenda td {
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.veld-legenda th:first-child,
+.veld-legenda td:first-child { padding-left: 0; }
+.veld-legenda th:last-child,
+.veld-legenda td:last-child { padding-right: 0; }
+
+.veld-legenda thead th {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--dim);
+  border-bottom-color: var(--line-lit);
+}
+
+.veld-legenda tbody th { font-weight: 600; white-space: nowrap; }
+.veld-legenda tbody tr { transition: background var(--dur-fast) var(--ease-io); }
+.veld-legenda tbody tr.aan { background: rgba(231, 199, 110, 0.07); }
+.veld-legenda .uit th,
+.veld-legenda .uit td { color: var(--muted); }
+
+.veld-legenda .num {
+  text-align: right;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.veld-legenda .zwak { color: var(--muted); }
+.veld-legenda .van { color: var(--dim); }
+
+.veld-legenda tfoot th,
+.veld-legenda tfoot td {
+  border-bottom: 0;
+  border-top: 1px solid var(--line-lit);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.veld-legenda .vk {
+  display: inline-block;
+  width: 10px;
+  height: 14px;
+  border-radius: 2px;
+  margin-right: 0.6rem;
+  vertical-align: -2px;
+  background: var(--gold);
+  opacity: var(--dek, 1);
+}
+.veld-legenda .uit .vk { background: var(--dim); }
+
+.veld-noot {
+  margin: clamp(0.9rem, 2vw, 1.3rem) 0 0;
+  padding-top: clamp(0.9rem, 2vw, 1.3rem);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.92rem;
+  max-width: 84ch;
+}
+.veld-noot strong { color: var(--ink); }
+
+/* ── De patchverdeling ────────────────────────────────────────────────────── */
+
+.bewijs-patch { margin: clamp(1rem, 2vw, 1.5rem) 0 0; }
+.bewijs-patch .block-label { margin-bottom: 0.75rem; }
+
+.patch-balk { display: flex; gap: 4px; }
+
+.patch-deel {
+  /* De breedte ís het cijfer: 51,959% van de games is 51,959% van de balk. */
+  flex: 0 1 var(--breed);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.7rem clamp(0.6rem, 1.4vw, 0.95rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: linear-gradient(180deg, rgba(231, 199, 110, 0.14), rgba(231, 199, 110, 0.045));
+}
+.patch-deel + .patch-deel {
+  background: linear-gradient(180deg, rgba(231, 199, 110, 0.075), rgba(231, 199, 110, 0.02));
+}
+
+.patch-naam {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.patch-getal { font-size: 1.05rem; font-weight: 700; color: var(--gold); }
+
+/* ── Het grootboek ────────────────────────────────────────────────────────── */
+
+.grootboek { margin-top: clamp(1.5rem, 3vw, 2.4rem); }
+
+.gb-rol {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.gb-rol table { min-width: 40rem; }
+
+.grootboek th,
+.grootboek td {
+  padding: 0.6rem clamp(0.7rem, 1.6vw, 1.15rem);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: baseline;
+}
+.grootboek tbody tr:last-child th,
+.grootboek tbody tr:last-child td { border-bottom: 0; }
+.grootboek tbody tr { transition: background var(--dur-fast) var(--ease-io); }
+.grootboek tbody tr:hover { background: rgba(255, 255, 255, 0.022); }
+
+.grootboek tbody th {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  white-space: nowrap;
+  width: 1%;
+}
+
+.gb-waarde {
+  color: var(--gold);
+  font-size: 0.95rem;
+  font-weight: 500;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.gb-noot { color: var(--muted); font-size: 0.88rem; }
+
+.gb-voet {
+  margin: 0.9rem 0 0;
+  color: var(--dim);
+  font-size: 0.86rem;
+  max-width: 80ch;
+}
+.gb-voet a {
+  color: var(--gold);
+  text-decoration-color: var(--gold-dim);
+  text-underline-offset: 3px;
+  transition: color var(--dur-fast) var(--ease-io), text-decoration-color var(--dur-fast) var(--ease-io);
+}
+.gb-voet a:hover { color: var(--gold-lit); text-decoration-color: var(--gold); }
+
+@media (max-width: 720px) {
+  .veld-kop .block-label { text-align: left; }
+  .veld-groot span { max-width: none; }
+}
