@@ -795,3 +795,23 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 .guide-blok p { margin: 0 0 0.8rem; font-size: 0.86rem; color: var(--muted); max-width: 74ch; }
 .guide-blok p:last-child { margin-bottom: 0; }
 .guide-blok strong { color: var(--ink); font-weight: 600; }
+
+/* Modusbalk: welke wachtrijen we dekken, en welke nog niet. */
+.modusbalk { border-block: 1px solid var(--line); background: rgba(255, 255, 255, 0.012); }
+.modusbalk .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding-block: 0.7rem; }
+.modusbalk .mb-label {
+  flex: none; margin-right: 0.5rem;
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--dim);
+}
+.modus {
+  display: inline-flex; align-items: baseline; gap: 0.45rem;
+  padding: 0.34rem 0.72rem; border-radius: 5px;
+  border: 1px solid var(--line); color: var(--dim);
+  font-size: 0.84rem; font-weight: 600; text-decoration: none;
+}
+.modus .mb-n { font-family: var(--mono); font-size: 0.68rem; font-weight: 500; opacity: 0.75; }
+.modus.live { color: var(--ink); border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.08); }
+.modus.live .mb-n { color: var(--gold); opacity: 1; }
+.modus.soon { opacity: 0.62; }
+.modusbalk .mb-note { flex-basis: 100%; margin: 0.25rem 0 0; font-size: 0.76rem; color: var(--dim); }

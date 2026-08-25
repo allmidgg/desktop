@@ -856,7 +856,7 @@ function guidePagina(c) {
   <div class="wrap">
     <a class="brand" href="${G("index.html")}">
       <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
-      <span class="badge">Classic</span>
+      <span class="badge">League of Legends</span>
     </a>
     <nav class="links">
       <a href="${G("index.html#tiers")}">Tier lists</a>
@@ -1770,10 +1770,64 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 .guide-blok p { margin: 0 0 0.8rem; font-size: 0.86rem; color: var(--muted); max-width: 74ch; }
 .guide-blok p:last-child { margin-bottom: 0; }
 .guide-blok strong { color: var(--ink); font-weight: 600; }
+
+/* Modusbalk: welke wachtrijen we dekken, en welke nog niet. */
+.modusbalk { border-block: 1px solid var(--line); background: rgba(255, 255, 255, 0.012); }
+.modusbalk .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding-block: 0.7rem; }
+.modusbalk .mb-label {
+  flex: none; margin-right: 0.5rem;
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--dim);
+}
+.modus {
+  display: inline-flex; align-items: baseline; gap: 0.45rem;
+  padding: 0.34rem 0.72rem; border-radius: 5px;
+  border: 1px solid var(--line); color: var(--dim);
+  font-size: 0.84rem; font-weight: 600; text-decoration: none;
+}
+.modus .mb-n { font-family: var(--mono); font-size: 0.68rem; font-weight: 500; opacity: 0.75; }
+.modus.live { color: var(--ink); border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.08); }
+.modus.live .mb-n { color: var(--gold); opacity: 1; }
+.modus.soon { opacity: 0.62; }
+.modusbalk .mb-note { flex-basis: 100%; margin: 0.25rem 0 0; font-size: 0.76rem; color: var(--dim); }
 `;
 writeFileSync(join(HERE, "style.css"), css, "utf8");
 
 const CSS_PAD = "style.css";
+
+/**
+ * Which queues this site has numbers for, and which it does not yet.
+ *
+ * Listing the empty ones is not a roadmap, it is the honest answer to "does
+ * this cover my games?". Somebody who plays ranked should learn that in one
+ * glance, rather than after reading a tier list built from a different mode.
+ * Nothing here gets a number until there are real games behind it.
+ */
+const MODI = [
+  { naam: "Classic", detail: `${n(T.games)} games`, live: true },
+  { naam: "Ranked Solo/Duo", detail: "no data yet", live: false },
+  { naam: "Flex", detail: "no data yet", live: false },
+  { naam: "Normal Draft", detail: "no data yet", live: false },
+  { naam: "ARAM", detail: "no data yet", live: false },
+];
+
+function modusBalk() {
+  const knoppen = MODI.map(
+    (m) =>
+      `<span class="modus ${m.live ? "live" : "soon"}">${esc(m.naam)}` +
+      `<span class="mb-n">${esc(m.detail)}</span></span>`,
+  ).join("");
+  return `<section class="modusbalk">
+  <div class="wrap">
+    <span class="mb-label">Queues</span>
+    ${knoppen}
+    <p class="mb-note">
+      Every number on this page comes from Classic games. The other queues are next &mdash;
+      they will show up here the moment there is a real sample behind them, and not before.
+    </p>
+  </div>
+</section>`;
+}
 
 const html = `<!doctype html>
 <html lang="en">
@@ -1781,11 +1835,11 @@ const html = `<!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AllMid</title>
-<meta name="description" content="Tier lists, counters, builds and one-click masteries for League of Legends Classic — built from ${n(T.games)} real Classic games. Free and open source." />
+<meta name="description" content="League of Legends tier lists, counters and builds, with the sample size on every number. Covering Classic first — ${n(T.games)} real games. Free and open source." />
 
 <meta property="og:type" content="website" />
-<meta property="og:title" content="AllMid — stats for League of Legends Classic" />
-<meta property="og:description" content="Every other tracker stops where Classic starts. AllMid collects the data itself: ${n(T.games)} games, ${n(T.players)} players, all 63 champions." />
+<meta property="og:title" content="AllMid — League of Legends stats" />
+<meta property="og:description" content="A stats site and desktop app for League of Legends, starting with the queue nobody else covers: ${n(T.games)} Classic games, ${n(T.players)} players, all 63 champions." />
 <meta property="og:url" content="https://allmid.gg/" />
 <meta property="og:image" content="https://allmid.gg/img/meta.png" />
 <meta name="twitter:card" content="summary_large_image" />
@@ -1811,7 +1865,7 @@ const html = `<!doctype html>
   <div class="wrap">
     <a class="brand" href="#">
       <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
-      <span class="badge">Classic</span>
+      <span class="badge">League of Legends</span>
     </a>
     <nav class="links">
       <a href="#tiers">Tier lists</a>
@@ -1824,6 +1878,8 @@ const html = `<!doctype html>
   </div>
 </header>
 
+${modusBalk()}
+
 <!-- ── Hero ───────────────────────────────────────────────────────────── -->
 <section class="hero">
   <div class="hero-bg" aria-hidden="true">
@@ -1832,14 +1888,14 @@ const html = `<!doctype html>
   <div class="wrap">
     <div class="rise">
       <p class="eyebrow">Free &middot; Open source &middot; MIT &middot; Windows</p>
-      <h1>The stats page League Classic <em>never got</em>.</h1>
+      <h1>League of Legends stats that <em>show their working</em>.</h1>
       <p class="lede">
-        Riot&rsquo;s public API does not carry Classic &mdash; its map and its queues are absent from
-        their own published lists. So AllMid reads the Classic client&rsquo;s own local APIs and
-        builds the dataset from the games people actually play:
-        <strong>${n(T.games)} games</strong> across <strong>${n(T.players)} players</strong> and all
-        <strong>63 champions</strong>. Free, open source, and every number here carries the sample
-        size it came from.
+        Tier lists, counters and builds where every number carries the sample size it came from.
+        We start with the queue nobody else covers: Riot&rsquo;s public API does not carry Classic,
+        so AllMid reads the client&rsquo;s own local APIs and builds the dataset from the games
+        people actually play &mdash; <strong>${n(T.games)} games</strong> across
+        <strong>${n(T.players)} players</strong> and all <strong>63 champions</strong>. The other
+        queues follow, on the same terms. Free and open source.
       </p>
       <div class="cta-row" id="get">
         <a class="btn btn-primary" id="hero-download" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">
