@@ -32,13 +32,16 @@ export function MetaView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
   const items = new Map(snapshot.items.map((i) => [i.jadeId, i]));
   const spells = new Map(snapshot.spells.map((s) => [s.jadeId, s]));
 
+  // Deliberately not gated on the client being connected. The tier list is
+  // computed from the local database -- community data plus whatever has been
+  // crawled -- and needs no client at all. Waiting for a connection left this
+  // panel spinning forever for anyone who opened the app before League.
   useEffect(() => {
-    if (snapshot.connection !== "connected") return;
     setTier(null);
     setSelected(null);
     setDetail(null);
     void window.jade.getTierList(position, MIN_GAMES).then(setTier);
-  }, [position, snapshot.connection, snapshot.database.matches]);
+  }, [position, snapshot.database.matches, snapshot.database.community?.games]);
 
   useEffect(() => {
     if (selected === null) return;
