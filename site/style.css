@@ -815,3 +815,26 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 .modus.live .mb-n { color: var(--gold); opacity: 1; }
 .modus.soon { opacity: 0.62; }
 .modusbalk .mb-note { flex-basis: 100%; margin: 0.25rem 0 0; font-size: 0.76rem; color: var(--dim); }
+
+/* Championpagina zonder cijfers: alleen wat Riot zelf publiceert. */
+.cat-kop { display: flex; align-items: center; gap: 1.15rem; margin: 0 0 1.6rem; }
+.cat-kop img { border-radius: 10px; border: 1px solid var(--line); flex: none; }
+.cat-kop h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.6rem); }
+.cat-titel { margin: 0.15rem 0 0.6rem; color: var(--muted); font-size: 0.95rem; }
+.cat-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; }
+.cat-tags span {
+  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.08em;
+  padding: 0.24rem 0.5rem; border-radius: 4px;
+  border: 1px solid var(--line); color: var(--dim);
+}
+.cat-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem; }
+.cat-stats div {
+  display: flex; flex-direction: column; gap: 0.2rem;
+  padding: 0.6rem 0.75rem; border: 1px solid var(--line); border-radius: 6px;
+}
+.cat-stats span {
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--dim);
+}
+.cat-stats b { font-size: 1.05rem; font-weight: 600; }
+.cat-groei { font-family: var(--mono); font-size: 0.66rem; color: var(--dim); letter-spacing: 0; text-transform: none; }

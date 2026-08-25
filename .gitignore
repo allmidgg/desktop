@@ -70,3 +70,7 @@ live-sample.json
 
 # Build orders uit eigen games, nog niet gedeeld.
 buildorders.jsonl
+
+# Champion portraits for the full League roster: fetched from Data Dragon by
+# site/data/catalogus.mjs, and regenerated rather than reviewed.
+site/img/lol-champions/

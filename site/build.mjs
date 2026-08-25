@@ -807,6 +807,126 @@ function guideLane(laneRegel, buildRegel, ijk, isOpen) {
 
 
 /** De hele guidepagina van één champion. */
+/**
+ * A champion page for somebody we have no games on.
+ *
+ * Two thirds of League never existed in Season 3, so two thirds of the roster
+ * can never have a Classic statistic. Leaving those pages out would make the
+ * site look like it covers 63 champions; inventing numbers for them would make
+ * it worthless. So the page exists, carries what is actually known -- Riot's
+ * own published base stats, which are facts rather than opinions -- and says
+ * plainly why there is no win rate on it.
+ */
+function catalogusPagina(c) {
+  const slug = slugVan(c.name);
+  const G = (pad) => `../${pad}`;
+  const st = c.stats ?? {};
+  const groei = (basis, per) =>
+    basis === null || basis === undefined
+      ? "&mdash;"
+      : `${Math.round(basis)}${per ? ` <span class="cat-groei">+${per}/lvl</span>` : ""}`;
+
+  const titel = `${c.name} &mdash; League of Legends champion`;
+  const omschrijving =
+    `${c.name}, ${c.title}. ${c.tags.join(" / ")}${c.resource ? `, ${c.resource}` : ""}. ` +
+    `Base stats and where AllMid's data stands on this champion.`;
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${esc(c.name)} &middot; AllMid</title>
+<meta name="description" content="${esc(omschrijving)}" />
+<link rel="canonical" href="https://allmid.gg/champion/${slug}.html" />
+<meta property="og:type" content="article" />
+<meta property="og:title" content="${titel}" />
+<meta property="og:description" content="${esc(omschrijving)}" />
+<meta name="theme-color" content="#06080c" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+<link rel="stylesheet" href="${G(CSS_PAD)}" />
+</head>
+<body>
+
+<header id="top-bar">
+  <div class="wrap">
+    <a class="brand" href="${G("index.html")}">
+      <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
+      <span class="badge">League of Legends</span>
+    </a>
+    <nav class="links">
+      <a href="${G("index.html#tiers")}">Tier lists</a>
+      <a href="${G("index.html#findings")}">Findings</a>
+      <a href="${G("index.html#data")}">The data</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">Download</a>
+  </div>
+</header>
+
+<main class="wrap guide">
+  <div class="cat-kop">
+    <img src="${G(`img/lol-champions/${c.alias.toLowerCase()}.png`)}" alt="" width="120" height="120" />
+    <div>
+      <h1>${esc(c.name)}</h1>
+      <p class="cat-titel">${esc(c.title)}</p>
+      <p class="cat-tags">
+        ${c.tags.map((t) => `<span>${esc(t)}</span>`).join("")}
+        ${c.resource ? `<span>${esc(c.resource)}</span>` : ""}
+        ${c.difficulty !== null ? `<span>Riot difficulty ${c.difficulty}/10</span>` : ""}
+      </p>
+    </div>
+  </div>
+
+  <section class="guide-blok">
+    <h2>No win rate here yet, and that is the honest answer</h2>
+    <p>
+      Every number on AllMid comes from games we recorded ourselves. Our data covers
+      <strong>League Classic</strong>, the Season&nbsp;3 remake &mdash; and ${esc(c.name)} was not in
+      the game in Season&nbsp;3, so there is no Classic match that could carry a statistic about
+      this champion. That is a fact about the mode, not a gap we are hiding.
+    </p>
+    <p>
+      Standard League queues are next. When there is a real sample behind ${esc(c.name)}, the
+      builds, counters and lane numbers land on this page &mdash; with the sample size attached,
+      the same as everywhere else here. Until then this page carries only what Riot publishes.
+    </p>
+  </section>
+
+  <section class="guide-blok">
+    <h2>Base stats</h2>
+    <p>Riot&rsquo;s own published values, patch ${esc(catalogus.version ?? "&mdash;")}. Level 1, before items.</p>
+    <div class="cat-stats">
+      <div><span>Health</span><b>${groei(st.hp, st.hpPerLevel)}</b></div>
+      <div><span>Attack damage</span><b>${groei(st.ad, st.adPerLevel)}</b></div>
+      <div><span>Armor</span><b>${groei(st.armor, st.armorPerLevel)}</b></div>
+      <div><span>Magic resist</span><b>${groei(st.mr, st.mrPerLevel)}</b></div>
+      <div><span>Move speed</span><b>${st.moveSpeed ?? "&mdash;"}</b></div>
+      <div><span>Attack range</span><b>${st.range ?? "&mdash;"}</b></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="legal">
+      AllMid is an independent, open-source project released under the MIT licence. It is not endorsed by
+      Riot Games and does not reflect the views or opinions of Riot Games or anyone officially involved in
+      producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered
+      trademarks of Riot Games, Inc.
+    </p>
+    <p class="legal">Questions, corrections or takedown requests: <a href="mailto:contact@allmid.gg">contact@allmid.gg</a>.</p>
+    <nav>
+      <a href="${G("index.html")}">Home</a>
+      <a href="https://github.com/allmidgg/desktop">GitHub</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>`;
+}
+
 function guidePagina(c) {
   const build = builds.champions?.[String(c.baseId)];
   const buildPerLane = new Map((build?.lanes ?? []).map((l) => [l.lane, l]));
@@ -1790,10 +1910,48 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 .modus.live .mb-n { color: var(--gold); opacity: 1; }
 .modus.soon { opacity: 0.62; }
 .modusbalk .mb-note { flex-basis: 100%; margin: 0.25rem 0 0; font-size: 0.76rem; color: var(--dim); }
+
+/* Championpagina zonder cijfers: alleen wat Riot zelf publiceert. */
+.cat-kop { display: flex; align-items: center; gap: 1.15rem; margin: 0 0 1.6rem; }
+.cat-kop img { border-radius: 10px; border: 1px solid var(--line); flex: none; }
+.cat-kop h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.6rem); }
+.cat-titel { margin: 0.15rem 0 0.6rem; color: var(--muted); font-size: 0.95rem; }
+.cat-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; }
+.cat-tags span {
+  font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.08em;
+  padding: 0.24rem 0.5rem; border-radius: 4px;
+  border: 1px solid var(--line); color: var(--dim);
+}
+.cat-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem; }
+.cat-stats div {
+  display: flex; flex-direction: column; gap: 0.2rem;
+  padding: 0.6rem 0.75rem; border: 1px solid var(--line); border-radius: 6px;
+}
+.cat-stats span {
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--dim);
+}
+.cat-stats b { font-size: 1.05rem; font-weight: 600; }
+.cat-groei { font-family: var(--mono); font-size: 0.66rem; color: var(--dim); letter-spacing: 0; text-transform: none; }
 `;
 writeFileSync(join(HERE, "style.css"), css, "utf8");
 
 const CSS_PAD = "style.css";
+
+/**
+ * The League of Legends catalogue, as Riot publishes it.
+ *
+ * Independent of anything anyone has played: it is what exists, not what has
+ * been recorded. That is what lets the site carry all 173 champions while the
+ * statistics still only cover Classic -- a page for a champion with no games
+ * says so, rather than not existing.
+ */
+const catalogus = existsSync(join(HERE, "data", "lol-catalog.json"))
+  ? JSON.parse(readFileSync(join(HERE, "data", "lol-catalog.json"), "utf8"))
+  : { version: null, champions: [], items: [] };
+
+/** Base ids of the champions Classic actually has. */
+const IN_CLASSIC = new Set(Object.values(roster).map((c) => c.baseId));
 
 /**
  * Which queues this site has numbers for, and which it does not yet.
@@ -2470,11 +2628,24 @@ writeFileSync(join(HERE, "index.html"), html, "utf8");
 
 mkdirSync(join(HERE, "champion"), { recursive: true });
 let guideBytes = 0;
+let guides = 0;
 for (const c of Object.values(roster)) {
   const full = champions.champions[String(c.baseId)];
   if (!full) continue;
   const pagina = guidePagina(full);
   guideBytes += pagina.length;
+  guides++;
+  writeFileSync(join(HERE, "champion", `${slugVan(c.name)}.html`), pagina, "utf8");
+}
+
+// The rest of League. A champion who never existed in Season 3 cannot have a
+// Classic statistic, so their page says that instead of not existing.
+let catPaginas = 0;
+for (const c of catalogus.champions) {
+  if (IN_CLASSIC.has(c.id)) continue;
+  const pagina = catalogusPagina(c);
+  guideBytes += pagina.length;
+  catPaginas++;
   writeFileSync(join(HERE, "champion", `${slugVan(c.name)}.html`), pagina, "utf8");
 }
 console.log(
@@ -2483,6 +2654,6 @@ console.log(
     (champions ? "" : "  (LET OP: zonder champions.json)"),
 );
 console.log(
-  `[build] champion/ geschreven -- ${Object.keys(roster).length} guidepagina's, ` +
+  `[build] champion/ geschreven -- ${guides} guides met data + ${catPaginas} zonder, ` +
     `${(guideBytes / 1024).toFixed(0)} KB samen, style.css ${(css.length / 1024).toFixed(0)} KB gedeeld`,
 );
