@@ -890,3 +890,173 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 .ck-wr.slecht { color: var(--wr-bad); }
 .ck-games { font-family: var(--mono); font-size: 0.62rem; color: var(--dim); }
 .ck-leeg { font-family: var(--mono); font-size: 0.62rem; color: var(--dim); }
+
+/* ── Toolbalk: welk spel, dan waar in dat spel ─────────────────────────── */
+#top-bar { position: sticky; top: 0; z-index: 60; backdrop-filter: blur(14px); }
+.balk-spellen {
+  background: rgba(4, 6, 10, 0.92);
+  border-bottom: 1px solid var(--line);
+}
+.balk-spellen .wrap { display: flex; align-items: center; gap: 1.5rem; padding-block: 0.5rem; }
+.balk-spellen .brand { margin-right: 0.25rem; }
+.spellen { display: flex; gap: 0.3rem; flex: 1; }
+.spel {
+  font-size: 0.82rem; font-weight: 600; color: var(--dim);
+  padding: 0.34rem 0.7rem; border-radius: 6px; border: 1px solid transparent;
+}
+.spel.aan {
+  color: var(--ink); border-color: var(--gold-dim);
+  background: rgba(231, 199, 110, 0.08);
+}
+.balk-bron {
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--dim); text-decoration: none; flex: none;
+}
+.balk-bron:hover { color: var(--gold); }
+
+.balk-nav { background: rgba(6, 8, 12, 0.9); border-bottom: 1px solid var(--line); }
+.balk-nav .wrap { display: flex; align-items: center; gap: 1rem; padding-block: 0.45rem; }
+.secties { display: flex; gap: 0.15rem; flex-wrap: wrap; }
+.secties a {
+  position: relative; text-decoration: none;
+  font-size: 0.86rem; font-weight: 600; color: var(--dim);
+  padding: 0.5rem 0.7rem; border-radius: 6px;
+  display: inline-flex; align-items: center; gap: 0.35rem;
+}
+.secties a:hover { color: var(--ink); background: rgba(255, 255, 255, 0.04); }
+.secties a[aria-current="page"] { color: var(--gold); }
+.secties a[aria-current="page"]::after {
+  content: ""; position: absolute; left: 0.7rem; right: 0.7rem; bottom: -0.45rem;
+  height: 2px; background: var(--gold); border-radius: 2px;
+}
+.nav-merk {
+  font-family: var(--mono); font-size: 0.54rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--gold);
+  border: 1px solid var(--gold-dim); border-radius: 3px;
+  padding: 0.1rem 0.26rem; line-height: 1;
+}
+
+.kopzoek { position: relative; margin-left: auto; flex: 0 1 260px; }
+#kopzoek-veld {
+  width: 100%; padding: 0.44rem 0.7rem; border-radius: 6px;
+  border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04);
+  color: var(--ink); font: inherit; font-size: 0.84rem;
+}
+#kopzoek-veld::placeholder { color: var(--dim); }
+#kopzoek-veld:focus-visible { outline: none; border-color: var(--gold-dim); background: rgba(255, 255, 255, 0.07); }
+.kopzoek-uit {
+  position: absolute; top: calc(100% + 0.35rem); left: 0; right: 0; z-index: 70;
+  background: #0a0d14; border: 1px solid var(--line); border-radius: 8px;
+  overflow: hidden; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.9);
+}
+.kopzoek-uit a {
+  display: block; padding: 0.5rem 0.7rem; font-size: 0.86rem;
+  color: var(--muted); text-decoration: none;
+}
+.kopzoek-uit a:hover { background: rgba(231, 199, 110, 0.1); color: var(--ink); }
+
+@media (max-width: 900px) {
+  .balk-nav .wrap { flex-wrap: wrap; }
+  .kopzoek { flex-basis: 100%; margin-left: 0; order: 3; }
+}
+
+/* ── Voorpagina: League of Legends ─────────────────────────────────────── */
+.lol-held { position: relative; overflow: hidden; padding-block: clamp(3rem, 7vw, 5.5rem); }
+.lol-held-dek { position: absolute; inset: 0; opacity: 0.2; pointer-events: none; }
+.lol-held-dek::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(120% 90% at 70% 0%, transparent 0%, var(--bg) 72%);
+}
+.lol-held .wrap {
+  position: relative; display: grid; align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: clamp(2rem, 5vw, 4rem);
+}
+@media (max-width: 1000px) { .lol-held .wrap { grid-template-columns: 1fr; } }
+.lol-held h1 { font-size: clamp(2.3rem, 5vw, 3.9rem); margin: 0 0 1.3rem; }
+.lol-held h1 em { font-style: normal; color: var(--gold); }
+.lol-held .lede { font-size: clamp(1rem, 0.96rem + 0.35vw, 1.14rem); color: var(--muted); max-width: 50ch; margin: 0 0 1.9rem; }
+.lol-held-beeld {
+  border-radius: 12px; overflow: hidden; border: 1px solid var(--line);
+  background: linear-gradient(150deg, rgba(231, 199, 110, 0.07), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 32px 70px -34px rgba(0, 0, 0, 0.95);
+  min-height: 240px; display: grid; place-items: center;
+}
+.lol-held-beeld img { display: block; width: 100%; height: auto; }
+
+/* Secties */
+.band.alt { background: rgba(255, 255, 255, 0.014); }
+.sectiekop { max-width: 62ch; margin: 0 0 2.2rem; }
+.sectiekop h2 { margin: 0 0 0.75rem; font-size: clamp(1.6rem, 3vw, 2.3rem); }
+.sectielede { margin: 0; color: var(--muted); font-size: 0.97rem; }
+
+/* Kenmerkblokken: beeld en tekst, om en om */
+.kenmerken { display: grid; gap: clamp(1.6rem, 3vw, 2.6rem); }
+.kenmerk {
+  display: grid; align-items: center; gap: clamp(1.2rem, 3vw, 3rem);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+}
+.kenmerk.gedraaid .kenmerk-beeld { order: 2; }
+@media (max-width: 860px) {
+  .kenmerk, .kenmerk.gedraaid { grid-template-columns: 1fr; }
+  .kenmerk.gedraaid .kenmerk-beeld { order: 0; }
+}
+.kenmerk-beeld {
+  border-radius: 11px; overflow: hidden; border: 1px solid var(--line);
+  background: linear-gradient(155deg, rgba(231, 199, 110, 0.06), rgba(255, 255, 255, 0.015));
+  min-height: 210px; display: grid; place-items: center;
+  box-shadow: 0 24px 54px -30px rgba(0, 0, 0, 0.9);
+}
+.kenmerk-beeld img { display: block; width: 100%; height: auto; }
+/* Nog geen screenshot: een net vlak in plaats van een kapot icoontje. */
+.kenmerk-wacht {
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--dim);
+}
+.kenmerk-label {
+  display: inline-block; margin: 0 0 0.6rem;
+  font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--gold);
+  border: 1px solid var(--gold-dim); border-radius: 4px; padding: 0.22rem 0.46rem;
+}
+.kenmerk-tekst h3 { margin: 0 0 0.7rem; font-size: clamp(1.15rem, 2vw, 1.5rem); }
+.kenmerk-tekst p { margin: 0; color: var(--muted); font-size: 0.93rem; max-width: 52ch; }
+
+/* Rosterstrip */
+.rosterstrip { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0 0 1.5rem; }
+.rosterstrip img { border-radius: 8px; border: 1px solid var(--line); display: block; }
+.rosterstrip a { line-height: 0; transition: transform 0.15s; }
+.rosterstrip a:hover { transform: translateY(-3px); }
+.rosterstrip a:hover img { border-color: var(--gold-dim); }
+
+/* Classic-uitgelicht */
+.spot { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: clamp(1.5rem, 4vw, 3.5rem); align-items: center; }
+@media (max-width: 900px) { .spot { grid-template-columns: 1fr; } }
+.spot-tekst h2 { margin: 0 0 0.9rem; font-size: clamp(1.5rem, 3vw, 2.2rem); }
+.spot-tekst p { color: var(--muted); font-size: 0.95rem; margin: 0 0 0.9rem; max-width: 56ch; }
+.spot-tekst strong { color: var(--ink); font-weight: 600; }
+.spotcijfers { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.spotcijfers div {
+  padding: 1rem 1.1rem; border: 1px solid var(--line); border-radius: 9px;
+  background: rgba(255, 255, 255, 0.015);
+}
+.spotcijfers b { display: block; font-family: var(--mono); font-size: 1.5rem; font-weight: 700; color: var(--gold); }
+.spotcijfers span { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+
+/* Wel/niet */
+.tweeluik { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 800px) { .tweeluik { grid-template-columns: 1fr; } }
+.tl-kolom { padding: 1.3rem 1.4rem; border: 1px solid var(--line); border-radius: 10px; }
+.tl-kolom h3 { margin: 0 0 0.9rem; font-size: 1.05rem; }
+.tl-kolom ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.55rem; }
+.tl-kolom li { position: relative; padding-left: 1.5rem; font-size: 0.9rem; color: var(--muted); }
+.tl-kolom li::before { position: absolute; left: 0; font-weight: 700; }
+.tl-ja { border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.05); }
+.tl-ja li::before { content: "\2713"; color: var(--gold); }
+.tl-nee li::before { content: "\00d7"; color: var(--wr-bad); }
+.tl-waarom { margin: 1.1rem 0 0; font-size: 0.84rem; color: var(--dim); }
+
+/* Download */
+.downloadblok { text-align: center; display: grid; justify-items: center; gap: 0.9rem; }
+.downloadblok h2 { margin: 0; font-size: clamp(1.6rem, 3vw, 2.3rem); }
+.downloadblok p { margin: 0; color: var(--muted); }

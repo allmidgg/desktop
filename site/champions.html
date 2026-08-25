@@ -18,18 +18,24 @@
 <body>
 
 <header id="top-bar">
-  <div class="wrap">
-    <a class="brand" href="index.html">
-      <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
-      <span class="badge">League of Legends</span>
-    </a>
-    <nav class="links">
-      <a href="champions.html" aria-current="page">Champions</a>
-      <a href="index.html#tiers">Tier lists</a>
-      <a href="index.html#findings">Findings</a>
-      <a href="index.html#data">The data</a>
-    </nav>
-    <a class="btn btn-primary btn-sm" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">Download</a>
+  <div class="balk-spellen">
+    <div class="wrap">
+      <a class="brand" href="index.html">
+        <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
+      </a>
+      <div class="spellen"><span class="spel aan">League of Legends</span></div>
+      <a class="balk-bron" href="https://github.com/allmidgg/desktop">Open source</a>
+    </div>
+  </div>
+  <div class="balk-nav">
+    <div class="wrap">
+      <nav class="secties"><a href="index.html">Home</a><a href="champions.html" aria-current="page">Champions</a><a href="classic.html#tiers">Tier list</a><a href="classic.html">Classic<span class="nav-merk">data</span></a><a href="index.html#app">The app</a><a href="index.html#overlay">Overlay</a></nav>
+      <form class="kopzoek" role="search" data-op="">
+        <input type="search" id="kopzoek-veld" placeholder="Search champions" autocomplete="off" aria-label="Search champions" />
+        <div class="kopzoek-uit" id="kopzoek-uit" hidden></div>
+      </form>
+      <a class="btn btn-primary btn-sm" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">Download</a>
+    </div>
   </div>
 </header>
 
@@ -1044,6 +1050,51 @@
     pas();
   });
   pas();
+})();
+</script>
+<script id="zoek-data" type="application/json">[["Aatrox","aatrox"],["Ahri","ahri"],["Akali","akali"],["Akshan","akshan"],["Alistar","alistar"],["Ambessa","ambessa"],["Amumu","amumu"],["Anivia","anivia"],["Annie","annie"],["Aphelios","aphelios"],["Ashe","ashe"],["Aurelion Sol","aurelionsol"],["Aurora","aurora"],["Azir","azir"],["Bard","bard"],["Bel'Veth","belveth"],["Blitzcrank","blitzcrank"],["Brand","brand"],["Braum","braum"],["Briar","briar"],["Caitlyn","caitlyn"],["Camille","camille"],["Cassiopeia","cassiopeia"],["Cho'Gath","chogath"],["Corki","corki"],["Darius","darius"],["Diana","diana"],["Dr. Mundo","drmundo"],["Draven","draven"],["Ekko","ekko"],["Elise","elise"],["Evelynn","evelynn"],["Ezreal","ezreal"],["Fiddlesticks","fiddlesticks"],["Fiora","fiora"],["Fizz","fizz"],["Galio","galio"],["Gangplank","gangplank"],["Garen","garen"],["Gnar","gnar"],["Gragas","gragas"],["Graves","graves"],["Gwen","gwen"],["Hecarim","hecarim"],["Heimerdinger","heimerdinger"],["Hwei","hwei"],["Illaoi","illaoi"],["Irelia","irelia"],["Ivern","ivern"],["Janna","janna"],["Jarvan IV","jarvaniv"],["Jax","jax"],["Jayce","jayce"],["Jhin","jhin"],["Jinx","jinx"],["K'Sante","ksante"],["Kai'Sa","kaisa"],["Kalista","kalista"],["Karma","karma"],["Karthus","karthus"],["Kassadin","kassadin"],["Katarina","katarina"],["Kayle","kayle"],["Kayn","kayn"],["Kennen","kennen"],["Kha'Zix","khazix"],["Kindred","kindred"],["Kled","kled"],["Kog'Maw","kogmaw"],["LeBlanc","leblanc"],["Lee Sin","leesin"],["Leona","leona"],["Lillia","lillia"],["Lissandra","lissandra"],["Locke","locke"],["Lucian","lucian"],["Lulu","lulu"],["Lux","lux"],["Malphite","malphite"],["Malzahar","malzahar"],["Maokai","maokai"],["Master Yi","masteryi"],["Mel","mel"],["Milio","milio"],["Miss Fortune","missfortune"],["Mordekaiser","mordekaiser"],["Morgana","morgana"],["Naafiri","naafiri"],["Nami","nami"],["Nasus","nasus"],["Nautilus","nautilus"],["Neeko","neeko"],["Nidalee","nidalee"],["Nilah","nilah"],["Nocturne","nocturne"],["Nunu & Willump","nunuwillump"],["Olaf","olaf"],["Orianna","orianna"],["Ornn","ornn"],["Pantheon","pantheon"],["Poppy","poppy"],["Pyke","pyke"],["Qiyana","qiyana"],["Quinn","quinn"],["Rakan","rakan"],["Rammus","rammus"],["Rek'Sai","reksai"],["Rell","rell"],["Renata Glasc","renataglasc"],["Renekton","renekton"],["Rengar","rengar"],["Riven","riven"],["Rumble","rumble"],["Ryze","ryze"],["Samira","samira"],["Sejuani","sejuani"],["Senna","senna"],["Seraphine","seraphine"],["Sett","sett"],["Shaco","shaco"],["Shen","shen"],["Shyvana","shyvana"],["Singed","singed"],["Sion","sion"],["Sivir","sivir"],["Skarner","skarner"],["Smolder","smolder"],["Sona","sona"],["Soraka","soraka"],["Swain","swain"],["Sylas","sylas"],["Syndra","syndra"],["Tahm Kench","tahmkench"],["Taliyah","taliyah"],["Talon","talon"],["Taric","taric"],["Teemo","teemo"],["Thresh","thresh"],["Tristana","tristana"],["Trundle","trundle"],["Tryndamere","tryndamere"],["Twisted Fate","twistedfate"],["Twitch","twitch"],["Udyr","udyr"],["Urgot","urgot"],["Varus","varus"],["Vayne","vayne"],["Veigar","veigar"],["Vel'Koz","velkoz"],["Vex","vex"],["Vi","vi"],["Viego","viego"],["Viktor","viktor"],["Vladimir","vladimir"],["Volibear","volibear"],["Warwick","warwick"],["Wukong","wukong"],["Xayah","xayah"],["Xerath","xerath"],["Xin Zhao","xinzhao"],["Yasuo","yasuo"],["Yone","yone"],["Yorick","yorick"],["Yunara","yunara"],["Yuumi","yuumi"],["Zaahen","zaahen"],["Zac","zac"],["Zed","zed"],["Zeri","zeri"],["Ziggs","ziggs"],["Zilean","zilean"],["Zoe","zoe"],["Zyra","zyra"]]</script>
+<script>
+(function () {
+  var veld = document.getElementById("kopzoek-veld");
+  var uit = document.getElementById("kopzoek-uit");
+  var data = document.getElementById("zoek-data");
+  if (!veld || !uit || !data) return;
+  var rijen = JSON.parse(data.textContent);
+  var op = veld.closest("[data-op]").dataset.op || "";
+
+  function toon() {
+    var q = veld.value.trim().toLowerCase();
+    if (!q) { uit.hidden = true; uit.innerHTML = ""; return; }
+    // Names that start with the query first: typing "ka" should offer Kayle
+    // before Blitzcrank, even though both contain it.
+    var treffers = rijen
+      .filter(function (r) { return r[0].toLowerCase().indexOf(q) !== -1; })
+      .sort(function (a, b) {
+        var av = a[0].toLowerCase().indexOf(q) === 0 ? 0 : 1;
+        var bv = b[0].toLowerCase().indexOf(q) === 0 ? 0 : 1;
+        return av - bv || a[0].localeCompare(b[0]);
+      })
+      .slice(0, 8);
+    if (!treffers.length) { uit.hidden = true; uit.innerHTML = ""; return; }
+    uit.innerHTML = treffers
+      .map(function (r) { return '<a href="' + op + 'champion/' + r[1] + '.html">' + r[0] + "</a>"; })
+      .join("");
+    uit.hidden = false;
+  }
+
+  veld.addEventListener("input", toon);
+  veld.addEventListener("focus", toon);
+  // A click inside the results must not close them before it lands.
+  document.addEventListener("mousedown", function (e) {
+    if (!uit.contains(e.target) && e.target !== veld) { uit.hidden = true; }
+  });
+  veld.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { uit.hidden = true; veld.blur(); }
+    if (e.key === "Enter") {
+      var eerste = uit.querySelector("a");
+      if (eerste && !uit.hidden) { e.preventDefault(); window.location.href = eerste.href; }
+    }
+  });
 })();
 </script>
 </body>

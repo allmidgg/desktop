@@ -827,6 +827,436 @@ function guideLane(laneRegel, buildRegel, ijk, isOpen) {
  * Search and filtering are client-side over markup that is already complete,
  * so the page works with the script switched off -- it just shows everybody.
  */
+/**
+ * The front page: League of Legends, and what AllMid does with it.
+ *
+ * Deliberately not the Classic page. Classic is the queue we have data for
+ * today and it keeps its own page and its own place in the nav; the front of
+ * the site is about the app, the roster and the method, because those hold
+ * whichever queue the numbers eventually come from.
+ */
+function leaguePagina() {
+  const voorbeeld = catalogus.champions
+    .filter((c) => IN_CLASSIC.has(c.id))
+    .slice(0, 14)
+    .map(
+      (c) =>
+        `<a href="champion/${slugVan(c.name)}.html" title="${esc(c.name)}">
+          <img src="${iconOf(c.id)}" alt="${esc(c.name)}" width="56" height="56" loading="lazy" />
+        </a>`,
+    )
+    .join("");
+
+  const heldBeeld = existsSync(join(HERE, "img/app/allmid-main.png"))
+    ? `<img src="img/app/allmid-main.png" alt="The AllMid desktop app" />`
+    : `<span class="kenmerk-wacht">The app</span>`;
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AllMid &mdash; League of Legends stats and overlay</title>
+<meta name="description" content="A free, open-source League of Legends companion: builds, counters and an in-game overlay, with the sample size on every number. ${n(T.games)} games recorded so far." />
+<link rel="canonical" href="https://allmid.gg/" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="AllMid &mdash; League of Legends stats and overlay" />
+<meta property="og:description" content="Builds, counters and an in-game overlay for League of Legends. Free, open source, and every number carries the sample size it came from." />
+<meta property="og:url" content="https://allmid.gg/" />
+<meta property="og:image" content="https://allmid.gg/img/meta.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="theme-color" content="#06080c" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+<link rel="stylesheet" href="${CSS_PAD}" />
+<script>
+  if ("IntersectionObserver" in window) document.documentElement.classList.add("reveal");
+</script>
+</head>
+<body>
+
+${toolbalk("home")}
+
+<section class="lol-held">
+  <div class="lol-held-dek" aria-hidden="true"><div class="mosaic">${mosaicTiles()}</div></div>
+  <div class="wrap">
+    <div class="rise">
+      <p class="eyebrow">Free &middot; Open source &middot; MIT &middot; Windows</p>
+      <h1>Everything you need <em>mid-game</em>, and nothing you have to take on faith.</h1>
+      <p class="lede">
+        A League of Legends companion that reads your own client, sets your masteries before the
+        timer runs out, and puts objective timers on top of the game. Every figure it shows carries
+        the number of games behind it &mdash; because a win rate without a sample size is just a
+        number that looks like an answer.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 11 5 5 5-5" /><path d="M4 20h16" /></svg>
+          Download for Windows
+        </a>
+        <a class="btn btn-ghost" href="champions.html">Browse ${catalogus.champions.length} champions</a>
+      </div>
+      <p class="cta-note">Windows 10 &amp; 11 &middot; no account &middot; no telemetry</p>
+    </div>
+    <div class="lol-held-beeld rise">${heldBeeld}</div>
+  </div>
+</section>
+
+${modusBalk()}
+
+<section class="band" id="app">
+  <div class="wrap">
+    <div class="sectiekop rise">
+      <p class="eyebrow">The app</p>
+      <h2>Six things it does &mdash; all of them from the client you already have</h2>
+      <p class="sectielede">
+        No injection, no memory reading, no DLL in the game process. It talks to the same local
+        APIs Riot ships with the client, which is why it is safe to run and why it can never show
+        you anything the game did not already tell everybody.
+      </p>
+    </div>
+    <div class="kenmerken">${KENMERKEN.map(kenmerkBlok).join("")}</div>
+  </div>
+</section>
+
+<section class="band alt" id="roster">
+  <div class="wrap rise">
+    <div class="sectiekop">
+      <p class="eyebrow">Champions</p>
+      <h2>All ${catalogus.champions.length}, and we tell you which ones we have numbers for</h2>
+      <p class="sectielede">
+        ${Object.keys(roster).length} champions carry win rates, builds and lane matchups from
+        ${n(T.games)} recorded games. The rest have a page too &mdash; with Riot&rsquo;s published
+        base stats and a straight answer about why there is no percentage on it yet.
+      </p>
+    </div>
+    <div class="rosterstrip">${voorbeeld}</div>
+    <a class="btn btn-ghost" href="champions.html">Open the champion list</a>
+  </div>
+</section>
+
+<section class="band" id="classic-spot">
+  <div class="wrap rise">
+    <div class="spot">
+      <div class="spot-tekst">
+        <p class="eyebrow">Where the data comes from</p>
+        <h2>Nobody covers League Classic. So we counted it ourselves.</h2>
+        <p>
+          Riot&rsquo;s public API does not carry Classic &mdash; its map and its queues are absent
+          from their own published lists, and its match history is deliberately not exposed. So the
+          numbers had to come from somewhere else: the client&rsquo;s own local APIs, and players
+          who chose to share the games they played.
+        </p>
+        <p>
+          <strong>${n(T.games)} games</strong> across <strong>${n(T.players)} players</strong>,
+          all 63 champions, split by lane, with every sample size attached.
+        </p>
+        <a class="btn btn-primary btn-sm" href="classic.html">See the Classic data</a>
+      </div>
+      <div class="spotcijfers">
+        <div><b>${n(T.games)}</b><span>Games recorded</span></div>
+        <div><b>${n(T.players)}</b><span>Players seen</span></div>
+        <div><b>63</b><span>Champions covered</span></div>
+        <div><b>5</b><span>Lanes ranked</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band alt" id="overlay">
+  <div class="wrap rise">
+    <div class="sectiekop">
+      <p class="eyebrow">The overlay</p>
+      <h2>What it puts on your screen, and what it never will</h2>
+    </div>
+    <div class="tweeluik">
+      <div class="tl-kolom tl-ja">
+        <h3>On the panel</h3>
+        <ul>
+          <li>Objective respawn timers, counted from a kill the whole lobby watched</li>
+          <li>The gold difference in items on the field</li>
+          <li>Your own skill order, as you level it</li>
+          <li>A nudge when your trinket slot is sitting empty</li>
+        </ul>
+      </div>
+      <div class="tl-kolom tl-nee">
+        <h3>Never on it</h3>
+        <ul>
+          <li>Enemy ability cooldowns</li>
+          <li>Ultimate timers on portraits</li>
+          <li>Ward positions</li>
+          <li>Anything the game did not already show both teams</li>
+        </ul>
+        <p class="tl-waarom">
+          Not because we could not build it &mdash; because Riot&rsquo;s third-party rules forbid
+          exactly this, and a tool that gets you banned is not a tool.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="get">
+  <div class="wrap rise downloadblok">
+    <h2>Get it</h2>
+    <p>Windows 10 and 11. No account, no telemetry, no installer surprises.</p>
+    <a class="btn btn-primary" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 11 5 5 5-5" /><path d="M4 20h16" /></svg>
+      Download for Windows
+    </a>
+    <p class="cta-note">Or <a href="https://github.com/allmidgg/desktop">read the source</a> first.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p class="legal">
+      AllMid is an independent, open-source project released under the MIT licence. It is not endorsed by
+      Riot Games and does not reflect the views or opinions of Riot Games or anyone officially involved in
+      producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered
+      trademarks of Riot Games, Inc.
+    </p>
+    <p class="legal">Questions, corrections or takedown requests: <a href="mailto:contact@allmid.gg">contact@allmid.gg</a>.</p>
+    <nav>
+      <a href="classic.html">Classic</a>
+      <a href="champions.html">Champions</a>
+      <a href="https://github.com/allmidgg/desktop">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+${zoekIndex()}
+${ZOEK_SCRIPT}
+<script>
+(function () {
+  if (!("IntersectionObserver" in window)) { document.documentElement.classList.remove("reveal"); return; }
+  var risers = [].slice.call(document.querySelectorAll(".rise"));
+  var waarnemer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add("op"); waarnemer.unobserve(e.target); }
+    });
+  }, { rootMargin: "0px 0px -8% 0px" });
+  risers.forEach(function (r) { waarnemer.observe(r); });
+  // A reveal that never fires must never cost the text.
+  setTimeout(function () { risers.forEach(function (r) { r.classList.add("op"); }); }, 3000);
+})();
+</script>
+</body>
+</html>`;
+}
+
+/**
+ * What the app actually does, one claim per block.
+ *
+ * Every entry here describes a feature that exists in the shipped app. That is
+ * the rule: a showcase is a set of promises, and a promise about software is
+ * only worth making about software that runs. `beeld` names a screenshot of
+ * the real thing -- never an illustration of it, because a drawing of a feature
+ * is a claim you cannot check.
+ */
+const KENMERKEN = [
+  {
+    id: "select",
+    label: "Champion select",
+    titel: "Your masteries, set before the timer runs out",
+    tekst:
+      "Tick one box and the app keeps your mastery page matched to whatever you picked, " +
+      "including when you change your mind halfway. Underneath it: what wins on your champion " +
+      "in your lane, who you are up against, and which counters actually beat them.",
+    beeld: "img/app/champion-select.png",
+  },
+  {
+    id: "overlay",
+    label: "In-game overlay",
+    titel: "Objective timers, on top of the game",
+    tekst:
+      "A dragon falling puts a banner on all ten screens, so counting forward from it is " +
+      "arithmetic, not information you were not given. The panel carries that, the gold " +
+      "difference in items on the field, your skill order so far, and a nudge when your " +
+      "trinket slot is sitting empty.",
+    beeld: "img/app/overlay.png",
+  },
+  {
+    id: "builds",
+    label: "Builds",
+    titel: "What people build, not what somebody thinks they should",
+    tekst:
+      "Items, boots and summoner spells ranked by what actually won, per lane, with the " +
+      "number of games behind every row. No editor's picks and no theory -- if a build is " +
+      "listed it is because people played it and it worked.",
+    beeld: "img/app/builds.png",
+  },
+  {
+    id: "matchups",
+    label: "Matchups",
+    titel: "Counters that hold up per lane",
+    tekst:
+      "A matchup pooled across every lane tells you a bot-lane marksman beats a mid-lane mage, " +
+      "which is true and useless. Ours are computed per lane and filtered by how often that " +
+      "pairing actually happens, so a counter is a counter where you will meet it.",
+    beeld: "img/app/matchups.png",
+  },
+  {
+    id: "sample",
+    label: "Every number",
+    titel: "Sample size attached, always",
+    tekst:
+      "A 62% win rate over nine games is noise wearing a percentage. Every figure on the site " +
+      "and in the app carries the count it came from, and anything too thin to mean something " +
+      "says so instead of showing a number.",
+    beeld: "img/app/sample.png",
+  },
+  {
+    id: "lokaal",
+    label: "Local first",
+    titel: "No account, no telemetry, open source",
+    tekst:
+      "It reads your own client on your own machine and keeps its database in a file you can " +
+      "open. Sharing your games is a switch you turn on, not a condition of using it. The whole " +
+      "thing is MIT-licensed and the source is public.",
+    beeld: "img/app/privacy.png",
+  },
+];
+
+/** One showcase block, image left or right depending on its position. */
+function kenmerkBlok(k, i) {
+  const heeftBeeld = existsSync(join(HERE, k.beeld));
+  return `<article class="kenmerk${i % 2 ? " gedraaid" : ""} rise" id="${k.id}">
+    <div class="kenmerk-beeld">
+      ${heeftBeeld ? `<img src="${k.beeld}" alt="${esc(k.titel)}" loading="lazy" />` : `<span class="kenmerk-wacht">${esc(k.label)}</span>`}
+    </div>
+    <div class="kenmerk-tekst">
+      <p class="kenmerk-label">${esc(k.label)}</p>
+      <h3>${esc(k.titel)}</h3>
+      <p>${k.tekst}</p>
+    </div>
+  </article>`;
+}
+
+/**
+ * The games AllMid covers.
+ *
+ * An array rather than markup because the second entry is the whole point: the
+ * plan is more games, and adding one should be a line here rather than a
+ * rewrite of every header on the site. Nothing is listed before it is real --
+ * a row of greyed-out logos for games we have not started is a promise, and
+ * this site does not make those.
+ */
+const SPELLEN = [{ slug: "lol", naam: "League of Legends", live: true }];
+
+/**
+ * The header: which game, then where in it.
+ *
+ * Two rows on purpose. The top one answers "which game am I looking at", which
+ * only matters once there is more than one; the bottom one is the actual
+ * navigation. Keeping them apart means adding a game later does not push the
+ * sections around.
+ *
+ * `hier` marks the current section so the nav can say where you are. `op`
+ * prefixes every link, so a page one directory down passes "../".
+ */
+function toolbalk(hier = "home", op = "") {
+  const spellen = SPELLEN.map(
+    (g) =>
+      `<span class="spel${g.live ? " aan" : ""}">${esc(g.naam)}</span>`,
+  ).join("");
+
+  const secties = [
+    { id: "home", naam: "Home", href: `${op}index.html` },
+    { id: "champions", naam: "Champions", href: `${op}champions.html` },
+    { id: "tiers", naam: "Tier list", href: `${op}classic.html#tiers` },
+    { id: "classic", naam: "Classic", href: `${op}classic.html`, merk: "data" },
+    { id: "app", naam: "The app", href: `${op}index.html#app` },
+    { id: "overlay", naam: "Overlay", href: `${op}index.html#overlay` },
+  ]
+    .map(
+      (x) =>
+        `<a href="${x.href}"${x.id === hier ? ' aria-current="page"' : ""}>${esc(x.naam)}` +
+        `${x.merk ? `<span class="nav-merk">${esc(x.merk)}</span>` : ""}</a>`,
+    )
+    .join("");
+
+  return `<header id="top-bar">
+  <div class="balk-spellen">
+    <div class="wrap">
+      <a class="brand" href="${op}index.html">
+        <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
+      </a>
+      <div class="spellen">${spellen}</div>
+      <a class="balk-bron" href="https://github.com/allmidgg/desktop">Open source</a>
+    </div>
+  </div>
+  <div class="balk-nav">
+    <div class="wrap">
+      <nav class="secties">${secties}</nav>
+      <form class="kopzoek" role="search" data-op="${op}">
+        <input type="search" id="kopzoek-veld" placeholder="Search champions" autocomplete="off" aria-label="Search champions" />
+        <div class="kopzoek-uit" id="kopzoek-uit" hidden></div>
+      </form>
+      <a class="btn btn-primary btn-sm" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">Download</a>
+    </div>
+  </div>
+</header>`;
+}
+
+/**
+ * The index the header search reads.
+ *
+ * Emitted once per page as JSON rather than fetched, because the whole site is
+ * static files -- a fetch would need a server the site does not have.
+ */
+function zoekIndex() {
+  const rijen = catalogus.champions.map((c) => [c.name, slugVan(c.name)]);
+  return `<script id="zoek-data" type="application/json">${JSON.stringify(rijen)}</script>`;
+}
+
+/** Wires the header search up. Shared by every page that has a header. */
+const ZOEK_SCRIPT = `<script>
+(function () {
+  var veld = document.getElementById("kopzoek-veld");
+  var uit = document.getElementById("kopzoek-uit");
+  var data = document.getElementById("zoek-data");
+  if (!veld || !uit || !data) return;
+  var rijen = JSON.parse(data.textContent);
+  var op = veld.closest("[data-op]").dataset.op || "";
+
+  function toon() {
+    var q = veld.value.trim().toLowerCase();
+    if (!q) { uit.hidden = true; uit.innerHTML = ""; return; }
+    // Names that start with the query first: typing "ka" should offer Kayle
+    // before Blitzcrank, even though both contain it.
+    var treffers = rijen
+      .filter(function (r) { return r[0].toLowerCase().indexOf(q) !== -1; })
+      .sort(function (a, b) {
+        var av = a[0].toLowerCase().indexOf(q) === 0 ? 0 : 1;
+        var bv = b[0].toLowerCase().indexOf(q) === 0 ? 0 : 1;
+        return av - bv || a[0].localeCompare(b[0]);
+      })
+      .slice(0, 8);
+    if (!treffers.length) { uit.hidden = true; uit.innerHTML = ""; return; }
+    uit.innerHTML = treffers
+      .map(function (r) { return '<a href="' + op + 'champion/' + r[1] + '.html">' + r[0] + "</a>"; })
+      .join("");
+    uit.hidden = false;
+  }
+
+  veld.addEventListener("input", toon);
+  veld.addEventListener("focus", toon);
+  // A click inside the results must not close them before it lands.
+  document.addEventListener("mousedown", function (e) {
+    if (!uit.contains(e.target) && e.target !== veld) { uit.hidden = true; }
+  });
+  veld.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { uit.hidden = true; veld.blur(); }
+    if (e.key === "Enter") {
+      var eerste = uit.querySelector("a");
+      if (eerste && !uit.hidden) { e.preventDefault(); window.location.href = eerste.href; }
+    }
+  });
+})();
+</script>`;
+
 function championsPagina() {
   // Riot's tag vocabulary, in the order players think about roles rather than
   // the order Data Dragon happens to emit them.
@@ -884,21 +1314,7 @@ function championsPagina() {
 </head>
 <body>
 
-<header id="top-bar">
-  <div class="wrap">
-    <a class="brand" href="index.html">
-      <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
-      <span class="badge">League of Legends</span>
-    </a>
-    <nav class="links">
-      <a href="champions.html" aria-current="page">Champions</a>
-      <a href="index.html#tiers">Tier lists</a>
-      <a href="index.html#findings">Findings</a>
-      <a href="index.html#data">The data</a>
-    </nav>
-    <a class="btn btn-primary btn-sm" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">Download</a>
-  </div>
-</header>
+${toolbalk("champions")}
 
 <main class="wrap champpagina">
   <div class="cp-kop">
@@ -985,6 +1401,8 @@ function championsPagina() {
   pas();
 })();
 </script>
+${zoekIndex()}
+${ZOEK_SCRIPT}
 </body>
 </html>`;
 }
@@ -1022,20 +1440,7 @@ function catalogusPagina(c) {
 </head>
 <body>
 
-<header id="top-bar">
-  <div class="wrap">
-    <a class="brand" href="${G("index.html")}">
-      <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
-      <span class="badge">League of Legends</span>
-    </a>
-    <nav class="links">
-      <a href="${G("index.html#tiers")}">Tier lists</a>
-      <a href="${G("index.html#findings")}">Findings</a>
-      <a href="${G("index.html#data")}">The data</a>
-    </nav>
-    <a class="btn btn-primary btn-sm" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">Download</a>
-  </div>
-</header>
+${toolbalk("champions", "../")}
 
 <main class="wrap guide">
   <div class="cat-kop">
@@ -1095,6 +1500,8 @@ function catalogusPagina(c) {
     </nav>
   </div>
 </footer>
+${zoekIndex()}
+${ZOEK_SCRIPT}
 </body>
 </html>`;
 }
@@ -1144,20 +1551,7 @@ function guidePagina(c) {
 </head>
 <body>
 
-<header id="top-bar">
-  <div class="wrap">
-    <a class="brand" href="${G("index.html")}">
-      <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
-      <span class="badge">League of Legends</span>
-    </a>
-    <nav class="links">
-      <a href="${G("index.html#tiers")}">Tier lists</a>
-      <a href="${G("index.html#findings")}">Findings</a>
-      <a href="${G("index.html#data")}">The data</a>
-    </nav>
-    <a class="btn btn-primary btn-sm" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">Download</a>
-  </div>
-</header>
+${toolbalk("champions", G(""))}
 
 <main class="wrap guide">
   <div class="guide-held">
@@ -1251,7 +1645,8 @@ function guidePagina(c) {
   toon(open ? open.dataset.lane : secties[0].dataset.lane);
 })();
 </script>
-
+${zoekIndex()}
+${ZOEK_SCRIPT}
 </body>
 </html>
 `;
@@ -2157,6 +2552,176 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 .ck-wr.slecht { color: var(--wr-bad); }
 .ck-games { font-family: var(--mono); font-size: 0.62rem; color: var(--dim); }
 .ck-leeg { font-family: var(--mono); font-size: 0.62rem; color: var(--dim); }
+
+/* ── Toolbalk: welk spel, dan waar in dat spel ─────────────────────────── */
+#top-bar { position: sticky; top: 0; z-index: 60; backdrop-filter: blur(14px); }
+.balk-spellen {
+  background: rgba(4, 6, 10, 0.92);
+  border-bottom: 1px solid var(--line);
+}
+.balk-spellen .wrap { display: flex; align-items: center; gap: 1.5rem; padding-block: 0.5rem; }
+.balk-spellen .brand { margin-right: 0.25rem; }
+.spellen { display: flex; gap: 0.3rem; flex: 1; }
+.spel {
+  font-size: 0.82rem; font-weight: 600; color: var(--dim);
+  padding: 0.34rem 0.7rem; border-radius: 6px; border: 1px solid transparent;
+}
+.spel.aan {
+  color: var(--ink); border-color: var(--gold-dim);
+  background: rgba(231, 199, 110, 0.08);
+}
+.balk-bron {
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--dim); text-decoration: none; flex: none;
+}
+.balk-bron:hover { color: var(--gold); }
+
+.balk-nav { background: rgba(6, 8, 12, 0.9); border-bottom: 1px solid var(--line); }
+.balk-nav .wrap { display: flex; align-items: center; gap: 1rem; padding-block: 0.45rem; }
+.secties { display: flex; gap: 0.15rem; flex-wrap: wrap; }
+.secties a {
+  position: relative; text-decoration: none;
+  font-size: 0.86rem; font-weight: 600; color: var(--dim);
+  padding: 0.5rem 0.7rem; border-radius: 6px;
+  display: inline-flex; align-items: center; gap: 0.35rem;
+}
+.secties a:hover { color: var(--ink); background: rgba(255, 255, 255, 0.04); }
+.secties a[aria-current="page"] { color: var(--gold); }
+.secties a[aria-current="page"]::after {
+  content: ""; position: absolute; left: 0.7rem; right: 0.7rem; bottom: -0.45rem;
+  height: 2px; background: var(--gold); border-radius: 2px;
+}
+.nav-merk {
+  font-family: var(--mono); font-size: 0.54rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--gold);
+  border: 1px solid var(--gold-dim); border-radius: 3px;
+  padding: 0.1rem 0.26rem; line-height: 1;
+}
+
+.kopzoek { position: relative; margin-left: auto; flex: 0 1 260px; }
+#kopzoek-veld {
+  width: 100%; padding: 0.44rem 0.7rem; border-radius: 6px;
+  border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04);
+  color: var(--ink); font: inherit; font-size: 0.84rem;
+}
+#kopzoek-veld::placeholder { color: var(--dim); }
+#kopzoek-veld:focus-visible { outline: none; border-color: var(--gold-dim); background: rgba(255, 255, 255, 0.07); }
+.kopzoek-uit {
+  position: absolute; top: calc(100% + 0.35rem); left: 0; right: 0; z-index: 70;
+  background: #0a0d14; border: 1px solid var(--line); border-radius: 8px;
+  overflow: hidden; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.9);
+}
+.kopzoek-uit a {
+  display: block; padding: 0.5rem 0.7rem; font-size: 0.86rem;
+  color: var(--muted); text-decoration: none;
+}
+.kopzoek-uit a:hover { background: rgba(231, 199, 110, 0.1); color: var(--ink); }
+
+@media (max-width: 900px) {
+  .balk-nav .wrap { flex-wrap: wrap; }
+  .kopzoek { flex-basis: 100%; margin-left: 0; order: 3; }
+}
+
+/* ── Voorpagina: League of Legends ─────────────────────────────────────── */
+.lol-held { position: relative; overflow: hidden; padding-block: clamp(3rem, 7vw, 5.5rem); }
+.lol-held-dek { position: absolute; inset: 0; opacity: 0.2; pointer-events: none; }
+.lol-held-dek::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(120% 90% at 70% 0%, transparent 0%, var(--bg) 72%);
+}
+.lol-held .wrap {
+  position: relative; display: grid; align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: clamp(2rem, 5vw, 4rem);
+}
+@media (max-width: 1000px) { .lol-held .wrap { grid-template-columns: 1fr; } }
+.lol-held h1 { font-size: clamp(2.3rem, 5vw, 3.9rem); margin: 0 0 1.3rem; }
+.lol-held h1 em { font-style: normal; color: var(--gold); }
+.lol-held .lede { font-size: clamp(1rem, 0.96rem + 0.35vw, 1.14rem); color: var(--muted); max-width: 50ch; margin: 0 0 1.9rem; }
+.lol-held-beeld {
+  border-radius: 12px; overflow: hidden; border: 1px solid var(--line);
+  background: linear-gradient(150deg, rgba(231, 199, 110, 0.07), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 32px 70px -34px rgba(0, 0, 0, 0.95);
+  min-height: 240px; display: grid; place-items: center;
+}
+.lol-held-beeld img { display: block; width: 100%; height: auto; }
+
+/* Secties */
+.band.alt { background: rgba(255, 255, 255, 0.014); }
+.sectiekop { max-width: 62ch; margin: 0 0 2.2rem; }
+.sectiekop h2 { margin: 0 0 0.75rem; font-size: clamp(1.6rem, 3vw, 2.3rem); }
+.sectielede { margin: 0; color: var(--muted); font-size: 0.97rem; }
+
+/* Kenmerkblokken: beeld en tekst, om en om */
+.kenmerken { display: grid; gap: clamp(1.6rem, 3vw, 2.6rem); }
+.kenmerk {
+  display: grid; align-items: center; gap: clamp(1.2rem, 3vw, 3rem);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+}
+.kenmerk.gedraaid .kenmerk-beeld { order: 2; }
+@media (max-width: 860px) {
+  .kenmerk, .kenmerk.gedraaid { grid-template-columns: 1fr; }
+  .kenmerk.gedraaid .kenmerk-beeld { order: 0; }
+}
+.kenmerk-beeld {
+  border-radius: 11px; overflow: hidden; border: 1px solid var(--line);
+  background: linear-gradient(155deg, rgba(231, 199, 110, 0.06), rgba(255, 255, 255, 0.015));
+  min-height: 210px; display: grid; place-items: center;
+  box-shadow: 0 24px 54px -30px rgba(0, 0, 0, 0.9);
+}
+.kenmerk-beeld img { display: block; width: 100%; height: auto; }
+/* Nog geen screenshot: een net vlak in plaats van een kapot icoontje. */
+.kenmerk-wacht {
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--dim);
+}
+.kenmerk-label {
+  display: inline-block; margin: 0 0 0.6rem;
+  font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--gold);
+  border: 1px solid var(--gold-dim); border-radius: 4px; padding: 0.22rem 0.46rem;
+}
+.kenmerk-tekst h3 { margin: 0 0 0.7rem; font-size: clamp(1.15rem, 2vw, 1.5rem); }
+.kenmerk-tekst p { margin: 0; color: var(--muted); font-size: 0.93rem; max-width: 52ch; }
+
+/* Rosterstrip */
+.rosterstrip { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0 0 1.5rem; }
+.rosterstrip img { border-radius: 8px; border: 1px solid var(--line); display: block; }
+.rosterstrip a { line-height: 0; transition: transform 0.15s; }
+.rosterstrip a:hover { transform: translateY(-3px); }
+.rosterstrip a:hover img { border-color: var(--gold-dim); }
+
+/* Classic-uitgelicht */
+.spot { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: clamp(1.5rem, 4vw, 3.5rem); align-items: center; }
+@media (max-width: 900px) { .spot { grid-template-columns: 1fr; } }
+.spot-tekst h2 { margin: 0 0 0.9rem; font-size: clamp(1.5rem, 3vw, 2.2rem); }
+.spot-tekst p { color: var(--muted); font-size: 0.95rem; margin: 0 0 0.9rem; max-width: 56ch; }
+.spot-tekst strong { color: var(--ink); font-weight: 600; }
+.spotcijfers { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.spotcijfers div {
+  padding: 1rem 1.1rem; border: 1px solid var(--line); border-radius: 9px;
+  background: rgba(255, 255, 255, 0.015);
+}
+.spotcijfers b { display: block; font-family: var(--mono); font-size: 1.5rem; font-weight: 700; color: var(--gold); }
+.spotcijfers span { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+
+/* Wel/niet */
+.tweeluik { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 800px) { .tweeluik { grid-template-columns: 1fr; } }
+.tl-kolom { padding: 1.3rem 1.4rem; border: 1px solid var(--line); border-radius: 10px; }
+.tl-kolom h3 { margin: 0 0 0.9rem; font-size: 1.05rem; }
+.tl-kolom ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.55rem; }
+.tl-kolom li { position: relative; padding-left: 1.5rem; font-size: 0.9rem; color: var(--muted); }
+.tl-kolom li::before { position: absolute; left: 0; font-weight: 700; }
+.tl-ja { border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.05); }
+.tl-ja li::before { content: "\\2713"; color: var(--gold); }
+.tl-nee li::before { content: "\\00d7"; color: var(--wr-bad); }
+.tl-waarom { margin: 1.1rem 0 0; font-size: 0.84rem; color: var(--dim); }
+
+/* Download */
+.downloadblok { text-align: center; display: grid; justify-items: center; gap: 0.9rem; }
+.downloadblok h2 { margin: 0; font-size: clamp(1.6rem, 3vw, 2.3rem); }
+.downloadblok p { margin: 0; color: var(--muted); }
 `;
 writeFileSync(join(HERE, "style.css"), css, "utf8");
 
@@ -2211,18 +2776,18 @@ function modusBalk() {
 </section>`;
 }
 
-const html = `<!doctype html>
+const classicHtml = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AllMid</title>
-<meta name="description" content="League of Legends tier lists, counters and builds, with the sample size on every number. Covering Classic first — ${n(T.games)} real games. Free and open source." />
+<title>League Classic stats &middot; AllMid</title>
+<meta name="description" content="Tier lists, counters and builds for League of Legends Classic, from ${n(T.games)} real games. Every number carries its sample size. Free and open source." />
 
 <meta property="og:type" content="website" />
-<meta property="og:title" content="AllMid — League of Legends stats" />
-<meta property="og:description" content="A stats site and desktop app for League of Legends, starting with the queue nobody else covers: ${n(T.games)} Classic games, ${n(T.players)} players, all 63 champions." />
-<meta property="og:url" content="https://allmid.gg/" />
+<meta property="og:title" content="League Classic stats &middot; AllMid" />
+<meta property="og:description" content="The queue nobody else covers: ${n(T.games)} Classic games, ${n(T.players)} players, all 63 champions." />
+<meta property="og:url" content="https://allmid.gg/classic.html" />
 <meta property="og:image" content="https://allmid.gg/img/meta.png" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="theme-color" content="#06080c" />
@@ -2243,23 +2808,7 @@ const html = `<!doctype html>
     <div class="mosaic mosaic-pagina">${paginaTiles()}</div>
   </div>
 
-<header id="top-bar">
-  <div class="wrap">
-    <a class="brand" href="#">
-      <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
-      <span class="badge">League of Legends</span>
-    </a>
-    <nav class="links">
-      <a href="champions.html">Champions</a>
-      <a href="#tiers">Tier lists</a>
-      <a href="#findings">Findings</a>
-      <a href="#app">The app</a>
-      <a href="#data">The data</a>
-      <a href="#safety">Safety</a>
-    </nav>
-    <a class="btn btn-primary btn-sm" id="nav-download" href="#get">Download</a>
-  </div>
-</header>
+${toolbalk('classic')}
 
 ${modusBalk()}
 
@@ -2845,12 +3394,17 @@ ${modusBalk()}
 })();
 </script>
 
+${zoekIndex()}
+${ZOEK_SCRIPT}
 </body>
 </html>
 `;
 
-writeFileSync(join(HERE, "index.html"), html, "utf8");
-writeFileSync(join(HERE, "champions.html"), championsPagina(), "utf8");
+const homeHtml = leaguePagina();
+const championsHtml = championsPagina();
+writeFileSync(join(HERE, "classic.html"), classicHtml, "utf8");
+writeFileSync(join(HERE, "index.html"), homeHtml, "utf8");
+writeFileSync(join(HERE, "champions.html"), championsHtml, "utf8");
 
 mkdirSync(join(HERE, "champion"), { recursive: true });
 let guideBytes = 0;
@@ -2875,9 +3429,9 @@ for (const c of catalogus.champions) {
   writeFileSync(join(HERE, "champion", `${slugVan(c.name)}.html`), pagina, "utf8");
 }
 console.log(
-  `[build] index.html geschreven -- ${(html.length / 1024).toFixed(0)} KB, ` +
-    `${Object.keys(roster).length} champions, ${n(T.games)} games` +
-    (champions ? "" : "  (LET OP: zonder champions.json)"),
+  `[build] index.html -- ${(homeHtml.length / 1024).toFixed(0)} KB  |  ` +
+    `classic.html -- ${(classicHtml.length / 1024).toFixed(0)} KB, ${n(T.games)} games  |  ` +
+    `champions.html -- ${(championsHtml.length / 1024).toFixed(0)} KB, ${catalogus.champions.length} champions`,
 );
 console.log(
   `[build] champion/ geschreven -- ${guides} guides met data + ${catPaginas} zonder, ` +
