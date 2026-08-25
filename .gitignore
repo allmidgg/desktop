@@ -74,3 +74,9 @@ buildorders.jsonl
 # Champion portraits for the full League roster: fetched from Data Dragon by
 # site/data/catalogus.mjs, and regenerated rather than reviewed.
 site/img/lol-champions/
+
+# Generated atmosphere images (from ChatGPT, kept out of the repo like the rest)
+site/img/hero-bg.png
+site/img/meta.png
+site/img/leeg.png
+site/img/scheiding.png

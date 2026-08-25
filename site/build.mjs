@@ -903,8 +903,11 @@ function wachtPaneel({ kolommen, uitleg, cta }) {
         .join("")}
     </div>
     <div class="wacht-uitleg">
-      <p>${uitleg}</p>
-      ${cta ? `<a class="btn btn-ghost btn-sm" href="${cta.href}">${esc(cta.tekst)}</a>` : ""}
+      ${existsSync(join(HERE, "img/leeg.png")) ? `<img class="wacht-beeld" src="img/leeg.png" alt="" width="200" height="133" loading="lazy" />` : ""}
+      <div class="wacht-uitleg-tekst">
+        <p>${uitleg}</p>
+        ${cta ? `<a class="btn btn-ghost btn-sm" href="${cta.href}">${esc(cta.tekst)}</a>` : ""}
+      </div>
     </div>
   </div>`;
 }
@@ -1075,7 +1078,10 @@ function leaguePagina() {
 ${toolbalk("home")}
 
 <section class="lol-held">
-  <div class="lol-held-dek" aria-hidden="true"><div class="mosaic">${mosaicTiles()}</div></div>
+  <div class="lol-held-dek" aria-hidden="true">
+    ${existsSync(join(HERE, "img/hero-bg.png")) ? `<img class="held-foto" src="img/hero-bg.png" alt="" />` : ""}
+    <div class="mosaic">${mosaicTiles()}</div>
+  </div>
   <div class="wrap">
     <div class="rise">
       <p class="eyebrow">Free &middot; Open source &middot; MIT &middot; Windows</p>
@@ -1193,6 +1199,7 @@ ${modusBalk()}
   </div>
 </section>
 
+${existsSync(join(HERE, "img/scheiding.png")) ? `<div class="scheiding" aria-hidden="true" style="background-image:url(img/scheiding.png)"></div>` : ""}
 <section class="band" id="get">
   <div class="wrap rise downloadblok">
     <h2>Get it</h2>
@@ -1652,6 +1659,7 @@ ${toolbalk("champions", "../")}
     </div>
   </div>
 
+  ${existsSync(join(HERE, "img/leeg.png")) ? `<img class="leeg-beeld" src="${G("img/leeg.png")}" alt="" width="900" height="600" loading="lazy" />` : ""}
   <section class="guide-blok">
     <h2>No win rate here yet, and that is the honest answer</h2>
     <p>
@@ -2974,6 +2982,43 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 }
 .wacht-uitleg p { margin: 0; color: var(--muted); font-size: 0.9rem; max-width: 60ch; }
 .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.82rem; }
+
+/* ── Ingebouwde sfeerbeelden ───────────────────────────────────────────── */
+/* Hero: het slagveld ligt achter het portret-mozaïek, allebei gedempt. */
+.held-foto {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; opacity: 0.55;
+}
+.lol-held-dek .mosaic { position: absolute; inset: 0; opacity: 0.5; mix-blend-mode: screen; }
+.lol-held-dek::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(115% 130% at 72% 8%, transparent 0%, rgba(6,8,12,0.35) 42%, var(--bg) 82%);
+}
+
+/* Lege-staat beeld op een championpagina zonder cijfers. */
+.leeg-beeld {
+  display: block; width: 100%; max-width: 560px; height: auto;
+  border-radius: 11px; border: 1px solid var(--line);
+  margin: 0 0 1.8rem; opacity: 0.9;
+}
+
+/* Klein lege-staat beeld naast het wachtpaneel op de tier-pagina. */
+.wacht-uitleg { align-items: center; }
+.wacht-beeld {
+  flex: none; width: 130px; height: auto; border-radius: 8px;
+  border: 1px solid var(--line); opacity: 0.85;
+}
+.wacht-uitleg-tekst { display: flex; flex-direction: column; gap: 0.7rem; flex: 1; min-width: 240px; }
+.wacht-uitleg-tekst p { margin: 0; }
+
+/* Sectie-scheiding: de ene brede band, vlak voor de download. */
+.scheiding {
+  height: clamp(120px, 18vw, 240px);
+  background-size: cover; background-position: center 60%;
+  border-block: 1px solid var(--line);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
 `;
 writeFileSync(join(HERE, "style.css"), css, "utf8");
 

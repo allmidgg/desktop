@@ -1116,3 +1116,40 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 }
 .wacht-uitleg p { margin: 0; color: var(--muted); font-size: 0.9rem; max-width: 60ch; }
 .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.82rem; }
+
+/* ── Ingebouwde sfeerbeelden ───────────────────────────────────────────── */
+/* Hero: het slagveld ligt achter het portret-mozaïek, allebei gedempt. */
+.held-foto {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; opacity: 0.55;
+}
+.lol-held-dek .mosaic { position: absolute; inset: 0; opacity: 0.5; mix-blend-mode: screen; }
+.lol-held-dek::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(115% 130% at 72% 8%, transparent 0%, rgba(6,8,12,0.35) 42%, var(--bg) 82%);
+}
+
+/* Lege-staat beeld op een championpagina zonder cijfers. */
+.leeg-beeld {
+  display: block; width: 100%; max-width: 560px; height: auto;
+  border-radius: 11px; border: 1px solid var(--line);
+  margin: 0 0 1.8rem; opacity: 0.9;
+}
+
+/* Klein lege-staat beeld naast het wachtpaneel op de tier-pagina. */
+.wacht-uitleg { align-items: center; }
+.wacht-beeld {
+  flex: none; width: 130px; height: auto; border-radius: 8px;
+  border: 1px solid var(--line); opacity: 0.85;
+}
+.wacht-uitleg-tekst { display: flex; flex-direction: column; gap: 0.7rem; flex: 1; min-width: 240px; }
+.wacht-uitleg-tekst p { margin: 0; }
+
+/* Sectie-scheiding: de ene brede band, vlak voor de download. */
+.scheiding {
+  height: clamp(120px, 18vw, 240px);
+  background-size: cover; background-position: center 60%;
+  border-block: 1px solid var(--line);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
