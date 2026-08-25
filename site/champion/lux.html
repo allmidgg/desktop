@@ -1614,6 +1614,17 @@
   }
 })();
 (function () {
+  // Depth-on-scroll for the sticky header, on every page. classic.html also
+  // wires its own copy; toggling the same class twice is harmless. Degrades to
+  // the static bar when JavaScript is off.
+  var bar = document.getElementById("top-bar");
+  if (bar) {
+    var onScroll = function () { bar.classList.toggle("stuck", window.scrollY > 8); };
+    onScroll();
+    addEventListener("scroll", onScroll, { passive: true });
+  }
+})();
+(function () {
   var veld = document.getElementById("kopzoek-veld");
   var uit = document.getElementById("kopzoek-uit");
   var data = document.getElementById("zoek-data");

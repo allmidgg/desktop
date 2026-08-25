@@ -891,7 +891,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 .ck-naam { font-size: 0.83rem; font-weight: 600; color: var(--ink); text-align: center; line-height: 1.2; }
 .ck-cijfer { display: flex; flex-direction: column; align-items: center; gap: 0.05rem; }
 .ck-wr { font-family: var(--mono); font-size: 0.86rem; font-weight: 700; }
-.ck-wr.goed { color: var(--wr-good, #6fcf97); }
+.ck-wr.goed { color: var(--wr-hi); }
 .ck-wr.slecht { color: var(--wr-bad); }
 .ck-games { font-family: var(--mono); font-size: 0.62rem; color: var(--dim); }
 .ck-leeg { font-family: var(--mono); font-size: 0.62rem; color: var(--dim); }
@@ -1128,8 +1128,8 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 .lol-held-dek::after {
   content: ""; position: absolute; inset: 0;
   background:
-    linear-gradient(90deg, var(--bg) 2%, rgba(6,8,12,0.55) 34%, transparent 62%),
-    linear-gradient(0deg, var(--bg) 3%, transparent 30%);
+    linear-gradient(90deg, var(--ground) 2%, rgba(6,8,12,0.55) 34%, transparent 62%),
+    linear-gradient(0deg, var(--ground) 3%, transparent 30%);
 }
 
 /* Lege-staat beeld op een championpagina zonder cijfers. */
@@ -1155,4 +1155,532 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   border-block: 1px solid var(--line);
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+
+/* =============================================================================
+   ALLMID — merged polish pass. Appended after the stylesheet, so it overrides by
+   source order. One motion system, one gold accent. Every motion is gated on
+   prefers-reduced-motion AND on .reveal, so a JS-off visitor gets a static,
+   complete page. Existing tokens only; nothing renamed or removed.
+   ============================================================================= */
+
+/* ── Shared system values ────────────────────────────────────────────────────
+   Promoted so the whole site eases, times and lifts as one hand. --ease-out is
+   the existing reveal curve, now named and reused everywhere. */
+:root {
+  --ease-out:  cubic-bezier(0.22, 1, 0.36, 1);   /* entrances & hover lifts */
+  --ease-io:   cubic-bezier(0.40, 0, 0.20, 1);   /* micro state: colour, border, press */
+  --dur-fast:  130ms;
+  --dur-mid:   220ms;
+  --dur-slow:  600ms;
+  --stagger:    80ms;
+  --ring-gold: 0 0 0 3px rgba(231, 199, 110, 0.14);   /* focus ring — the accent as light */
+  --lift-1:    0 16px 34px -20px rgba(0, 0, 0, 0.90);  /* card hover */
+  --lift-2:    0 30px 60px -34px rgba(0, 0, 0, 0.95);  /* framed media */
+}
+
+/* ── Type: give each heading its own optical tier ────────────────────────────
+   The base rule tracks h1–h3 identically (right for the hero, too tight and
+   heavy for a 1.3rem h3). Relax tracking and open leading as size drops; h1
+   keeps the tight base and more specific heading rules still win. */
+h2 { letter-spacing: -0.021em; line-height: 1.09; }
+h3 { font-weight: 700; font-stretch: 108%; letter-spacing: -0.012em; line-height: 1.18; }
+p  { text-wrap: pretty; }
+
+/* ── Eyebrow: a section marker, not floating caption text ─────────────────────
+   A short gold hairline leads the label — emphasis in the one accent. */
+.eyebrow {
+  display: flex; align-items: center; gap: 0.62rem;
+  font-size: 0.68rem; letter-spacing: 0.2em; margin-bottom: 1rem;
+}
+.eyebrow::before {
+  content: ""; flex: none; width: 1.7rem; height: 1px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-dim));
+}
+
+/* ── Buttons: one system — deliberate label, real press, keyboard parity, and a
+   primary that sits on the ground with a low same-hue cast (a lift, not neon). */
+.btn {
+  letter-spacing: 0.006em;
+  transition: transform var(--dur-fast) var(--ease-io),
+              background var(--dur-fast) var(--ease-io),
+              border-color var(--dur-fast) var(--ease-io),
+              box-shadow var(--dur-mid) var(--ease-io);
+}
+.btn:focus-visible { transform: translateY(-1px); }
+.btn:active { transform: translateY(0) scale(0.99); }
+.btn-primary {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.24) inset,
+              0 10px 24px -12px rgba(231, 199, 110, 0.5);
+}
+.btn-primary:hover,
+.btn-primary:focus-visible {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.32) inset,
+              0 15px 32px -13px rgba(231, 199, 110, 0.62);
+}
+.btn-primary:active { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset; }
+.btn-ghost:active { background: var(--raised); }
+.btn[disabled],
+.btn[aria-disabled="true"] { opacity: 0.45; pointer-events: none; box-shadow: none; }
+
+/* ── Section headers: one scale across every page ────────────────────────────
+   Fold the .sectiekop system onto the .section-head scale so a section heading
+   is the same size and rhythm everywhere; hold both ledes to a readable measure. */
+.sectiekop { margin-bottom: clamp(2rem, 4vw, 3.2rem); }
+.sectiekop h2 { font-size: clamp(1.8rem, 1.25rem + 2vw, 2.9rem); margin-bottom: 0.9rem; }
+.sectielede { font-size: 1rem; line-height: 1.6; max-width: 56ch; }
+.section-head p { max-width: 56ch; line-height: 1.6; }
+
+/* ── Toolbar: tauten, and give it depth on scroll ────────────────────────────
+   The generic 'header .wrap { min-height:66px }' doubles onto both rows of the
+   two-row bar (~132px of dead height); let padding define each row instead.
+   The .stuck elevation is wired on every page by the ZOEK_SCRIPT edit and
+   degrades to the static bar with JS off. */
+#top-bar { transition: box-shadow var(--dur-mid) ease; }
+#top-bar .wrap { min-height: 0; }
+.balk-spellen .wrap { padding-block: 0.55rem; }
+.balk-nav .wrap { padding-block: 0.4rem; }
+.balk-spellen,
+.balk-nav { transition: background-color var(--dur-mid) ease, border-color var(--dur-mid) ease; }
+#top-bar.stuck { box-shadow: 0 14px 30px -22px rgba(0, 0, 0, 0.9); }
+#top-bar.stuck .balk-spellen { background: rgba(4, 6, 10, 0.97); }
+#top-bar.stuck .balk-nav { background: rgba(6, 8, 12, 0.96); border-bottom-color: var(--line-lit); }
+
+/* The one live game gets a quiet live signal; the label stays status-calm. */
+.spel {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  transition: color var(--dur-fast) var(--ease-io),
+              border-color var(--dur-mid) var(--ease-io),
+              background-color var(--dur-mid) var(--ease-io);
+}
+.spel.aan::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold); flex: none; box-shadow: 0 0 0 3px rgba(231, 199, 110, 0.14);
+}
+
+/* Brand: the lit core at the tip of the mark wakes on hover — one gold breath,
+   no geometry change. The mark's two SVG circles (glow, lit point) are already
+   in the markup; here they respond. */
+.brand .mark { transition: filter var(--dur-mid) ease, transform var(--dur-mid) var(--ease-out); }
+.brand .mark circle:first-of-type { transition: opacity 0.45s ease; }
+.brand .mark circle:last-of-type  { transition: opacity var(--dur-mid) ease; }
+.brand-name { color: var(--muted); letter-spacing: -0.012em; transition: color var(--dur-fast) ease; }
+.brand em {
+  color: var(--gold); text-shadow: 0 0 16px rgba(231, 199, 110, 0.14);
+  transition: color var(--dur-fast) ease, text-shadow var(--dur-mid) ease;
+}
+.brand:hover .mark,
+.brand:focus-visible .mark {
+  transform: translateY(-1px) scale(1.045);
+  filter: drop-shadow(0 3px 11px rgba(231, 199, 110, 0.30));
+}
+.brand:hover .mark circle:first-of-type,
+.brand:focus-visible .mark circle:first-of-type { opacity: 0.36; }
+.brand:hover .mark circle:last-of-type,
+.brand:focus-visible .mark circle:last-of-type { opacity: 1; }
+.brand:hover .brand-name,
+.brand:focus-visible .brand-name { color: var(--ink); }
+.brand:hover em,
+.brand:focus-visible em { color: var(--gold-lit); text-shadow: 0 0 20px rgba(231, 199, 110, 0.26); }
+
+/* Nav tabs: a crafted indicator. An invisible base bar under every link; a faint
+   neutral hint grows from centre on hover; the active page holds a lit gold bar. */
+.secties a { transition: color var(--dur-fast) var(--ease-io), background-color var(--dur-fast) var(--ease-io); }
+.secties a::after {
+  content: ""; position: absolute; left: 0.7rem; right: 0.7rem; bottom: -0.4rem;
+  height: 2px; border-radius: 2px; background: var(--gold);
+  transform: scaleX(0); transform-origin: center; opacity: 0;
+  transition: transform var(--dur-mid) var(--ease-out), opacity var(--dur-fast) ease;
+}
+.secties a:not([aria-current="page"]):hover::after { transform: scaleX(0.55); opacity: 0.4; background: var(--line-lit); }
+.secties a[aria-current="page"]::after {
+  bottom: -0.4rem; transform: scaleX(1); opacity: 1;
+  box-shadow: 0 0 10px -1px rgba(231, 199, 110, 0.55);
+}
+
+/* The DATA badge reads as an intentional marker: a faint gold fill behind the
+   hairline, brightening with its link. */
+.nav-merk {
+  background: rgba(231, 199, 110, 0.08);
+  transition: color var(--dur-fast) var(--ease-io), border-color var(--dur-fast) var(--ease-io), background-color var(--dur-fast) var(--ease-io);
+}
+.secties a:hover .nav-merk,
+.secties a[aria-current="page"] .nav-merk { color: var(--gold-lit); border-color: var(--gold); background: rgba(231, 199, 110, 0.14); }
+
+/* Search: a real field — a magnifier glyph and a soft gold focus ring. */
+#kopzoek-veld {
+  padding-left: 1.95rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236d768f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 0.62rem center; background-size: 15px;
+  transition: border-color var(--dur-mid) ease, background-color var(--dur-mid) ease, box-shadow var(--dur-mid) ease;
+}
+.kopzoek:hover #kopzoek-veld { border-color: var(--line-lit); }
+#kopzoek-veld:focus-visible { box-shadow: var(--ring-gold); }
+.kopzoek-uit a {
+  border-left: 2px solid transparent;
+  transition: background-color var(--dur-fast) var(--ease-io), color var(--dur-fast) var(--ease-io), border-color var(--dur-fast) var(--ease-io);
+}
+.kopzoek-uit a:hover { border-left-color: var(--gold); }
+
+/* ── Home hero (.lol-held) ───────────────────────────────────────────────────
+   Push the burning base to the right so the scrim can hold text on the left. */
+.lol-held .held-foto { object-position: 72% 58%; }
+
+/* Scrim, corrected: the original referenced an undefined --bg token, so its
+   darkening never painted at all. Rebuilt on --ground — a firm left wall that
+   feathers clear by ~86% so the base glows on the right, a floor lift, a pool
+   under the headline, and a soft vignette under the bar. */
+.lol-held-dek::after {
+  content: ""; position: absolute; inset: 0;
+  background:
+    linear-gradient(90deg, var(--ground) 0%, rgba(7, 8, 16, 0.94) 20%, rgba(7, 8, 16, 0.62) 42%, rgba(7, 8, 16, 0.18) 66%, transparent 86%),
+    linear-gradient(0deg, var(--ground) 0%, rgba(7, 8, 16, 0.42) 20%, transparent 48%),
+    radial-gradient(130% 100% at 8% 34%, rgba(7, 8, 16, 0.55), transparent 58%),
+    linear-gradient(180deg, rgba(7, 8, 16, 0.45) 0%, transparent 18%);
+}
+.lol-held h1 { font-size: clamp(2.55rem, 2.0rem + 3.5vw, 4.35rem); line-height: 1.0; margin: 0 0 1.4rem; }
+.lol-held h1 em { color: var(--gold); text-shadow: 0 0 26px rgba(231, 199, 110, 0.16); }
+.lol-held .lede { max-width: 47ch; line-height: 1.62; }
+
+/* Primary reads as lit; ghost gets a dark fill so its label clears the
+   battlefield — legibility, not a pane of glass. */
+.lol-held .btn-primary { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.28) inset, 0 14px 30px -14px rgba(231, 199, 110, 0.5); }
+.lol-held .btn-primary:hover { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.34) inset, 0 18px 36px -12px rgba(231, 199, 110, 0.66); }
+.lol-held .btn-ghost { border-color: rgba(233, 237, 247, 0.18); background: rgba(7, 8, 16, 0.34); }
+.lol-held .btn-ghost:hover { border-color: var(--muted); background: rgba(7, 8, 16, 0.6); }
+
+/* App-screenshot frame: real material — deep layered shadow, a lit gold top
+   hairline and a machined inner ring. */
+.lol-held-beeld {
+  position: relative; border-radius: 14px; border: 1px solid var(--line-lit);
+  box-shadow: 0 44px 95px -42px rgba(0, 0, 0, 0.96), 0 8px 24px -16px rgba(0, 0, 0, 0.8);
+}
+.lol-held-beeld::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(244, 224, 166, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+/* ── Feature showcase (.kenmerk*) ────────────────────────────────────────────
+   A quiet numbered index, a frame with real depth that lifts under the cursor,
+   a heading that steps up to the display face, and a placeholder that looks
+   intended. The alternating slide-in entrance was dropped: its .in state
+   out-specified the frame hover and its animation-fill would have frozen the
+   transform, killing the lift — the block still reveals via the shared .rise. */
+.kenmerken { counter-reset: kenmerk; }
+.kenmerk { counter-increment: kenmerk; }
+.kenmerk-beeld {
+  position: relative; border-color: var(--line-lit);
+  background: linear-gradient(158deg, rgba(231, 199, 110, 0.05), rgba(255, 255, 255, 0.012) 42%, rgba(7, 8, 16, 0.40));
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, var(--lift-2);
+  transition: transform 0.5s var(--ease-out), border-color 0.5s ease, box-shadow 0.5s ease;
+}
+.kenmerk-beeld::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+}
+.kenmerk-beeld img { transition: transform 0.6s var(--ease-out); }
+.kenmerk:hover .kenmerk-beeld {
+  transform: translateY(-3px); border-color: var(--gold-dim);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 0 0 1px rgba(231, 199, 110, 0.10), 0 40px 72px -34px rgba(0, 0, 0, 0.98);
+}
+.kenmerk:hover .kenmerk-beeld img { transform: scale(1.015); }
+.kenmerk-label {
+  background: rgba(231, 199, 110, 0.05); border-color: rgba(231, 199, 110, 0.28);
+  color: var(--gold-lit); padding: 0.24rem 0.5rem;
+}
+.kenmerk-label::before { content: counter(kenmerk, decimal-leading-zero) "  /  "; color: var(--gold); }
+.kenmerk-tekst h3 { font-family: var(--display); font-weight: 600; color: var(--ink); letter-spacing: -0.01em; line-height: 1.16; }
+.kenmerk-tekst p { line-height: 1.62; }
+.kenmerk-beeld:has(.kenmerk-wacht) {
+  min-height: clamp(210px, 26vw, 300px); border-style: solid;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px) 0 0 / 26px 26px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px) 0 0 / 26px 26px,
+    radial-gradient(120% 90% at 50% 0%, rgba(231, 199, 110, 0.05), transparent 60%),
+    var(--surface);
+}
+.kenmerk-beeld:has(.kenmerk-wacht)::before {
+  content: ""; position: absolute; inset: 14px; border-radius: 8px;
+  border: 1px dashed rgba(231, 199, 110, 0.18); pointer-events: none;
+}
+.kenmerk-wacht {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 0.62rem;
+  text-align: center; line-height: 1.5; color: var(--muted);
+}
+.kenmerk-wacht::before {
+  content: ""; width: 30px; height: 22px; border-radius: 4px; border: 1px solid var(--line-lit);
+  background:
+    radial-gradient(circle 3px at 21px 7px, var(--gold-dim) 0 100%, transparent 100%),
+    linear-gradient(135deg, transparent 56%, rgba(231, 199, 110, 0.16) 56% 70%, transparent 70%);
+  background-repeat: no-repeat;
+}
+.kenmerk-wacht::after {
+  content: "Screenshot in progress"; font-family: var(--body);
+  font-size: 0.6rem; letter-spacing: 0.14em; color: var(--dim);
+}
+
+/* ── Tier-list waiting state (tiers.html) ────────────────────────────────────
+   The perpetual shimmer read as a stuck loader on a page that is simply idle.
+   Kill it: the bars become a calm, static ghost of the table, with one still
+   status marker over them, and the queue chips announce which one is live. */
+.wacht-blok { animation: none; background: rgba(255, 255, 255, 0.05); }
+.wacht-blok.w-portret { background: none; border: 1px solid var(--line); }
+.wacht-rijen { isolation: isolate; }
+.wacht-rij { opacity: 0.5; }
+.wacht-rijen::after {
+  content: "No data for this queue yet";
+  position: absolute; z-index: 2; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  padding: 0.55rem 1rem; border-radius: 999px;
+  border: 1px solid var(--line-lit); background: var(--surface); box-shadow: var(--shadow);
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); white-space: nowrap; pointer-events: none;
+}
+.tier-optie { transition: border-color var(--dur-fast) var(--ease-io), background var(--dur-fast) var(--ease-io), transform var(--dur-fast) var(--ease-io); }
+.tier-optie.aan { position: relative; border-color: var(--gold-dim); }
+.tier-optie.aan:hover { border-color: var(--gold); transform: translateY(-1px); }
+.tier-optie.aan .to-merk { display: inline-flex; align-items: center; gap: 0.4rem; }
+.tier-optie.aan .to-merk::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--gold);
+  box-shadow: 0 0 5px rgba(231, 199, 110, 0.55);
+}
+.tier-optie.soon { opacity: 1; border-style: dashed; border-color: var(--line); background: transparent; cursor: default; }
+.tier-optie.soon .to-naam { color: var(--muted); }
+.tier-optie.soon .to-merk { color: var(--dim); }
+
+/* ── Champions index + no-data champion pages ────────────────────────────────
+   Portrait-forward tiles; a terminal control strip for search + filter; and the
+   no-data page dressed as an intentional empty state. Win/loss stay semantic
+   green/red; gold stays the single accent. Fixes .ck-wr.goed, which fell back
+   to an off-palette green via an undefined --wr-good token. */
+.champgrid { gap: 0.7rem; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+.champkaart {
+  position: relative; padding: 0.55rem 0.55rem 0.72rem; gap: 0.5rem;
+  border-radius: 11px; border-color: var(--line);
+  background: linear-gradient(180deg, var(--raised), var(--surface)); overflow: hidden;
+  transition: border-color var(--dur-fast) var(--ease-io), background var(--dur-fast) var(--ease-io),
+              transform var(--dur-mid) var(--ease-out), box-shadow var(--dur-mid) ease;
+}
+.champkaart:not(.heeft-data) { background: var(--surface); }
+.champkaart img {
+  width: 100%; height: auto; aspect-ratio: 1; object-fit: cover;
+  border-radius: 8px; border-color: var(--line-lit);
+  transition: transform 0.4s var(--ease-out), filter var(--dur-fast) ease, border-color var(--dur-fast) ease, opacity var(--dur-fast) ease;
+}
+.champkaart:hover {
+  border-color: var(--gold-dim); background: linear-gradient(180deg, var(--raised-2), var(--surface));
+  transform: translateY(-3px); box-shadow: var(--lift-1);
+}
+.champkaart:hover img { transform: scale(1.045); border-color: var(--gold-dim); }
+.champkaart:focus-visible { border-color: var(--gold-dim); }
+.ck-naam { font-size: 0.8rem; letter-spacing: -0.01em; }
+.ck-cijfer { gap: 0.12rem; }
+.ck-wr { display: inline-flex; align-items: baseline; gap: 0.34rem; font-size: 0.92rem; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.ck-wr::before { content: ""; align-self: center; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.85; }
+.ck-wr.goed { color: var(--wr-hi); }
+.ck-wr.slecht { color: var(--wr-bad); }
+.ck-games { font-size: 0.6rem; letter-spacing: 0.02em; }
+.ck-leeg { letter-spacing: 0.05em; color: var(--dim); }
+
+.cp-balk { gap: 0.6rem 0.75rem; margin-bottom: 0.85rem; }
+#cp-zoek {
+  padding-left: 2.3rem; border-radius: 8px; background-color: rgba(255, 255, 255, 0.03);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236d768f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 0.82rem center; background-size: 15px 15px;
+  transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+}
+#cp-zoek:focus-visible {
+  outline: 2px solid var(--gold-dim); outline-offset: 1px; border-color: var(--gold-dim);
+  background-color: rgba(255, 255, 255, 0.05); box-shadow: var(--ring-gold);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e7c76e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4-4'/%3E%3C/svg%3E");
+}
+.cp-filters button { border-radius: 7px; }
+.cp-filters button:hover { background: rgba(255, 255, 255, 0.03); }
+.cp-telling { font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; }
+
+.cat-kop img {
+  border-color: var(--line-lit); border-radius: 12px;
+  filter: saturate(0.4); opacity: 0.82;
+  transition: filter var(--dur-mid) ease, opacity var(--dur-mid) ease;
+}
+.cat-kop img:hover { filter: none; opacity: 1; }
+.cat-tags span { background: rgba(255, 255, 255, 0.02); }
+.leeg-beeld { border-color: var(--line-lit); opacity: 0.85; box-shadow: var(--shadow); }
+.guide:has(.cat-kop) .guide-blok {
+  position: relative; overflow: hidden; border-color: var(--line-lit);
+  background: linear-gradient(180deg, var(--raised), var(--surface)); box-shadow: var(--shadow);
+}
+.guide:has(.cat-kop) .guide-blok::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; z-index: 2;
+  background: linear-gradient(180deg, rgba(241, 228, 198, 0.14), rgba(241, 228, 198, 0)); pointer-events: none;
+}
+.guide:has(.cat-kop) .guide-blok:first-of-type h2::before {
+  content: "Not in Classic"; display: block; margin-bottom: 0.55rem;
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold);
+}
+.cat-stats { gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden; }
+.cat-stats div { border: 0; border-radius: 0; background: var(--raised); padding: 0.85rem 0.9rem; gap: 0.3rem; }
+.cat-stats span { font-size: 0.58rem; letter-spacing: 0.13em; }
+.cat-stats b { font-family: var(--mono); font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+
+/* ── Download arrival, footer, scaffold CTA, and the yes/no split ─────────────
+   Red appears only where the design already uses it (the semantic refusal).
+   #get section rules are scoped to .band#get so classic.html's .cta-row#get is
+   untouched, and the overlap only fires when the divider is actually present. */
+.scheiding { height: clamp(150px, 20vw, 300px); background-position: center 52%; border-block: 0; position: relative; }
+.scheiding::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(7, 8, 16, 0.55) 0%, rgba(7, 8, 16, 0.12) 26%, rgba(7, 8, 16, 0.12) 60%, var(--ground) 100%);
+}
+.band#get { position: relative; isolation: isolate; }
+.band#get::before {
+  content: ""; position: absolute; z-index: -1; left: 50%; top: 0;
+  width: min(760px, 90%); height: 360px; transform: translateX(-50%);
+  background: radial-gradient(58% 62% at 50% 0%, rgba(231, 199, 110, 0.11), transparent 70%); pointer-events: none;
+}
+.scheiding + .band#get { margin-top: clamp(-5rem, -6vw, -2.5rem); }
+.downloadblok { gap: 1.15rem; }
+.downloadblok h2 { font-size: clamp(1.9rem, 1.4rem + 2vw, 2.95rem); letter-spacing: -0.03em; }
+.downloadblok > p { max-width: 44ch; }
+.downloadblok .btn-primary {
+  margin-top: 0.4rem; padding: 0.95rem 2rem; font-size: 1rem;
+  box-shadow: 0 12px 34px -12px rgba(231, 199, 110, 0.5);
+}
+.downloadblok .btn-primary:hover { box-shadow: 0 16px 42px -12px rgba(231, 199, 110, 0.62); }
+.downloadblok .cta-note a {
+  color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line-lit);
+  transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+.downloadblok .cta-note a:hover { color: var(--gold); border-bottom-color: var(--gold-dim); }
+
+footer { padding-block: clamp(2.75rem, 5vw, 3.75rem); }
+footer .wrap { align-items: start; gap: 1.75rem 3.5rem; }
+footer .legal { max-width: 60ch; font-size: 0.8rem; line-height: 1.7; color: var(--dim); }
+footer .legal + .legal { font-size: 0.78rem; opacity: 0.92; }
+footer .legal a {
+  color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line-lit);
+  transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+footer .legal a:hover { color: var(--gold); border-bottom-color: var(--gold-dim); }
+footer nav { flex-direction: column; gap: 0.7rem; margin-left: auto; text-align: right; }
+footer nav a {
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.13em; text-transform: uppercase;
+  color: var(--dim); text-decoration: none; transition: color var(--dur-fast) ease;
+}
+footer nav a:hover { color: var(--gold); text-decoration: none; }
+
+.geraamte-cta {
+  margin-top: clamp(2.5rem, 5vw, 3.5rem); padding-top: clamp(1.75rem, 3vw, 2.4rem);
+  border-top: 1px solid var(--line); align-items: center;
+}
+.geraamte-cta .btn-primary { box-shadow: 0 10px 30px -14px rgba(231, 199, 110, 0.45); }
+.geraamte-cta .btn-primary:hover { box-shadow: 0 14px 38px -14px rgba(231, 199, 110, 0.58); }
+
+.tweeluik { gap: clamp(1rem, 2.5vw, 1.5rem); align-items: start; }
+.tl-kolom {
+  position: relative; overflow: hidden;
+  padding: clamp(1.4rem, 3vw, 1.9rem) clamp(1.5rem, 3vw, 2rem);
+  border-radius: var(--radius); background: var(--surface);
+}
+.tl-kolom h3 { padding-bottom: 0.85rem; margin-bottom: 1.05rem; border-bottom: 1px solid var(--line); font-size: 1.12rem; letter-spacing: -0.01em; }
+.tl-ja::before, .tl-nee::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; pointer-events: none; }
+.tl-ja::before  { background: linear-gradient(90deg, transparent, var(--gold), transparent); opacity: 0.85; }
+.tl-nee::before { background: linear-gradient(90deg, transparent, var(--line-lit), transparent); }
+.tl-ja { border-color: var(--gold-dim); background: linear-gradient(180deg, rgba(231, 199, 110, 0.06), rgba(231, 199, 110, 0.015)); }
+.tl-ja h3 { color: var(--gold-lit); border-bottom-color: var(--gold-dim); }
+.tl-ja li { color: var(--ink); }
+.tl-nee { border-color: var(--line-lit); }
+.tl-nee li { color: var(--muted); }
+.tl-kolom li { padding-left: 1.9rem; line-height: 1.5; }
+.tl-kolom li::before { top: 0.12rem; width: 1.15rem; height: 1.15rem; display: grid; place-items: center; border-radius: 5px; font-size: 0.66rem; line-height: 1; }
+.tl-ja li::before  { background: rgba(231, 199, 110, 0.13); border: 1px solid var(--gold-dim); }
+.tl-nee li::before { background: rgba(255, 95, 114, 0.10); border: 1px solid rgba(255, 95, 114, 0.34); }
+.tl-waarom { margin-top: 1.3rem; padding-top: 1rem; border-top: 1px solid var(--line); font-size: 0.82rem; line-height: 1.6; color: var(--dim); }
+
+/* ── Shared micro-interactions ───────────────────────────────────────────────
+   The same easing and press vocabulary on the lane tabs, table rows and
+   portraits, plus keyboard parity. (nav.links from the motion pass was dropped:
+   that selector has no markup on this site — the real nav is .secties above.) */
+.lane-tabs button,
+.build-lanes button {
+  transition: color var(--dur-fast) var(--ease-io), border-color var(--dur-fast) var(--ease-io),
+              background var(--dur-fast) var(--ease-io), transform var(--dur-fast) var(--ease-io);
+}
+.lane-tabs button:active,
+.build-lanes button:active,
+.mu-schakel button:active { transform: translateY(0.5px); }
+.tier-table tbody td { transition: background var(--dur-mid) var(--ease-io); }
+.portrait:focus-visible { transform: translateY(-2px); border-color: var(--line-lit); }
+footer a { transition: color var(--dur-mid) var(--ease-io); }
+
+/* ── Motion keyframes (top-level; the animations that use them are gated) ─────*/
+@keyframes mid-rise { from { opacity: 0; transform: translateY(13px); } to { opacity: 1; transform: none; } }
+@keyframes heldGloed {
+  0%, 100% { box-shadow: 0 44px 95px -42px rgba(0,0,0,0.96), 0 8px 24px -16px rgba(0,0,0,0.8), 0 0 44px -12px rgba(231,199,110,0.08); }
+  50%      { box-shadow: 0 44px 95px -42px rgba(0,0,0,0.96), 0 8px 24px -16px rgba(0,0,0,0.8), 0 0 66px  -8px rgba(231,199,110,0.17); }
+}
+@keyframes spel-live {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(231,199,110,0.5); }
+  55%      { box-shadow: 0 0 0 5px rgba(231,199,110,0); }
+}
+
+/* ── Motion, only when welcome ────────────────────────────────────────────────
+   Grouped content arrives in sequence: the container holds still (so nothing
+   moves twice) while its children cascade. Gated on .in, so with reduce, JS off,
+   or an observer that never fires, everything simply sits visible. */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal .section-head.rise,
+  .reveal .chain.rise,
+  .reveal .trust.rise,
+  .reveal .rise:has(> .finding) { transform: none; }
+
+  .reveal .section-head.rise.in > *,
+  .reveal .chain.rise.in > .step,
+  .reveal .trust.rise.in > .item,
+  .reveal .rise.in > .finding { animation: mid-rise var(--dur-slow) var(--ease-out) both; }
+
+  .reveal .section-head.rise.in > :nth-child(2),
+  .reveal .chain.rise.in > .step:nth-child(2),
+  .reveal .trust.rise.in > .item:nth-child(2),
+  .reveal .rise.in > .finding:nth-child(2) { animation-delay: calc(var(--stagger) * 1); }
+  .reveal .section-head.rise.in > :nth-child(3),
+  .reveal .chain.rise.in > .step:nth-child(3),
+  .reveal .trust.rise.in > .item:nth-child(3),
+  .reveal .rise.in > .finding:nth-child(3) { animation-delay: calc(var(--stagger) * 2); }
+  .reveal .section-head.rise.in > :nth-child(4),
+  .reveal .chain.rise.in > .step:nth-child(4),
+  .reveal .trust.rise.in > .item:nth-child(4),
+  .reveal .rise.in > .finding:nth-child(4) { animation-delay: calc(var(--stagger) * 3); }
+  .reveal .section-head.rise.in > :nth-child(5),
+  .reveal .chain.rise.in > .step:nth-child(5),
+  .reveal .trust.rise.in > .item:nth-child(5),
+  .reveal .rise.in > .finding:nth-child(5) { animation-delay: calc(var(--stagger) * 4); }
+  .reveal .section-head.rise.in > :nth-child(n+6),
+  .reveal .chain.rise.in > .step:nth-child(n+6),
+  .reveal .trust.rise.in > .item:nth-child(n+6),
+  .reveal .rise.in > .finding:nth-child(n+6) { animation-delay: calc(var(--stagger) * 5); }
+
+  /* Home hero: the screenshot lands a beat after the copy, then breathes a low
+     gold glow — slow, parallax-free, and fully off under reduce. */
+  .reveal .lol-held-beeld.rise.in { transition-delay: 0.14s; }
+  .lol-held-beeld { animation: heldGloed 8s ease-in-out infinite; }
+
+  /* The one live game marker pulses, slow and low. */
+  .spel.aan::before { animation: spel-live 2.6s ease-in-out infinite; }
+}
+
+/* ── Reduce: hold everything still. Colour/border/shadow states remain (they are
+   state, not movement); transforms and the ambient loops are neutralised. The
+   base stylesheet already stills .rise, .btn:hover and .portrait:hover. ─────── */
+@media (prefers-reduced-motion: reduce) {
+  .brand:hover .mark, .brand:focus-visible .mark,
+  .btn:focus-visible, .btn:active,
+  .lane-tabs button:active, .build-lanes button:active, .mu-schakel button:active,
+  .portrait:focus-visible,
+  .champkaart:hover, .champkaart:hover img,
+  .kenmerk:hover .kenmerk-beeld, .kenmerk:hover .kenmerk-beeld img,
+  .tier-optie.aan:hover { transform: none; }
+  .secties a, .secties a::after, .brand .mark, .kopzoek-uit a, .tier-table tbody td { transition: none; }
+  .secties a:not([aria-current="page"]):hover::after { transform: scaleX(0); opacity: 0; }
 }
