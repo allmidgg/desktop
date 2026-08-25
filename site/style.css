@@ -967,7 +967,7 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 
 /* ── Voorpagina: League of Legends ─────────────────────────────────────── */
 .lol-held { position: relative; overflow: hidden; padding-block: clamp(3rem, 7vw, 5.5rem); }
-.lol-held-dek { position: absolute; inset: 0; opacity: 0.2; pointer-events: none; }
+.lol-held-dek { position: absolute; inset: 0; opacity: 1; pointer-events: none; }
 .lol-held-dek::after {
   content: ""; position: absolute; inset: 0;
   background: radial-gradient(120% 90% at 70% 0%, transparent 0%, var(--bg) 72%);
@@ -1121,12 +1121,18 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 /* Hero: het slagveld ligt achter het portret-mozaïek, allebei gedempt. */
 .held-foto {
   position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: cover; opacity: 0.55;
+  object-fit: cover; opacity: 1;
 }
-.lol-held-dek .mosaic { position: absolute; inset: 0; opacity: 0.5; mix-blend-mode: screen; }
+/* Het mozaïek verdwijnt zodra er een echt beeld ligt: twee achtergronden op
+   elkaar is troebel, en het slagveld is de sterkere. */
+.lol-held-dek .mosaic { display: none; }
+/* Alleen de linkerkolom donker houden waar de tekst staat; rechtsonder, waar
+   de basis brandt, laten we juist bijna vrij. */
 .lol-held-dek::after {
   content: ""; position: absolute; inset: 0;
-  background: radial-gradient(115% 130% at 72% 8%, transparent 0%, rgba(6,8,12,0.35) 42%, var(--bg) 82%);
+  background:
+    linear-gradient(90deg, var(--bg) 2%, rgba(6,8,12,0.55) 34%, transparent 62%),
+    linear-gradient(0deg, var(--bg) 3%, transparent 30%);
 }
 
 /* Lege-staat beeld op een championpagina zonder cijfers. */
