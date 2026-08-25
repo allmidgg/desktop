@@ -817,6 +817,178 @@ function guideLane(laneRegel, buildRegel, ijk, isOpen) {
  * own published base stats, which are facts rather than opinions -- and says
  * plainly why there is no win rate on it.
  */
+/**
+ * Every champion in League, on one searchable page.
+ *
+ * The site had 173 champion pages and no way to reach them: the home page
+ * explorer only ever showed the 63 with Classic data. This is the index that
+ * makes the rest of the roster more than a URL somebody has to guess.
+ *
+ * Search and filtering are client-side over markup that is already complete,
+ * so the page works with the script switched off -- it just shows everybody.
+ */
+function championsPagina() {
+  // Riot's tag vocabulary, in the order players think about roles rather than
+  // the order Data Dragon happens to emit them.
+  const ROLLEN = ["Fighter", "Tank", "Mage", "Assassin", "Marksman", "Support"];
+
+  const metData = new Map(
+    Object.values(champions.champions ?? {}).map((c) => [c.baseId, c]),
+  );
+
+  const kaarten = catalogus.champions
+    .map((c) => {
+      const stat = metData.get(c.id);
+      const slug = slugVan(c.name);
+      const cijfer = stat
+        ? `<span class="ck-wr ${stat.winrate >= 50 ? "goed" : "slecht"}">${stat.winrate.toFixed(1)}%</span>
+           <span class="ck-games">${n(stat.totalGames)} games</span>`
+        : `<span class="ck-leeg">not in Classic</span>`;
+      // Classic champions have a portrait from the client; the rest come from
+      // Data Dragon. Same size, different source.
+      const portret = stat ? iconOf(c.id) : `img/lol-champions/${c.alias.toLowerCase()}.png`;
+      return `<a class="champkaart${stat ? " heeft-data" : ""}" href="champion/${slug}.html"
+         data-naam="${esc(c.name.toLowerCase())}" data-rollen="${esc(c.tags.join(" "))}" data-data="${stat ? "1" : "0"}">
+        <img src="${portret}" alt="" width="64" height="64" loading="lazy" />
+        <span class="ck-naam">${esc(c.name)}</span>
+        <span class="ck-cijfer">${cijfer}</span>
+      </a>`;
+    })
+    .join("");
+
+  const filters = ROLLEN.map(
+    (r) => `<button type="button" data-rol="${r}">${r}</button>`,
+  ).join("");
+
+  const titel = "All League of Legends champions";
+  const omschrijving =
+    `All ${catalogus.champions.length} League of Legends champions, searchable. ` +
+    `${Object.keys(roster).length} of them have Classic win rates from ${n(T.games)} recorded games.`;
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Champions &middot; AllMid</title>
+<meta name="description" content="${esc(omschrijving)}" />
+<link rel="canonical" href="https://allmid.gg/champions.html" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="${esc(titel)} &middot; AllMid" />
+<meta property="og:description" content="${esc(omschrijving)}" />
+<meta name="theme-color" content="#06080c" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+<link rel="stylesheet" href="${CSS_PAD}" />
+</head>
+<body>
+
+<header id="top-bar">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
+      <span class="badge">League of Legends</span>
+    </a>
+    <nav class="links">
+      <a href="champions.html" aria-current="page">Champions</a>
+      <a href="index.html#tiers">Tier lists</a>
+      <a href="index.html#findings">Findings</a>
+      <a href="index.html#data">The data</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">Download</a>
+  </div>
+</header>
+
+<main class="wrap champpagina">
+  <div class="cp-kop">
+    <h1>Champions</h1>
+    <p>
+      All ${catalogus.champions.length} champions in League of Legends.
+      <strong>${Object.keys(roster).length}</strong> of them carry Classic win rates from
+      ${n(T.games)} recorded games; the rest were not in the game in Season&nbsp;3, so there is
+      nothing honest to put next to their name yet.
+    </p>
+  </div>
+
+  <div class="cp-balk">
+    <input type="search" id="cp-zoek" placeholder="Search champions" autocomplete="off" aria-label="Search champions" />
+    <div class="cp-filters" id="cp-filters">
+      <button type="button" data-rol="" class="aan">All</button>
+      ${filters}
+      <button type="button" data-only="1">Classic only</button>
+    </div>
+  </div>
+
+  <p class="cp-telling" id="cp-telling" aria-live="polite"></p>
+  <div class="champgrid" id="champgrid">${kaarten}</div>
+  <p class="cp-niks" id="cp-niks" hidden>No champion by that name.</p>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="legal">
+      AllMid is an independent, open-source project released under the MIT licence. It is not endorsed by
+      Riot Games and does not reflect the views or opinions of Riot Games or anyone officially involved in
+      producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered
+      trademarks of Riot Games, Inc.
+    </p>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="https://github.com/allmidgg/desktop">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var zoek = document.getElementById("cp-zoek");
+  var grid = document.getElementById("champgrid");
+  var filters = document.getElementById("cp-filters");
+  var telling = document.getElementById("cp-telling");
+  var niks = document.getElementById("cp-niks");
+  if (!grid) return;
+  var kaarten = [].slice.call(grid.children);
+  var rol = "";
+  var alleenData = false;
+
+  function pas() {
+    var q = (zoek.value || "").trim().toLowerCase();
+    var zichtbaar = 0;
+    kaarten.forEach(function (k) {
+      var naamOk = !q || k.dataset.naam.indexOf(q) !== -1;
+      var rolOk = !rol || k.dataset.rollen.split(" ").indexOf(rol) !== -1;
+      var dataOk = !alleenData || k.dataset.data === "1";
+      var toon = naamOk && rolOk && dataOk;
+      k.hidden = !toon;
+      if (toon) zichtbaar++;
+    });
+    telling.textContent = zichtbaar + " of " + kaarten.length + " champions";
+    niks.hidden = zichtbaar !== 0;
+  }
+
+  zoek.addEventListener("input", pas);
+  filters.addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.only) {
+      alleenData = !alleenData;
+      b.classList.toggle("aan", alleenData);
+    } else {
+      rol = b.dataset.rol;
+      [].forEach.call(filters.querySelectorAll("button[data-rol]"), function (x) {
+        x.classList.toggle("aan", x === b);
+      });
+    }
+    pas();
+  });
+  pas();
+})();
+</script>
+</body>
+</html>`;
+}
+
 function catalogusPagina(c) {
   const slug = slugVan(c.name);
   const G = (pad) => `../${pad}`;
@@ -1933,6 +2105,58 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 }
 .cat-stats b { font-size: 1.05rem; font-weight: 600; }
 .cat-groei { font-family: var(--mono); font-size: 0.66rem; color: var(--dim); letter-spacing: 0; text-transform: none; }
+
+/* ── Championsoverzicht ────────────────────────────────────────────────── */
+.champpagina { padding-block: clamp(2rem, 4vw, 3.2rem) 4rem; }
+.cp-kop h1 { margin: 0 0 0.5rem; font-size: clamp(2rem, 4.5vw, 3rem); }
+.cp-kop p { margin: 0 0 1.8rem; color: var(--muted); max-width: 62ch; font-size: 0.95rem; }
+.cp-kop strong { color: var(--ink); font-weight: 600; }
+
+.cp-balk { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin: 0 0 1rem; }
+#cp-zoek {
+  flex: 1 1 240px; min-width: 0;
+  padding: 0.6rem 0.85rem; border-radius: 7px;
+  border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03);
+  color: var(--ink); font: inherit; font-size: 0.92rem;
+}
+#cp-zoek::placeholder { color: var(--dim); }
+#cp-zoek:focus-visible { outline: 2px solid var(--gold-dim); outline-offset: 1px; border-color: var(--gold-dim); }
+
+.cp-filters { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.cp-filters button {
+  font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+  padding: 0.42rem 0.72rem; border-radius: 6px;
+  border: 1px solid var(--line); background: transparent; color: var(--dim);
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+}
+.cp-filters button:hover { color: var(--ink); border-color: var(--line-lit, var(--gold-dim)); }
+.cp-filters button.aan { color: var(--ink); border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.1); }
+
+.cp-telling { font-family: var(--mono); font-size: 0.72rem; color: var(--dim); margin: 0 0 1rem; }
+.cp-niks { color: var(--muted); font-size: 0.9rem; }
+
+.champgrid {
+  display: grid; gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+}
+.champkaart {
+  display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+  padding: 0.8rem 0.5rem 0.7rem; border-radius: 9px; text-decoration: none;
+  border: 1px solid var(--line); background: rgba(255, 255, 255, 0.015);
+  transition: border-color 0.15s, background-color 0.15s, transform 0.15s;
+}
+.champkaart:hover { border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.06); transform: translateY(-2px); }
+.champkaart img { border-radius: 8px; border: 1px solid var(--line); }
+/* Champions without a recorded game read as secondary rather than broken. */
+.champkaart:not(.heeft-data) img { filter: saturate(0.45); opacity: 0.72; }
+.champkaart:not(.heeft-data):hover img { filter: none; opacity: 1; }
+.ck-naam { font-size: 0.83rem; font-weight: 600; color: var(--ink); text-align: center; line-height: 1.2; }
+.ck-cijfer { display: flex; flex-direction: column; align-items: center; gap: 0.05rem; }
+.ck-wr { font-family: var(--mono); font-size: 0.86rem; font-weight: 700; }
+.ck-wr.goed { color: var(--wr-good, #6fcf97); }
+.ck-wr.slecht { color: var(--wr-bad); }
+.ck-games { font-family: var(--mono); font-size: 0.62rem; color: var(--dim); }
+.ck-leeg { font-family: var(--mono); font-size: 0.62rem; color: var(--dim); }
 `;
 writeFileSync(join(HERE, "style.css"), css, "utf8");
 
@@ -2026,6 +2250,7 @@ const html = `<!doctype html>
       <span class="badge">League of Legends</span>
     </a>
     <nav class="links">
+      <a href="champions.html">Champions</a>
       <a href="#tiers">Tier lists</a>
       <a href="#findings">Findings</a>
       <a href="#app">The app</a>
@@ -2625,6 +2850,7 @@ ${modusBalk()}
 `;
 
 writeFileSync(join(HERE, "index.html"), html, "utf8");
+writeFileSync(join(HERE, "champions.html"), championsPagina(), "utf8");
 
 mkdirSync(join(HERE, "champion"), { recursive: true });
 let guideBytes = 0;

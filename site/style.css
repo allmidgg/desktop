@@ -838,3 +838,55 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 }
 .cat-stats b { font-size: 1.05rem; font-weight: 600; }
 .cat-groei { font-family: var(--mono); font-size: 0.66rem; color: var(--dim); letter-spacing: 0; text-transform: none; }
+
+/* ── Championsoverzicht ────────────────────────────────────────────────── */
+.champpagina { padding-block: clamp(2rem, 4vw, 3.2rem) 4rem; }
+.cp-kop h1 { margin: 0 0 0.5rem; font-size: clamp(2rem, 4.5vw, 3rem); }
+.cp-kop p { margin: 0 0 1.8rem; color: var(--muted); max-width: 62ch; font-size: 0.95rem; }
+.cp-kop strong { color: var(--ink); font-weight: 600; }
+
+.cp-balk { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin: 0 0 1rem; }
+#cp-zoek {
+  flex: 1 1 240px; min-width: 0;
+  padding: 0.6rem 0.85rem; border-radius: 7px;
+  border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03);
+  color: var(--ink); font: inherit; font-size: 0.92rem;
+}
+#cp-zoek::placeholder { color: var(--dim); }
+#cp-zoek:focus-visible { outline: 2px solid var(--gold-dim); outline-offset: 1px; border-color: var(--gold-dim); }
+
+.cp-filters { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.cp-filters button {
+  font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+  padding: 0.42rem 0.72rem; border-radius: 6px;
+  border: 1px solid var(--line); background: transparent; color: var(--dim);
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+}
+.cp-filters button:hover { color: var(--ink); border-color: var(--line-lit, var(--gold-dim)); }
+.cp-filters button.aan { color: var(--ink); border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.1); }
+
+.cp-telling { font-family: var(--mono); font-size: 0.72rem; color: var(--dim); margin: 0 0 1rem; }
+.cp-niks { color: var(--muted); font-size: 0.9rem; }
+
+.champgrid {
+  display: grid; gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+}
+.champkaart {
+  display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+  padding: 0.8rem 0.5rem 0.7rem; border-radius: 9px; text-decoration: none;
+  border: 1px solid var(--line); background: rgba(255, 255, 255, 0.015);
+  transition: border-color 0.15s, background-color 0.15s, transform 0.15s;
+}
+.champkaart:hover { border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.06); transform: translateY(-2px); }
+.champkaart img { border-radius: 8px; border: 1px solid var(--line); }
+/* Champions without a recorded game read as secondary rather than broken. */
+.champkaart:not(.heeft-data) img { filter: saturate(0.45); opacity: 0.72; }
+.champkaart:not(.heeft-data):hover img { filter: none; opacity: 1; }
+.ck-naam { font-size: 0.83rem; font-weight: 600; color: var(--ink); text-align: center; line-height: 1.2; }
+.ck-cijfer { display: flex; flex-direction: column; align-items: center; gap: 0.05rem; }
+.ck-wr { font-family: var(--mono); font-size: 0.86rem; font-weight: 700; }
+.ck-wr.goed { color: var(--wr-good, #6fcf97); }
+.ck-wr.slecht { color: var(--wr-bad); }
+.ck-games { font-family: var(--mono); font-size: 0.62rem; color: var(--dim); }
+.ck-leeg { font-family: var(--mono); font-size: 0.62rem; color: var(--dim); }
