@@ -3575,6 +3575,98 @@ footer a { transition: color var(--dur-mid) var(--ease-io); }
   .secties a, .secties a::after, .brand .mark, .kopzoek-uit a, .tier-table tbody td { transition: none; }
   .secties a:not([aria-current="page"]):hover::after { transform: scaleX(0); opacity: 0; }
 }
+
+
+/* =============================================================================
+   AMBIENT — the page keeps its atmosphere past the hero.
+   Everything below the fold used to be flat --ground, so scrolling went from a
+   battlefield to an empty sheet. Three layers fix that, all of them behind the
+   content and none of them touching contrast where text sits.
+   ============================================================================= */
+
+/* Layer 1: the battlefield stays, fixed behind the whole document, far down in
+   the dark. Fixed rather than scrolling so it reads as depth the page moves
+   over, not as a repeating tile. */
+body::before {
+  content: "";
+  position: fixed; inset: 0; z-index: -2; pointer-events: none;
+  background-image: url("img/hero-bg.png");
+  background-size: cover;
+  background-position: center 38%;
+  opacity: 0.16;
+  filter: saturate(0.75);
+}
+
+/* Layer 2: a ground wash over it, so the image never fights text and the page
+   keeps a deep, slightly cool floor. */
+body::after {
+  content: "";
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(231, 199, 110, 0.05), transparent 60%),
+    linear-gradient(180deg, rgba(7, 8, 16, 0.55), rgba(7, 8, 16, 0.86) 45%, rgba(7, 8, 16, 0.94));
+}
+
+/* The hero already carries its own full-strength copy, so it sits on top of the
+   ambient layer rather than doubling it. */
+.lol-held { z-index: 0; }
+
+/* Layer 3: light pools, one per section, alternating sides so scrolling has a
+   rhythm instead of an even glow. Sections stay transparent -- the ambient
+   layer shows through -- and each adds only its own pool of warmth. */
+.band { position: relative; isolation: isolate; background: transparent; }
+.band::before {
+  content: "";
+  position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(70% 90% at 12% 0%, rgba(231, 199, 110, 0.055), transparent 62%);
+}
+.band:nth-of-type(even)::before {
+  background: radial-gradient(70% 90% at 88% 100%, rgba(231, 199, 110, 0.05), transparent 62%);
+}
+/* .alt keeps its faint lift, now over the ambient rather than over black. */
+.band.alt { background: rgba(255, 255, 255, 0.018); }
+
+/* Section seams: a hairline that fades out at both ends instead of a hard rule
+   running edge to edge. */
+.band + .band, .roster + .band { border-top: 0; }
+.band + .band::after, .roster + .band::after {
+  content: "";
+  position: absolute; top: 0; left: 8%; right: 8%; height: 1px; z-index: -1;
+  background: linear-gradient(90deg, transparent, var(--line-lit), transparent);
+  opacity: 0.6;
+}
+
+/* The scaffolded pages (tiers, app, overlay) and the champion pages use <main>
+   rather than .band, so they get the same treatment here. */
+.geraamte, .champpagina, .guide {
+  position: relative; isolation: isolate;
+}
+.geraamte::before, .champpagina::before, .guide::before {
+  content: "";
+  position: absolute; inset: -2rem 0 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(60% 55% at 15% 0%, rgba(231, 199, 110, 0.05), transparent 60%);
+}
+
+/* Panels lift off the ambient ground instead of blending into it. */
+.kenmerk-beeld, .wacht, .spotcijfers div, .tl-kolom, .cat-stats div, .champkaart {
+  background-color: rgba(9, 11, 20, 0.55);
+  backdrop-filter: none;
+}
+.kenmerk-beeld {
+  background-image: linear-gradient(155deg, rgba(231, 199, 110, 0.06), rgba(255, 255, 255, 0.015));
+}
+
+/* The footer closes the page over the same ground. */
+footer { position: relative; isolation: isolate; }
+footer::before {
+  content: "";
+  position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.45));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before { filter: none; }
+}
 `;
 writeFileSync(join(HERE, "style.css"), css, "utf8");
 
