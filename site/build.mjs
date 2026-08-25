@@ -1377,7 +1377,7 @@ function toolbalk(hier = "home", op = "") {
   <div class="balk-spellen">
     <div class="wrap">
       <a class="brand" href="${op}index.html">
-        <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
+        <svg class="mark" viewBox="0 0 120 118" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="mk-arm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a683a"/><stop offset="1" stop-color="#b89a4d"/></linearGradient><linearGradient id="mk-spike" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8a94f"/><stop offset="1" stop-color="#f4e6ba"/></linearGradient><filter id="mk-glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="7"/></filter></defs><circle cx="60" cy="60" r="22" fill="#e7c76e" opacity="0.18" filter="url(#mk-glow)"/><path d="M14 102 L33 20 L60 60 L87 20 L106 102" stroke="url(#mk-arm)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M60 60 L60 106" stroke="url(#mk-spike)" stroke-width="10" stroke-linecap="round"/><circle cx="60" cy="106" r="6.5" fill="#f7edc9"/></svg><span class="brand-name">All<em>Mid</em></span>
       </a>
       <div class="spellen">${spellen}</div>
       <a class="balk-bron" href="https://github.com/allmidgg/desktop">Open source</a>
@@ -1973,12 +1973,10 @@ header .wrap { display: flex; align-items: center; gap: 2rem; min-height: 66px; 
   font-family: var(--display); font-weight: 800; font-stretch: 112%;
   font-size: 1.18rem; letter-spacing: -0.02em; text-decoration: none; margin-right: auto;
 }
-/* Het merk is de naam: negen cellen, en alleen het midden telt.
-   De acht eromheen staan als omtrek, zodat het midden echt oplicht in plaats
-   van mee te doen in een patroon. */
-.brand .mark { width: 22px; height: 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; flex: none; }
-.brand .mark i { border: 1px solid var(--line-lit); border-radius: 1px; }
-.brand .mark i:nth-child(5) { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 6px -1px rgba(231, 199, 110, 0.55); }
+/* Het merk is de naam. De M waarvan de middenstok naar beneden duikt naar een
+   oplichtend punt: alles komt samen in mid. Eén schone vorm, scherp van
+   favicon tot billboard, want het is vector en geen bestand. */
+.brand .mark { width: 24px; height: 24px; flex: none; display: block; }
 .brand-name { white-space: nowrap; }
 .brand em { font-style: normal; color: var(--gold); }
 

@@ -115,12 +115,10 @@ header .wrap { display: flex; align-items: center; gap: 2rem; min-height: 66px; 
   font-family: var(--display); font-weight: 800; font-stretch: 112%;
   font-size: 1.18rem; letter-spacing: -0.02em; text-decoration: none; margin-right: auto;
 }
-/* Het merk is de naam: negen cellen, en alleen het midden telt.
-   De acht eromheen staan als omtrek, zodat het midden echt oplicht in plaats
-   van mee te doen in een patroon. */
-.brand .mark { width: 22px; height: 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; flex: none; }
-.brand .mark i { border: 1px solid var(--line-lit); border-radius: 1px; }
-.brand .mark i:nth-child(5) { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 6px -1px rgba(231, 199, 110, 0.55); }
+/* Het merk is de naam. De M waarvan de middenstok naar beneden duikt naar een
+   oplichtend punt: alles komt samen in mid. Eén schone vorm, scherp van
+   favicon tot billboard, want het is vector en geen bestand. */
+.brand .mark { width: 24px; height: 24px; flex: none; display: block; }
 .brand-name { white-space: nowrap; }
 .brand em { font-style: normal; color: var(--gold); }
 
