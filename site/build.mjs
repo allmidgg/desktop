@@ -1417,6 +1417,20 @@ function zoekIndex() {
 /** Wires the header search up. Shared by every page that has a header. */
 const ZOEK_SCRIPT = `<script>
 (function () {
+  // Reveal-on-scroll, shared by every page. The CSS unhides .rise.in; earlier a
+  // page-local copy added ".op" instead, so its whole body stayed invisible.
+  var docEl = document.documentElement;
+  if (!("IntersectionObserver" in window)) { docEl.classList.remove("reveal"); }
+  else {
+    var risers = [].slice.call(document.querySelectorAll(".rise"));
+    var ro = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); ro.unobserve(e.target); } });
+    }, { rootMargin: "0px 0px -6% 0px" });
+    risers.forEach(function (r) { ro.observe(r); });
+    setTimeout(function () { risers.forEach(function (r) { r.classList.add("in"); }); }, 2500);
+  }
+})();
+(function () {
   var veld = document.getElementById("kopzoek-veld");
   var uit = document.getElementById("kopzoek-uit");
   var data = document.getElementById("zoek-data");
@@ -2832,12 +2846,9 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 }
 
 /* ── Voorpagina: League of Legends ─────────────────────────────────────── */
-.lol-held { position: relative; overflow: hidden; padding-block: clamp(3rem, 7vw, 5.5rem); }
+.lol-held { position: relative; overflow: hidden; padding-block: clamp(2.5rem, 5vw, 4rem); min-height: min(72vh, 620px); display: flex; align-items: center; }
 .lol-held-dek { position: absolute; inset: 0; opacity: 1; pointer-events: none; }
-.lol-held-dek::after {
-  content: ""; position: absolute; inset: 0;
-  background: radial-gradient(120% 90% at 70% 0%, transparent 0%, var(--bg) 72%);
-}
+/* gradient defined once, later in the file */
 .lol-held .wrap {
   position: relative; display: grid; align-items: center;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);

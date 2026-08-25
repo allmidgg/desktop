@@ -966,12 +966,9 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 }
 
 /* ── Voorpagina: League of Legends ─────────────────────────────────────── */
-.lol-held { position: relative; overflow: hidden; padding-block: clamp(3rem, 7vw, 5.5rem); }
+.lol-held { position: relative; overflow: hidden; padding-block: clamp(2.5rem, 5vw, 4rem); min-height: min(72vh, 620px); display: flex; align-items: center; }
 .lol-held-dek { position: absolute; inset: 0; opacity: 1; pointer-events: none; }
-.lol-held-dek::after {
-  content: ""; position: absolute; inset: 0;
-  background: radial-gradient(120% 90% at 70% 0%, transparent 0%, var(--bg) 72%);
-}
+/* gradient defined once, later in the file */
 .lol-held .wrap {
   position: relative; display: grid; align-items: center;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
