@@ -3,24 +3,20 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Ornn &middot; AllMid</title>
-<meta name="description" content="Ornn, The Fire below the Mountain. Tank, Mana. Base stats and where AllMid's data stands on this champion." />
-<link rel="canonical" href="https://allmid.gg/champion/ornn.html" />
-<meta property="og:type" content="article" />
-<meta property="og:title" content="Ornn &mdash; League of Legends champion" />
-<meta property="og:description" content="Ornn, The Fire below the Mountain. Tank, Mana. Base stats and where AllMid's data stands on this champion." />
+<title>The overlay &middot; AllMid</title>
+<meta name="description" content="A small panel that sits over a running game in borderless or windowed mode. It carries arithmetic on things both teams can already see &amp;mdash; and deliberately nothing else." />
 <meta name="theme-color" content="#06080c" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" />
-<link rel="stylesheet" href="../style.css" />
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
 <header id="top-bar">
   <div class="balk-spellen">
     <div class="wrap">
-      <a class="brand" href="../index.html">
+      <a class="brand" href="index.html">
         <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="brand-name">All<em>Mid</em></span>
       </a>
       <div class="spellen"><span class="spel aan">League of Legends</span></div>
@@ -29,8 +25,8 @@
   </div>
   <div class="balk-nav">
     <div class="wrap">
-      <nav class="secties"><a href="../index.html">Home</a><a href="../champions.html" aria-current="page">Champions</a><a href="../tiers.html">Tier list</a><a href="../classic.html">Classic<span class="nav-merk">data</span></a><a href="../app.html">The app</a><a href="../overlay.html">Overlay</a></nav>
-      <form class="kopzoek" role="search" data-op="../">
+      <nav class="secties"><a href="index.html">Home</a><a href="champions.html">Champions</a><a href="tiers.html">Tier list</a><a href="classic.html">Classic<span class="nav-merk">data</span></a><a href="app.html">The app</a><a href="overlay.html" aria-current="page">Overlay</a></nav>
+      <form class="kopzoek" role="search" data-op="">
         <input type="search" id="kopzoek-veld" placeholder="Search champions" autocomplete="off" aria-label="Search champions" />
         <div class="kopzoek-uit" id="kopzoek-uit" hidden></div>
       </form>
@@ -39,47 +35,39 @@
   </div>
 </header>
 
-<main class="wrap guide">
-  <div class="cat-kop">
-    <img src="../img/lol-champions/ornn.png" alt="" width="120" height="120" />
-    <div>
-      <h1>Ornn</h1>
-      <p class="cat-titel">The Fire below the Mountain</p>
-      <p class="cat-tags">
-        <span>Tank</span>
-        <span>Mana</span>
-        <span>Riot difficulty 5/10</span>
+<main class="wrap geraamte">
+  <div class="sectiekop rise">
+    <p class="eyebrow">The in-game overlay</p>
+    <h1>On top of the game, and only what the game already shows</h1>
+    <p class="sectielede">A small panel that sits over a running game in borderless or windowed mode. It carries arithmetic on things both teams can already see &mdash; and deliberately nothing else.</p>
+  </div>
+  <div class="tweeluik">
+    <div class="tl-kolom tl-ja">
+      <h3>On the panel</h3>
+      <ul>
+        <li>Objective respawn timers, counted from a kill the whole lobby watched</li>
+        <li>The gold difference in items on the field</li>
+        <li>Your own skill order, as you level it</li>
+        <li>A nudge when your trinket slot is sitting empty</li>
+      </ul>
+    </div>
+    <div class="tl-kolom tl-nee">
+      <h3>Never on it</h3>
+      <ul>
+        <li>Enemy ability cooldowns</li>
+        <li>Ultimate timers on portraits</li>
+        <li>Ward positions</li>
+        <li>Anything the game did not already show both teams</li>
+      </ul>
+      <p class="tl-waarom">
+        Not because we could not build it &mdash; because Riot&rsquo;s third-party rules forbid
+        exactly this, and a tool that gets you banned is not a tool.
       </p>
     </div>
   </div>
-
-  <section class="guide-blok">
-    <h2>No win rate here yet, and that is the honest answer</h2>
-    <p>
-      Every number on AllMid comes from games we recorded ourselves. Our data covers
-      <strong>League Classic</strong>, the Season&nbsp;3 remake &mdash; and Ornn was not in
-      the game in Season&nbsp;3, so there is no Classic match that could carry a statistic about
-      this champion. That is a fact about the mode, not a gap we are hiding.
-    </p>
-    <p>
-      Standard League queues are next. When there is a real sample behind Ornn, the
-      builds, counters and lane numbers land on this page &mdash; with the sample size attached,
-      the same as everywhere else here. Until then this page carries only what Riot publishes.
-    </p>
-  </section>
-
-  <section class="guide-blok">
-    <h2>Base stats</h2>
-    <p>Riot&rsquo;s own published values, patch 16.16.1. Level 1, before items.</p>
-    <div class="cat-stats">
-      <div><span>Health</span><b>660 <span class="cat-groei">+109/lvl</span></b></div>
-      <div><span>Attack damage</span><b>69</b></div>
-      <div><span>Armor</span><b>33 <span class="cat-groei">+5.2/lvl</span></b></div>
-      <div><span>Magic resist</span><b>32 <span class="cat-groei">+2.05/lvl</span></b></div>
-      <div><span>Move speed</span><b>335</b></div>
-      <div><span>Attack range</span><b>175</b></div>
-    </div>
-  </section>
+      <div class="geraamte-cta rise">
+        <a class="btn btn-primary" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">Download for Windows</a>
+      </div>
 </main>
 
 <footer>
@@ -90,13 +78,14 @@
       producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered
       trademarks of Riot Games, Inc.
     </p>
-    <p class="legal">Questions, corrections or takedown requests: <a href="mailto:contact@allmid.gg">contact@allmid.gg</a>.</p>
     <nav>
-      <a href="../index.html">Home</a>
+      <a href="index.html">Home</a>
+      <a href="classic.html">Classic</a>
       <a href="https://github.com/allmidgg/desktop">GitHub</a>
     </nav>
   </div>
 </footer>
+
 <script id="zoek-data" type="application/json">[["Aatrox","aatrox"],["Ahri","ahri"],["Akali","akali"],["Akshan","akshan"],["Alistar","alistar"],["Ambessa","ambessa"],["Amumu","amumu"],["Anivia","anivia"],["Annie","annie"],["Aphelios","aphelios"],["Ashe","ashe"],["Aurelion Sol","aurelionsol"],["Aurora","aurora"],["Azir","azir"],["Bard","bard"],["Bel'Veth","belveth"],["Blitzcrank","blitzcrank"],["Brand","brand"],["Braum","braum"],["Briar","briar"],["Caitlyn","caitlyn"],["Camille","camille"],["Cassiopeia","cassiopeia"],["Cho'Gath","chogath"],["Corki","corki"],["Darius","darius"],["Diana","diana"],["Dr. Mundo","drmundo"],["Draven","draven"],["Ekko","ekko"],["Elise","elise"],["Evelynn","evelynn"],["Ezreal","ezreal"],["Fiddlesticks","fiddlesticks"],["Fiora","fiora"],["Fizz","fizz"],["Galio","galio"],["Gangplank","gangplank"],["Garen","garen"],["Gnar","gnar"],["Gragas","gragas"],["Graves","graves"],["Gwen","gwen"],["Hecarim","hecarim"],["Heimerdinger","heimerdinger"],["Hwei","hwei"],["Illaoi","illaoi"],["Irelia","irelia"],["Ivern","ivern"],["Janna","janna"],["Jarvan IV","jarvaniv"],["Jax","jax"],["Jayce","jayce"],["Jhin","jhin"],["Jinx","jinx"],["K'Sante","ksante"],["Kai'Sa","kaisa"],["Kalista","kalista"],["Karma","karma"],["Karthus","karthus"],["Kassadin","kassadin"],["Katarina","katarina"],["Kayle","kayle"],["Kayn","kayn"],["Kennen","kennen"],["Kha'Zix","khazix"],["Kindred","kindred"],["Kled","kled"],["Kog'Maw","kogmaw"],["LeBlanc","leblanc"],["Lee Sin","leesin"],["Leona","leona"],["Lillia","lillia"],["Lissandra","lissandra"],["Locke","locke"],["Lucian","lucian"],["Lulu","lulu"],["Lux","lux"],["Malphite","malphite"],["Malzahar","malzahar"],["Maokai","maokai"],["Master Yi","masteryi"],["Mel","mel"],["Milio","milio"],["Miss Fortune","missfortune"],["Mordekaiser","mordekaiser"],["Morgana","morgana"],["Naafiri","naafiri"],["Nami","nami"],["Nasus","nasus"],["Nautilus","nautilus"],["Neeko","neeko"],["Nidalee","nidalee"],["Nilah","nilah"],["Nocturne","nocturne"],["Nunu & Willump","nunuwillump"],["Olaf","olaf"],["Orianna","orianna"],["Ornn","ornn"],["Pantheon","pantheon"],["Poppy","poppy"],["Pyke","pyke"],["Qiyana","qiyana"],["Quinn","quinn"],["Rakan","rakan"],["Rammus","rammus"],["Rek'Sai","reksai"],["Rell","rell"],["Renata Glasc","renataglasc"],["Renekton","renekton"],["Rengar","rengar"],["Riven","riven"],["Rumble","rumble"],["Ryze","ryze"],["Samira","samira"],["Sejuani","sejuani"],["Senna","senna"],["Seraphine","seraphine"],["Sett","sett"],["Shaco","shaco"],["Shen","shen"],["Shyvana","shyvana"],["Singed","singed"],["Sion","sion"],["Sivir","sivir"],["Skarner","skarner"],["Smolder","smolder"],["Sona","sona"],["Soraka","soraka"],["Swain","swain"],["Sylas","sylas"],["Syndra","syndra"],["Tahm Kench","tahmkench"],["Taliyah","taliyah"],["Talon","talon"],["Taric","taric"],["Teemo","teemo"],["Thresh","thresh"],["Tristana","tristana"],["Trundle","trundle"],["Tryndamere","tryndamere"],["Twisted Fate","twistedfate"],["Twitch","twitch"],["Udyr","udyr"],["Urgot","urgot"],["Varus","varus"],["Vayne","vayne"],["Veigar","veigar"],["Vel'Koz","velkoz"],["Vex","vex"],["Vi","vi"],["Viego","viego"],["Viktor","viktor"],["Vladimir","vladimir"],["Volibear","volibear"],["Warwick","warwick"],["Wukong","wukong"],["Xayah","xayah"],["Xerath","xerath"],["Xin Zhao","xinzhao"],["Yasuo","yasuo"],["Yone","yone"],["Yorick","yorick"],["Yunara","yunara"],["Yuumi","yuumi"],["Zaahen","zaahen"],["Zac","zac"],["Zed","zed"],["Zeri","zeri"],["Ziggs","ziggs"],["Zilean","zilean"],["Zoe","zoe"],["Zyra","zyra"]]</script>
 <script>
 (function () {

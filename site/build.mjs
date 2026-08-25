@@ -828,6 +828,202 @@ function guideLane(laneRegel, buildRegel, ijk, isOpen) {
  * so the page works with the script switched off -- it just shows everybody.
  */
 /**
+ * A page that is wired up before its data exists.
+ *
+ * The point of these is the plumbing: real nav, real header, real footer, the
+ * exact place every future row will slot into, and honest copy about why it is
+ * empty. When the numbers land, the empty state is replaced by a table -- the
+ * page, its URL and its link from the nav do not move. `scaffold` renders the
+ * shared skeleton so tiers.html and app/overlay share one shape.
+ */
+function paginaGeraamte({ hier, titel, eyebrow, kop, lede, inhoud }) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${esc(titel)} &middot; AllMid</title>
+<meta name="description" content="${esc(lede.replace(/<[^>]+>/g, ""))}" />
+<meta name="theme-color" content="#06080c" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+<link rel="stylesheet" href="${CSS_PAD}" />
+</head>
+<body>
+
+${toolbalk(hier)}
+
+<main class="wrap geraamte">
+  <div class="sectiekop rise">
+    <p class="eyebrow">${esc(eyebrow)}</p>
+    <h1>${esc(kop)}</h1>
+    <p class="sectielede">${lede}</p>
+  </div>
+  ${inhoud}
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="legal">
+      AllMid is an independent, open-source project released under the MIT licence. It is not endorsed by
+      Riot Games and does not reflect the views or opinions of Riot Games or anyone officially involved in
+      producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered
+      trademarks of Riot Games, Inc.
+    </p>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="classic.html">Classic</a>
+      <a href="https://github.com/allmidgg/desktop">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+${zoekIndex()}
+${ZOEK_SCRIPT}
+</body>
+</html>`;
+}
+
+/** A labelled "waiting for data" panel with the real column headers already in place. */
+function wachtPaneel({ kolommen, uitleg, cta }) {
+  const koppen = kolommen.map((k) => `<span>${esc(k)}</span>`).join("");
+  return `<div class="wacht">
+    <div class="wacht-kop">${koppen}</div>
+    <div class="wacht-rijen">
+      ${[0, 1, 2, 3, 4]
+        .map(
+          () => `<div class="wacht-rij">
+        <span class="wacht-blok w-portret"></span>
+        <span class="wacht-blok w-lang"></span>
+        <span class="wacht-blok w-kort"></span>
+        <span class="wacht-blok w-kort"></span>
+      </div>`,
+        )
+        .join("")}
+    </div>
+    <div class="wacht-uitleg">
+      <p>${uitleg}</p>
+      ${cta ? `<a class="btn btn-ghost btn-sm" href="${cta.href}">${esc(cta.tekst)}</a>` : ""}
+    </div>
+  </div>`;
+}
+
+/**
+ * The standalone Tier list page.
+ *
+ * Standard League has no games yet, so this is a queue picker over empty
+ * panels -- except Classic, which links straight to the live tier list that
+ * already exists on classic.html. That is the pattern for the whole site:
+ * wired now, filled per queue as the data arrives.
+ */
+function tiersPagina() {
+  const wachtrijen = [
+    { naam: "Ranked Solo/Duo", live: false },
+    { naam: "Flex", live: false },
+    { naam: "Normal Draft", live: false },
+    { naam: "ARAM", live: false },
+  ];
+
+  const keuze = `<div class="tier-keuze">
+    <a class="tier-optie aan" href="classic.html#tiers">
+      <span class="to-naam">Classic</span>
+      <span class="to-merk">${n(T.games)} games</span>
+    </a>
+    ${wachtrijen
+      .map(
+        (q) =>
+          `<span class="tier-optie soon">
+        <span class="to-naam">${esc(q.naam)}</span>
+        <span class="to-merk">no data yet</span>
+      </span>`,
+      )
+      .join("")}
+  </div>`;
+
+  const paneel = wachtPaneel({
+    kolommen: ["Rank", "Champion", "Win rate", "Games"],
+    uitleg:
+      "Standard-queue tier lists land here the moment there is a real sample behind them. " +
+      "Classic is live now &mdash; it is built from recorded games and updates itself.",
+    cta: { href: "classic.html#tiers", tekst: "See the Classic tier list" },
+  });
+
+  return paginaGeraamte({
+    hier: "tiers",
+    titel: "Tier list",
+    eyebrow: "Tier list",
+    kop: "Every queue, ranked the same way",
+    lede:
+      "One method across all of them: win rate with the sample size attached, per lane, nothing " +
+      "editorialised. The queue that has data today is Classic; the rest are wired and waiting.",
+    inhoud: `${keuze}${paneel}`,
+  });
+}
+
+/** The app page: what it is, until there is a gallery of screenshots to show. */
+function appPagina() {
+  const blokken = KENMERKEN.map(kenmerkBlok).join("");
+  return paginaGeraamte({
+    hier: "app",
+    titel: "The app",
+    eyebrow: "The desktop app",
+    kop: "AllMid on your machine, reading your own client",
+    lede:
+      "No injection, no memory reading, no DLL in the game process &mdash; just the local APIs " +
+      "Riot already ships with the client. Below is what it does; each one is a feature that " +
+      "runs today.",
+    inhoud: `<div class="kenmerken">${blokken}</div>
+      <div class="geraamte-cta rise">
+        <a class="btn btn-primary" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">Download for Windows</a>
+        <a class="btn btn-ghost" href="https://github.com/allmidgg/desktop">Read the source</a>
+      </div>`,
+  });
+}
+
+/** The overlay page: the yes/no split, promoted from a section to its own page. */
+function overlayPagina() {
+  const luik = `<div class="tweeluik">
+    <div class="tl-kolom tl-ja">
+      <h3>On the panel</h3>
+      <ul>
+        <li>Objective respawn timers, counted from a kill the whole lobby watched</li>
+        <li>The gold difference in items on the field</li>
+        <li>Your own skill order, as you level it</li>
+        <li>A nudge when your trinket slot is sitting empty</li>
+      </ul>
+    </div>
+    <div class="tl-kolom tl-nee">
+      <h3>Never on it</h3>
+      <ul>
+        <li>Enemy ability cooldowns</li>
+        <li>Ultimate timers on portraits</li>
+        <li>Ward positions</li>
+        <li>Anything the game did not already show both teams</li>
+      </ul>
+      <p class="tl-waarom">
+        Not because we could not build it &mdash; because Riot&rsquo;s third-party rules forbid
+        exactly this, and a tool that gets you banned is not a tool.
+      </p>
+    </div>
+  </div>`;
+
+  return paginaGeraamte({
+    hier: "overlay",
+    titel: "The overlay",
+    eyebrow: "The in-game overlay",
+    kop: "On top of the game, and only what the game already shows",
+    lede:
+      "A small panel that sits over a running game in borderless or windowed mode. It carries " +
+      "arithmetic on things both teams can already see &mdash; and deliberately nothing else.",
+    inhoud: `${luik}
+      <div class="geraamte-cta rise">
+        <a class="btn btn-primary" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">Download for Windows</a>
+      </div>`,
+  });
+}
+
+/**
  * The front page: League of Legends, and what AllMid does with it.
  *
  * Deliberately not the Classic page. Classic is the queue we have data for
@@ -1165,10 +1361,10 @@ function toolbalk(hier = "home", op = "") {
   const secties = [
     { id: "home", naam: "Home", href: `${op}index.html` },
     { id: "champions", naam: "Champions", href: `${op}champions.html` },
-    { id: "tiers", naam: "Tier list", href: `${op}classic.html#tiers` },
+    { id: "tiers", naam: "Tier list", href: `${op}tiers.html` },
     { id: "classic", naam: "Classic", href: `${op}classic.html`, merk: "data" },
-    { id: "app", naam: "The app", href: `${op}index.html#app` },
-    { id: "overlay", naam: "Overlay", href: `${op}index.html#overlay` },
+    { id: "app", naam: "The app", href: `${op}app.html` },
+    { id: "overlay", naam: "Overlay", href: `${op}overlay.html` },
   ]
     .map(
       (x) =>
@@ -1777,9 +1973,12 @@ header .wrap { display: flex; align-items: center; gap: 2rem; min-height: 66px; 
   font-family: var(--display); font-weight: 800; font-stretch: 112%;
   font-size: 1.18rem; letter-spacing: -0.02em; text-decoration: none; margin-right: auto;
 }
+/* Het merk is de naam: negen cellen, en alleen het midden telt.
+   De acht eromheen staan als omtrek, zodat het midden echt oplicht in plaats
+   van mee te doen in een patroon. */
 .brand .mark { width: 22px; height: 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; flex: none; }
-.brand .mark i { background: var(--line-lit); border-radius: 1px; }
-.brand .mark i:nth-child(2), .brand .mark i:nth-child(4), .brand .mark i:nth-child(9) { background: var(--gold); }
+.brand .mark i { border: 1px solid var(--line-lit); border-radius: 1px; }
+.brand .mark i:nth-child(5) { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 6px -1px rgba(231, 199, 110, 0.55); }
 .brand-name { white-space: nowrap; }
 .brand em { font-style: normal; color: var(--gold); }
 
@@ -2541,6 +2740,10 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   transition: border-color 0.15s, background-color 0.15s, transform 0.15s;
 }
 .champkaart:hover { border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.06); transform: translateY(-2px); }
+/* display:flex hierboven wint van de standaard die [hidden] meebrengt, dus
+   moet het filteren dit expliciet zeggen -- anders telt de teller wel af maar
+   blijft alles staan. */
+.champkaart[hidden] { display: none; }
 .champkaart img { border-radius: 8px; border: 1px solid var(--line); }
 /* Champions without a recorded game read as secondary rather than broken. */
 .champkaart:not(.heeft-data) img { filter: saturate(0.45); opacity: 0.72; }
@@ -2722,6 +2925,57 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
 .downloadblok { text-align: center; display: grid; justify-items: center; gap: 0.9rem; }
 .downloadblok h2 { margin: 0; font-size: clamp(1.6rem, 3vw, 2.3rem); }
 .downloadblok p { margin: 0; color: var(--muted); }
+
+/* Pagina die al bestaat voordat zijn data bestaat. */
+.geraamte { padding-block: clamp(2rem, 4vw, 3.2rem) 4rem; }
+.geraamte .sectiekop h1 { font-size: clamp(2rem, 4.5vw, 3rem); margin: 0 0 0.6rem; }
+.geraamte-cta { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 2.4rem; }
+
+/* Wachtrij-kiezer op de tier-pagina */
+.tier-keuze { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.6rem; }
+.tier-optie {
+  display: flex; flex-direction: column; gap: 0.15rem; text-decoration: none;
+  padding: 0.6rem 0.95rem; border-radius: 8px; border: 1px solid var(--line);
+}
+.tier-optie.aan { border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.08); }
+.tier-optie.aan:hover { background: rgba(231, 199, 110, 0.13); }
+.tier-optie.soon { opacity: 0.55; }
+.to-naam { font-size: 0.92rem; font-weight: 600; color: var(--ink); }
+.tier-optie.soon .to-naam { color: var(--muted); }
+.to-merk { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.08em; color: var(--dim); }
+.tier-optie.aan .to-merk { color: var(--gold); }
+
+/* Het wachtpaneel: echte koppen, skelet-rijen eronder */
+.wacht { border: 1px solid var(--line); border-radius: 11px; overflow: hidden; }
+.wacht-kop {
+  display: grid; grid-template-columns: 3.2rem 1fr 6rem 6rem; gap: 1rem;
+  padding: 0.7rem 1.1rem; border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+  font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--dim);
+}
+.wacht-rijen { position: relative; }
+.wacht-rij {
+  display: grid; grid-template-columns: 3.2rem 1fr 6rem 6rem; gap: 1rem; align-items: center;
+  padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--line);
+}
+.wacht-rij:last-child { border-bottom: 0; }
+.wacht-blok {
+  height: 0.8rem; border-radius: 4px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.09), rgba(255,255,255,0.05));
+  background-size: 200% 100%; animation: wachtGlans 1.8s ease-in-out infinite;
+}
+.wacht-blok.w-portret { width: 2rem; height: 2rem; border-radius: 6px; }
+.wacht-blok.w-lang { width: 60%; }
+.wacht-blok.w-kort { width: 3.2rem; }
+@keyframes wachtGlans { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .wacht-blok { animation: none; } }
+.wacht-uitleg {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 1.1rem 1.2rem; background: rgba(255, 255, 255, 0.02);
+}
+.wacht-uitleg p { margin: 0; color: var(--muted); font-size: 0.9rem; max-width: 60ch; }
+.btn-sm { padding: 0.4rem 0.8rem; font-size: 0.82rem; }
 `;
 writeFileSync(join(HERE, "style.css"), css, "utf8");
 
@@ -3405,6 +3659,9 @@ const championsHtml = championsPagina();
 writeFileSync(join(HERE, "classic.html"), classicHtml, "utf8");
 writeFileSync(join(HERE, "index.html"), homeHtml, "utf8");
 writeFileSync(join(HERE, "champions.html"), championsHtml, "utf8");
+writeFileSync(join(HERE, "tiers.html"), tiersPagina(), "utf8");
+writeFileSync(join(HERE, "app.html"), appPagina(), "utf8");
+writeFileSync(join(HERE, "overlay.html"), overlayPagina(), "utf8");
 
 mkdirSync(join(HERE, "champion"), { recursive: true });
 let guideBytes = 0;
