@@ -589,6 +589,241 @@ function tierLists() {
   }).join("");
 }
 
+/* ── "The meta right now" on the front page ───────────────────────────────
+ *
+ * The home page used to state a number -- 125,096 games -- and then show none
+ * of it. This section is the proof: the same tier computation classic.html
+ * runs, printed above the fold, with the sample size on every line.
+ * ─────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Six views: the roster as a whole, then the five lanes.
+ *
+ * Overall opens, because it answers the question a first-time visitor actually
+ * has ("who is winning in this mode?") before they know Classic has no role
+ * queue and that a lane split is even meaningful.
+ */
+const MN_TABS = [{ key: "ALL", label: "Overall" }, ...LANES];
+
+/** How many champions carry Classic data at all. Never hardcode the 63. */
+const MN_ROSTER = Object.keys(champions.champions).length;
+
+/**
+ * The one matchup worth printing from a beats/losesTo list, or nothing.
+ *
+ * `richting` is +1 for the best matchup and -1 for the worst. Preference goes
+ * to matchups with at least 100 direct meetings: an extreme win rate over 9
+ * games is the loudest line in the list and the least true one. Only when no
+ * matchup clears that bar do we fall back -- and then to the best-sampled one
+ * rather than the most extreme, so the fallback errs quiet instead of loud.
+ * The games are always printed next to it, whichever branch produced it.
+ */
+function mnMatchup(lijst, richting) {
+  const rijen = lijst ?? [];
+  if (!rijen.length) return null;
+  const zeker = rijen.filter((m) => m.games >= 100);
+  if (zeker.length) {
+    return zeker.reduce((a, b) => ((richting > 0 ? b.winrate > a.winrate : b.winrate < a.winrate) ? b : a));
+  }
+  return rijen.reduce((a, b) => (b.games > a.games ? b : a));
+}
+
+/**
+ * The ten rows behind one tab.
+ *
+ * The lane tabs reuse tierFor() verbatim, so the front page and the tier list
+ * on classic.html can never disagree; the champion is looked up again only to
+ * reach the matchups, which tierFor does not carry. The Overall tab sorts on
+ * the pooled champion win rate -- the same field findings() calls "strongest
+ * champion in Classic".
+ */
+function mnRijen(key) {
+  const alle = Object.values(champions.champions);
+
+  if (key === "ALL") {
+    return [...alle]
+      .sort((a, b) => b.winrate - a.winrate)
+      .slice(0, 10)
+      .map((c) => ({
+        baseId: c.baseId,
+        naam: c.name,
+        winrate: c.winrate,
+        winrateRuw: c.winrateRaw,
+        games: c.totalGames,
+        onder: `Most played ${LANES.find((l) => l.key === vaakstGespeeld(c))?.label ?? "unranked"}`,
+        beats: c.beats,
+        losesTo: c.losesTo,
+      }));
+  }
+
+  return tierFor(key).map((e) => {
+    const full = champions.champions[String(e.baseId)];
+    const l = full.lanes.find((x) => x.lane === key);
+    return {
+      baseId: e.baseId,
+      naam: e.naam,
+      winrate: e.winrate,
+      winrateRuw: e.winrateRuw,
+      games: e.games,
+      onder: `${pct(e.pickRate)}% pick rate`,
+      beats: l?.beats ?? [],
+      losesTo: l?.losesTo ?? [],
+    };
+  });
+}
+
+/** The most-picked qualified champion in a lane. Null for the Overall tab. */
+function mnMeestGespeeld(key) {
+  if (key === "ALL") return null;
+  const kandidaten = Object.values(champions.champions)
+    .map((c) => ({ c, l: c.lanes.find((x) => x.lane === key && x.qualified) }))
+    .filter((x) => x.l);
+  if (!kandidaten.length) return null;
+  return kandidaten.reduce((a, b) => (b.l.pickRate > a.l.pickRate ? b : a));
+}
+
+/** Champion link. Every champion in champions.json has a page under champion/. */
+const mnHref = (naam) => `champion/${slugVan(naam)}.html`;
+
+/** One number with its label. Three of these make the head of the lead card. */
+const mnStat = (waarde, label, klasse = "") => `
+              <span class="mn-stat">
+                <b class="${klasse ? `mono ${klasse}` : "mono"}">${waarde}</b>
+                <span>${esc(label)}</span>
+              </span>`;
+
+/**
+ * Rank one: a card, not a row.
+ *
+ * The splash stays at full colour in its own frame and the text sits on clean
+ * dark ground underneath -- the house rule. Text over dimmed art was the thing
+ * three earlier passes got sent back for.
+ */
+function mnLead(rij, label) {
+  const beste = mnMatchup(rij.beats, 1);
+  const slechtste = mnMatchup(rij.losesTo, -1);
+  const mu = (m, kop) =>
+    !m
+      ? ""
+      : `
+            <span class="mn-mu">
+              <span class="mn-mu-kop">${esc(kop)}</span>
+              <span class="mn-mu-naam">${esc(m.name)}</span>
+              <span class="mn-mu-wr mono ${wrClass(m.winrate)}">${pct(m.winrate)}<small>%</small></span>
+              <span class="mn-mu-n mono">${n(m.games)} games</span>
+            </span>`;
+
+  return `
+      <article class="mn-lead">
+        <a href="${mnHref(rij.naam)}">
+          <span class="mn-lead-art">
+            <img src="${splashOf(rij.baseId)}" alt="" width="640" height="360" loading="lazy" />
+            <span class="mn-crown mono">#1 ${esc(label)}</span>
+          </span>
+          <span class="mn-lead-body">
+            <span class="mn-lead-naam">${esc(rij.naam)}</span>
+            <span class="mn-lead-onder">${esc(rij.onder)}</span>
+            <span class="mn-lead-cijfers">
+              ${mnStat(`${pct(rij.winrate)}<small>%</small>`, "win rate", wrClass(rij.winrate))}
+              ${mnStat(`${pct(rij.winrateRuw)}<small>%</small>`, "unsmoothed")}
+              ${mnStat(n(rij.games), "games")}
+            </span>
+            ${beste || slechtste ? `<span class="mn-mus">${mu(beste, "Best into")}${mu(slechtste, "Worst into")}</span>` : ""}
+          </span>
+        </a>
+      </article>`;
+}
+
+/** Ranks two through ten. */
+function mnRij(rij, i) {
+  return `
+          <li>
+            <a class="mn-rij" href="${mnHref(rij.naam)}">
+              <span class="mn-rang mono">${String(i + 1).padStart(2, "0")}</span>
+              <img class="mn-face" src="${iconOf(rij.baseId)}" alt="" width="128" height="128" loading="lazy" />
+              <span class="mn-naam">${esc(rij.naam)}<small>${esc(rij.onder)}</small></span>
+              <span class="mn-balk" aria-hidden="true"><i style="width:${bar(rij.winrate).toFixed(1)}%"></i></span>
+              <span class="mn-wr mono ${wrClass(rij.winrate)}">${pct(rij.winrate)}<small>%</small></span>
+              <span class="mn-games mono">${n(rij.games)}<small>games</small></span>
+            </a>
+          </li>`;
+}
+
+/** One tab's panel: the lead card, nine rows, and what the sample rests on. */
+function mnPaneel({ key, label }) {
+  const rijen = mnRijen(key);
+  const top = mnMeestGespeeld(key);
+
+  const voet =
+    key === "ALL"
+      ? `All ${MN_ROSTER} champions ranked together, pooled over every lane. Of ${n(CH.spelersloten)}
+         player slots, ${n(CH.slotenZonderPositie)} had no readable position and count towards nothing
+         on this page.`
+      : `${CH.laneQualifiers[key]} of ${MN_ROSTER} champions cleared the 100-game minimum in ${esc(label)},
+         out of ${n(CH.spelerslotenPerLane[key])} recorded ${esc(label.toLowerCase())} slots.` +
+        (top
+          ? ` Most played there: <a href="${mnHref(top.c.name)}">${esc(top.c.name)}</a>, ${pct(top.l.pickRate)}% of
+             them, ${pct(top.l.winrate)}% over ${n(top.l.games)} games.`
+          : "");
+
+  return `
+      <div class="mn-pane" id="mn-pane-${key}">
+        <div class="mn-grid">
+          ${mnLead(rijen[0], label)}
+          <ol class="mn-lijst" start="2">${rijen.slice(1).map((r, i) => mnRij(r, i + 1)).join("")}</ol>
+        </div>
+        <p class="mn-voet">${voet} <a href="classic.html#tiers">See the full tier list</a></p>
+      </div>`;
+}
+
+/**
+ * The whole section.
+ *
+ * The tabs are radio inputs with labels, switched by CSS alone. No script runs
+ * here on purpose: with JavaScript off you still get a working tier list with
+ * five other tabs one keypress away, which a button-and-hidden-pane tab strip
+ * cannot say.
+ */
+function metaNu() {
+  const knoppen = MN_TABS.map(
+    ({ key }, i) =>
+      `<input class="mn-r" type="radio" name="mn-lane" id="mn-r-${key}"${i === 0 ? " checked" : ""} />`,
+  ).join("");
+
+  const labels = MN_TABS.map(
+    ({ key, label }) => `<label for="mn-r-${key}">${esc(label)}</label>`,
+  ).join("");
+
+  return `
+<section class="band alt" id="meta">
+  <div class="wrap">
+    <div class="mn-kop rise">
+      <div class="sectiekop">
+        <p class="eyebrow">The meta right now</p>
+        <h2>The strongest champions in Classic &mdash; and the games that say so.</h2>
+        <p class="sectielede">
+          Not an opinion and not a screenshot: this is the recorded dataset, computed by the same
+          code the app runs. Win rate is smoothed as <code>(wins + 10) / (games + 20)</code>, so a
+          lucky 40-game run cannot fake a 70% &mdash; the unsmoothed number is printed next to it.
+        </p>
+      </div>
+      <dl class="mn-bewijs">
+        <div><dt>Games recorded</dt><dd class="mono">${n(T.games)}</dd></div>
+        <div><dt>Player slots</dt><dd class="mono">${n(T.playerRows)}</dd></div>
+        <div><dt>Patches</dt><dd class="mono">${T.patches.map((p) => esc(p)).join(" &middot; ")}</dd></div>
+        <div><dt>Last recount</dt><dd class="mono">${DATE(T.generatedAt)}</dd></div>
+      </dl>
+    </div>
+
+    <div class="mn rise">
+      ${knoppen}
+      <div class="mn-tabs">${labels}</div>
+      <div class="mn-panes">${MN_TABS.map(mnPaneel).join("")}</div>
+    </div>
+  </div>
+</section>`;
+}
+
 /**
  * Drie bevindingen, alle drie afgeleid uit champions.json.
  *
@@ -1106,6 +1341,8 @@ ${toolbalk("home")}
 </section>
 
 ${modusBalk()}
+
+${metaNu()}
 
 <section class="band" id="app">
   <div class="wrap">
@@ -3666,6 +3903,176 @@ footer::before {
 
 @media (prefers-reduced-motion: reduce) {
   body::before { filter: none; }
+}
+
+
+/* ── "The meta right now" (index.html) ───────────────────────────────────────
+   The front page's proof section: the lane tier list, the lead card, and the
+   line of totals it all rests on. Tabs are radio inputs switched by CSS, so
+   the panel still works with scripting off.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.mn-kop { display: grid; gap: clamp(1.6rem, 3vw, 2.6rem); align-items: end; }
+@media (min-width: 64rem) { .mn-kop { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); } }
+.mn-kop .sectiekop { margin-bottom: 0; }
+.mn-kop code { font-family: var(--mono); font-size: 0.9em; color: var(--muted); white-space: nowrap; }
+
+.mn-bewijs {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px;
+  margin: 0; background: var(--line);
+  border: 1px solid var(--line); border-radius: var(--radius-s); overflow: hidden;
+}
+.mn-bewijs > div { background: var(--surface); padding: 0.7rem 0.9rem 0.75rem; }
+.mn-bewijs dt {
+  font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--dim);
+}
+.mn-bewijs dd {
+  margin: 0.3rem 0 0; font-size: clamp(0.95rem, 0.85rem + 0.35vw, 1.15rem);
+  font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+
+.mn { position: relative; margin-top: clamp(1.8rem, 3.5vw, 2.8rem); }
+.mn-r { position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+
+.mn-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.1rem; }
+.mn-tabs label {
+  font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.09em; text-transform: uppercase;
+  padding: 0.5rem 0.95rem; border-radius: 5px; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); color: var(--muted);
+  transition: color var(--dur-fast) var(--ease-io), border-color var(--dur-fast) var(--ease-io),
+              background var(--dur-fast) var(--ease-io);
+}
+.mn-tabs label:hover { color: var(--ink); border-color: var(--line-lit); }
+.mn-tabs label:active { transform: translateY(0.5px); }
+
+.mn-pane { display: none; }
+#mn-r-ALL:checked     ~ .mn-panes #mn-pane-ALL,
+#mn-r-TOP:checked     ~ .mn-panes #mn-pane-TOP,
+#mn-r-JUNGLE:checked  ~ .mn-panes #mn-pane-JUNGLE,
+#mn-r-MIDDLE:checked  ~ .mn-panes #mn-pane-MIDDLE,
+#mn-r-BOTTOM:checked  ~ .mn-panes #mn-pane-BOTTOM,
+#mn-r-SUPPORT:checked ~ .mn-panes #mn-pane-SUPPORT { display: block; }
+
+#mn-r-ALL:checked     ~ .mn-tabs label[for="mn-r-ALL"],
+#mn-r-TOP:checked     ~ .mn-tabs label[for="mn-r-TOP"],
+#mn-r-JUNGLE:checked  ~ .mn-tabs label[for="mn-r-JUNGLE"],
+#mn-r-MIDDLE:checked  ~ .mn-tabs label[for="mn-r-MIDDLE"],
+#mn-r-BOTTOM:checked  ~ .mn-tabs label[for="mn-r-BOTTOM"],
+#mn-r-SUPPORT:checked ~ .mn-tabs label[for="mn-r-SUPPORT"] {
+  color: var(--gold); border-color: var(--gold-dim); background: rgba(231, 199, 110, 0.08);
+}
+
+#mn-r-ALL:focus-visible     ~ .mn-tabs label[for="mn-r-ALL"],
+#mn-r-TOP:focus-visible     ~ .mn-tabs label[for="mn-r-TOP"],
+#mn-r-JUNGLE:focus-visible  ~ .mn-tabs label[for="mn-r-JUNGLE"],
+#mn-r-MIDDLE:focus-visible  ~ .mn-tabs label[for="mn-r-MIDDLE"],
+#mn-r-BOTTOM:focus-visible  ~ .mn-tabs label[for="mn-r-BOTTOM"],
+#mn-r-SUPPORT:focus-visible ~ .mn-tabs label[for="mn-r-SUPPORT"] {
+  outline: 2px solid var(--gold); outline-offset: 3px; color: var(--ink);
+}
+
+/* ── Panel: the lead card next to the rest of the ten ───────────────────── */
+
+.mn-grid { display: grid; gap: clamp(0.9rem, 1.8vw, 1.4rem); }
+@media (min-width: 62rem) { .mn-grid { grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr); } }
+
+.mn-lead {
+  border: 1px solid var(--line-lit); border-radius: var(--radius); overflow: hidden;
+  background: var(--surface); box-shadow: var(--shadow);
+  transition: border-color var(--dur-mid) var(--ease-io), box-shadow var(--dur-mid) var(--ease-io),
+              transform var(--dur-mid) var(--ease-out);
+}
+.mn-lead:hover { border-color: var(--gold-dim); box-shadow: var(--lift-1); transform: translateY(-2px); }
+.mn-lead a { display: flex; flex-direction: column; height: 100%; text-decoration: none; color: inherit; }
+
+/* Art at full colour in its own frame, text on clean ground underneath. */
+.mn-lead-art { position: relative; display: block; overflow: hidden; border-bottom: 1px solid var(--line); }
+.mn-lead-art img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; object-position: center 24%; transition: transform 0.6s var(--ease-out); }
+.mn-lead:hover .mn-lead-art img { transform: scale(1.035); }
+.mn-crown {
+  position: absolute; left: 0.75rem; top: 0.75rem;
+  font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--gold-lit); background: rgba(7, 8, 16, 0.82); border: 1px solid var(--gold-dim);
+  border-radius: 4px; padding: 0.28rem 0.55rem; backdrop-filter: blur(3px);
+}
+
+.mn-lead-body { display: block; padding: clamp(0.95rem, 2vw, 1.35rem); }
+.mn-lead-naam {
+  display: block; font-family: var(--display); font-weight: 800; font-stretch: 112%;
+  letter-spacing: -0.02em; line-height: 1.05; font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2rem);
+}
+.mn-lead-onder {
+  display: block; margin-top: 0.3rem; font-family: var(--mono);
+  font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim);
+}
+
+.mn-lead-cijfers { display: flex; flex-wrap: wrap; gap: 0.35rem 1.6rem; margin-top: 0.95rem; }
+.mn-stat { display: block; }
+.mn-stat b { display: block; font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.mn-stat b small { font-size: 0.62em; opacity: 0.62; margin-left: 1px; }
+.mn-stat span { display: block; font-size: 0.68rem; color: var(--dim); margin-top: 0.15rem; }
+
+.mn-mus { display: block; margin-top: 1rem; border-top: 1px solid var(--line); padding-top: 0.7rem; }
+.mn-mu { display: flex; align-items: baseline; gap: 0.45rem; padding: 0.2rem 0; font-size: 0.82rem; }
+.mn-mu-kop { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); width: 5.4rem; flex: none; }
+.mn-mu-naam { color: var(--ink); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mn-mu-wr { font-weight: 700; font-variant-numeric: tabular-nums; margin-left: auto; }
+.mn-mu-wr small { font-size: 0.68em; opacity: 0.62; }
+.mn-mu-n { font-size: 0.66rem; color: var(--dim); flex: none; width: 5.6rem; text-align: right; }
+
+/* ── Ranks two through ten ──────────────────────────────────────────────── */
+
+.mn-lijst {
+  list-style: none; margin: 0; padding: 0;
+  border: 1px solid var(--line-lit); border-radius: var(--radius); background: var(--surface);
+  overflow: hidden; box-shadow: var(--shadow);
+}
+.mn-lijst li + li { border-top: 1px solid var(--line); }
+
+.mn-rij {
+  display: grid; align-items: center; gap: 0.55rem;
+  grid-template-columns: 1.7rem 1.9rem minmax(0, 1fr) minmax(46px, 14%) 3.9rem 4.4rem;
+  padding: 0.5rem 0.9rem; text-decoration: none; color: inherit;
+  transition: background var(--dur-mid) var(--ease-io);
+}
+.mn-rij:hover { background: rgba(231, 199, 110, 0.05); }
+.mn-rij:hover .mn-naam { color: var(--gold-lit); }
+.mn-rang { font-size: 0.72rem; color: var(--dim); font-variant-numeric: tabular-nums; }
+.mn-face { width: 1.9rem; height: 1.9rem; border-radius: 5px; border: 1px solid var(--line); }
+.mn-naam {
+  display: flex; flex-direction: column; min-width: 0; font-weight: 600; font-size: 0.92rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease-io);
+}
+.mn-naam small {
+  font-family: var(--mono); font-size: 0.6rem; font-weight: 400; letter-spacing: 0.05em;
+  color: var(--dim); overflow: hidden; text-overflow: ellipsis;
+}
+.mn-balk { display: block; height: 4px; border-radius: 2px; background: var(--raised-2); overflow: hidden; }
+.mn-balk i { display: block; height: 100%; border-radius: 2px; background: var(--wr-hi); opacity: 0.75; }
+.mn-wr { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 0.95rem; }
+.mn-wr small { font-size: 0.68em; opacity: 0.62; margin-left: 1px; }
+.mn-games {
+  display: flex; flex-direction: column; align-items: flex-end;
+  font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.2;
+}
+.mn-games small { font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+
+@media (max-width: 46rem) {
+  .mn-rij { grid-template-columns: 1.5rem 1.8rem minmax(0, 1fr) 3.6rem 4.1rem; }
+  .mn-balk { display: none; }
+}
+
+.mn-voet { margin: 0.9rem 0 0; font-size: 0.79rem; line-height: 1.65; color: var(--dim); max-width: 88ch; }
+.mn-voet a { color: var(--muted); text-decoration-color: var(--line-lit); text-underline-offset: 3px; }
+.mn-voet a:hover { color: var(--gold); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mn-lead, .mn-lead-art img, .mn-rij, .mn-naam, .mn-tabs label { transition: none; }
+  .mn-lead:hover { transform: none; }
+  .mn-lead:hover .mn-lead-art img { transform: none; }
+  .mn-tabs label:active { transform: none; }
 }
 `;
 writeFileSync(join(HERE, "style.css"), css, "utf8");
