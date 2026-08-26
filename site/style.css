@@ -1946,3 +1946,251 @@ footer::before {
   .mn-lead:hover .mn-lead-art img { transform: none; }
   .mn-tabs label:active { transform: none; }
 }
+
+
+/* PASTE TARGET: append inside the 'const css = ' template literal in
+   site/build.mjs, immediately before the closing backtick+semicolon that sits
+   just above 'writeFileSync(join(HERE, "style.css"), css, "utf8");'.
+   Contains no backticks and no interpolation, so it is safe inside that template. */
+
+/* ── Feature showcase, second pass: the window and what is inside it ─────────
+   Every block is now a window with chrome on top and a provenance line at the
+   bottom, and the content is either a screenshot or a demo drawn from the real
+   data. Both sit in the same frame, so the rhythm of the six blocks does not
+   jump the moment a screenshot lands.
+
+   Two base rules would wreck this and are therefore put back deliberately:
+   .kenmerk-beeld is a grid with place-items:center (right for a single image,
+   fatal for a panel of rows), and .kenmerk-beeld img sits at width:100% (right
+   for a screenshot, fatal for a 26px item icon).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.kenmerk-beeld.is-demo, .kenmerk-beeld.is-shot {
+  margin: 0; padding: 0;
+  display: flex; flex-direction: column; align-items: stretch;
+  place-items: stretch; overflow: hidden;
+}
+.kenmerk-beeld.is-demo { background: linear-gradient(168deg, var(--raised) 0%, var(--surface) 46%, var(--ground) 100%); }
+
+/* Chrome: one gold mark, the title of what you are looking at, and a dull grip
+   on the right. No fake window buttons -- those promise a window this is not. */
+.kd-chroom {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.5rem 0.72rem; flex: none;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.008));
+}
+.kd-merk {
+  width: 8px; height: 8px; border-radius: 2px; flex: none;
+  background: var(--gold); box-shadow: 0 0 0 3px rgba(231, 199, 110, 0.12);
+}
+.kd-titel {
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.11em;
+  text-transform: uppercase; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.kd-stip {
+  margin-left: auto; width: 26px; height: 5px; border-radius: 999px; flex: none;
+  background: repeating-linear-gradient(90deg, var(--line-lit) 0 5px, transparent 5px 9px);
+}
+
+.kd-body { padding: clamp(0.8rem, 2vw, 1.15rem); display: grid; gap: 0.72rem; align-content: start; flex: 1 1 auto; }
+
+.kd-bron {
+  flex: none; margin: 0; padding: 0.55rem 0.8rem;
+  border-top: 1px solid var(--line); background: rgba(0, 0, 0, 0.26);
+  font-size: 0.68rem; line-height: 1.5; color: var(--dim);
+}
+
+/* Screenshot: full bleed, one fall of light over it, nothing else in the way. */
+.kd-shot { position: relative; overflow: hidden; background: #05060b; }
+.kd-shot img { display: block; width: 100%; height: auto; }
+.kd-shot::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(202deg, rgba(255, 255, 255, 0.055), transparent 40%);
+}
+
+/* Icons in a demo are icons, not a page-wide illustration. Every size below
+   either carries two selector parts or comes later in the file than
+   .kenmerk-beeld img { width: 100% }, otherwise that rule wins and an item icon
+   becomes a banner. A blanket width:auto on .is-demo img would out-specify the
+   sizes themselves, which is why it is deliberately absent. */
+.kenmerk:hover .kenmerk-beeld.is-demo img { transform: none; }
+
+/* ── Shared demo parts ───────────────────────────────────────────────────── */
+
+.dm-kop {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.7rem; align-items: center;
+  padding-bottom: 0.6rem; border-bottom: 1px solid var(--line);
+}
+img.dm-portret { width: 44px; height: 44px; border-radius: 9px; border: 1px solid var(--line-lit); }
+.dm-titel { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1rem; color: var(--ink); }
+.dm-onder {
+  margin: 0.14rem 0 0; font-family: var(--mono); font-size: 0.6rem;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim);
+}
+.dm-groot {
+  margin: 0; display: grid; justify-items: end; gap: 0.16rem;
+  font-family: var(--mono); font-weight: 700; font-size: 1.32rem; line-height: 1;
+}
+.dm-groot small { font-size: 0.52em; opacity: 0.72; }
+.dm-groot span {
+  font-family: var(--body); font-weight: 400; font-size: 0.6rem;
+  letter-spacing: 0.04em; color: var(--dim);
+}
+
+.dm-koprij {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 0.5rem;
+  padding: 0 0.42rem 0 calc(26px + 0.92rem);
+  font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--dim);
+}
+
+.dm-lijst { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.26rem; }
+.dm-lijst li {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 0.5rem; align-items: center;
+  padding: 0.3rem 0.42rem; border-radius: 7px;
+  background: rgba(255, 255, 255, 0.022); border: 1px solid rgba(255, 255, 255, 0.03);
+}
+.dm-lijst img { width: 22px; height: 22px; border-radius: 5px; flex: none; }
+.dm-items img { width: 26px; height: 26px; border-radius: 6px; }
+.dm-naam {
+  font-size: 0.78rem; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dm-wr, .dm-pick, .dm-games { font-family: var(--mono); font-size: 0.72rem; text-align: right; }
+.dm-wr { min-width: 3.3rem; font-weight: 500; }
+.dm-pick { min-width: 3.1rem; color: var(--muted); }
+.dm-games { min-width: 3.1rem; color: var(--dim); }
+.dm-wr small, .dm-pick small { font-size: 0.76em; opacity: 0.6; }
+
+.dm-duel { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 0.85rem; }
+.dm-kolomkop {
+  margin: 0 0 0.35rem; font-family: var(--mono); font-size: 0.56rem;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--dim);
+}
+
+.dm-strook { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.dm-chip {
+  display: inline-flex; align-items: center; gap: 0.36rem;
+  padding: 0.26rem 0.55rem 0.26rem 0.3rem;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); font-size: 0.7rem; color: var(--muted);
+}
+.dm-chip img { width: 18px; height: 18px; border-radius: 4px; }
+.dm-chip b { font-family: var(--mono); font-weight: 500; color: var(--ink); }
+
+/* ── Overlay: the three windows it counts ────────────────────────────────── */
+
+.ov-lijst { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.ov-lijst li { display: grid; grid-template-columns: 5.4rem minmax(0, 1fr) 3.3rem; gap: 0.6rem; align-items: center; }
+.ov-naam { font-family: var(--display); font-weight: 600; font-size: 0.84rem; color: var(--ink); }
+.ov-baan, .mu-baan, .sp-baan {
+  height: 8px; border-radius: 999px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line);
+}
+.ov-baan i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); }
+.ov-tijd { font-family: var(--mono); font-size: 0.92rem; font-weight: 500; color: var(--gold-lit); text-align: right; }
+.ov-voet, .sp-voet { margin: 0.15rem 0 0; font-size: 0.72rem; line-height: 1.55; color: var(--muted); }
+
+/* ── Matchups: the pooled figure, and what the lanes leave of it ─────────── */
+
+.mu-paar { display: flex; align-items: center; justify-content: center; gap: 0.7rem; }
+.mu-paar img { width: 40px; height: 40px; border-radius: 9px; border: 1px solid var(--line-lit); }
+.mu-vs { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
+
+.mu-gepoold {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 0.6rem; align-items: baseline;
+  padding: 0.5rem 0.6rem; border-radius: 8px;
+  border: 1px dashed var(--line-lit); background: rgba(255, 255, 255, 0.014);
+}
+/* Grey on purpose: this is the number the block is arguing against. */
+.mu-gepoold .mu-wr { color: var(--dim); }
+.mu-tag {
+  font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--dim);
+}
+.mu-wr { font-family: var(--mono); font-size: 0.92rem; font-weight: 500; text-align: right; min-width: 3.3rem; }
+.mu-wr small { font-size: 0.72em; opacity: 0.6; }
+.mu-games { font-family: var(--mono); font-size: 0.68rem; color: var(--dim); text-align: right; min-width: 3.4rem; }
+
+.mu-pijl {
+  margin: 0; text-align: center;
+  font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--gold-dim);
+}
+.mu-pijl::before {
+  content: ""; display: block; width: 1px; height: 15px; margin: 0 auto 0.35rem;
+  background: linear-gradient(var(--line-lit), var(--gold-dim));
+}
+
+.mu-lanes, .sp-lijst { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.28rem; }
+.mu-lanes li {
+  display: grid; grid-template-columns: 4.4rem minmax(0, 1fr) 3.3rem 3.4rem;
+  gap: 0.5rem; align-items: center;
+  padding: 0.34rem 0.45rem; border-radius: 7px; background: rgba(255, 255, 255, 0.022);
+}
+.mu-lane, .sp-lane {
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.mu-baan i, .sp-baan i { display: block; height: 100%; background: currentColor; }
+
+/* ── Sample size: the lanes with a number, and the one without ───────────── */
+
+.sp-lijst li {
+  display: grid; grid-template-columns: 4.4rem minmax(0, 1fr) 3.3rem 3.4rem;
+  gap: 0.5rem; align-items: center;
+  padding: 0.34rem 0.45rem; border-radius: 7px; background: rgba(255, 255, 255, 0.022);
+  border: 1px solid transparent;
+}
+.sp-wr { font-family: var(--mono); font-size: 0.8rem; font-weight: 500; text-align: right; }
+.sp-wr small { font-size: 0.72em; opacity: 0.6; }
+.sp-games { font-family: var(--mono); font-size: 0.68rem; color: var(--dim); text-align: right; }
+.sp-lijst .sp-dun {
+  grid-template-columns: 4.4rem minmax(0, 1fr) auto;
+  background: rgba(231, 199, 110, 0.05); border-color: rgba(231, 199, 110, 0.22); border-style: dashed;
+}
+.sp-lijst .sp-leeg { grid-template-columns: 4.4rem minmax(0, 1fr); opacity: 0.6; }
+.sp-uitleg { font-size: 0.7rem; color: var(--muted); }
+.sp-teller { font-family: var(--mono); font-size: 0.76rem; color: var(--gold-lit); text-align: right; }
+.sp-teller i { font-style: normal; color: var(--dim); }
+
+/* ── Local: the file, and what was counted in it ─────────────────────────── */
+
+.lo-kop { display: grid; gap: 0.2rem; padding-bottom: 0.55rem; border-bottom: 1px solid var(--line); }
+.lo-pad { font-family: var(--mono); font-size: 0.86rem; color: var(--dim); }
+.lo-pad b { font-weight: 500; color: var(--gold-lit); }
+.lo-vorm { font-size: 0.68rem; color: var(--dim); }
+.lo-tel { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.34rem; }
+.lo-tel li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.6rem; align-items: baseline; }
+.lo-tel span { font-size: 0.75rem; color: var(--muted); }
+.lo-tel b { font-family: var(--mono); font-weight: 500; font-size: 0.84rem; color: var(--ink); }
+.lo-voet {
+  margin: 0.1rem 0 0; font-family: var(--mono); font-size: 0.62rem;
+  letter-spacing: 0.05em; color: var(--dim);
+}
+
+/* Narrow column: four-column rows drop to three, the labels stay put. */
+@media (max-width: 420px) {
+  .mu-lanes li, .sp-lijst li { grid-template-columns: 3.6rem minmax(0, 1fr) 3.2rem; }
+  .mu-games, .sp-games { display: none; }
+  .ov-lijst li { grid-template-columns: 4.6rem minmax(0, 1fr) 3rem; }
+}
+
+/* Bars grow with the reveal, and only where there is a reveal: without
+   JavaScript nobody gets to look at an empty track. */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal .rise .ov-baan i,
+  .reveal .rise .mu-baan i,
+  .reveal .rise .sp-baan i { transform: scaleX(0); transform-origin: left center; }
+  .reveal .rise.in .ov-baan i,
+  .reveal .rise.in .mu-baan i,
+  .reveal .rise.in .sp-baan i { transform: scaleX(1); transition: transform var(--dur-slow) var(--ease-out) 90ms; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kenmerk:hover .kenmerk-beeld.is-shot img { transform: none; }
+}

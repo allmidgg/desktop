@@ -959,54 +959,205 @@
       </p>
     </div>
     <div class="kenmerken"><article class="kenmerk rise" id="select">
-    <div class="kenmerk-beeld">
-      <span class="kenmerk-wacht">Champion select</span>
-    </div>
+    <figure class="kenmerk-beeld is-demo">
+      <div class="kd-chroom">
+        <span class="kd-merk" aria-hidden="true"></span>
+        <span class="kd-titel">Locked in &mdash; Jungle</span>
+        <span class="kd-stip" aria-hidden="true"></span>
+      </div>
+      <div class="kd-body">
+      <div class="dm-kop">
+        <img class="dm-portret" src="img/champions/icon/19.png" alt="" width="128" height="128" loading="lazy" />
+        <div class="dm-kopnaam">
+          <p class="dm-titel">Warwick</p>
+          <p class="dm-onder">Jungle &middot; #2 of 57 &middot; 14.9% of the lane</p>
+        </div>
+        <p class="dm-groot wr-hi">54.1<small>%</small><span>37,696 games</span></p>
+      </div>
+      <div class="dm-duel">
+        <div>
+          <p class="dm-kolomkop">Wins into</p>
+          <ul class="dm-lijst">
+        <li>
+          <img src="img/champions/icon/41.png" alt="" width="128" height="128" loading="lazy" />
+          <span class="dm-naam">Gangplank</span>
+          <span class="dm-wr wr-hi">60.4<small>%</small></span>
+          <span class="dm-games">513</span>
+        </li>
+        <li>
+          <img src="img/champions/icon/72.png" alt="" width="128" height="128" loading="lazy" />
+          <span class="dm-naam">Skarner</span>
+          <span class="dm-wr wr-hi">58.4<small>%</small></span>
+          <span class="dm-games">1,307</span>
+        </li></ul>
+        </div>
+        <div>
+          <p class="dm-kolomkop">Loses to</p>
+          <ul class="dm-lijst">
+        <li>
+          <img src="img/champions/icon/23.png" alt="" width="128" height="128" loading="lazy" />
+          <span class="dm-naam">Tryndamere</span>
+          <span class="dm-wr wr-bad">44.9<small>%</small></span>
+          <span class="dm-games">1,564</span>
+        </li>
+        <li>
+          <img src="img/champions/icon/24.png" alt="" width="128" height="128" loading="lazy" />
+          <span class="dm-naam">Jax</span>
+          <span class="dm-wr wr-lo">48.5<small>%</small></span>
+          <span class="dm-games">1,552</span>
+        </li></ul>
+        </div>
+      </div></div>
+      <figcaption class="kd-bron">Real numbers for Warwick in Jungle, drawn live from the 125,096-game set.</figcaption>
+    </figure>
     <div class="kenmerk-tekst">
       <p class="kenmerk-label">Champion select</p>
       <h3>Your masteries, set before the timer runs out</h3>
       <p>Tick one box and the app keeps your mastery page matched to whatever you picked, including when you change your mind halfway. Underneath it: what wins on your champion in your lane, who you are up against, and which counters actually beat them.</p>
     </div>
   </article><article class="kenmerk gedraaid rise" id="overlay">
-    <div class="kenmerk-beeld">
-      <span class="kenmerk-wacht">In-game overlay</span>
-    </div>
+    <figure class="kenmerk-beeld is-demo">
+      <div class="kd-chroom">
+        <span class="kd-merk" aria-hidden="true"></span>
+        <span class="kd-titel">Overlay &mdash; objectives</span>
+        <span class="kd-stip" aria-hidden="true"></span>
+      </div>
+      <div class="kd-body">
+      <ul class="ov-lijst">
+        
+        <li>
+          <span class="ov-naam">Dragon</span>
+          <span class="ov-baan"><i style="width:85.7%"></i></span>
+          <span class="ov-tijd">+6:00</span>
+        </li>
+        <li>
+          <span class="ov-naam">Baron</span>
+          <span class="ov-baan"><i style="width:100.0%"></i></span>
+          <span class="ov-tijd">+7:00</span>
+        </li>
+        <li>
+          <span class="ov-naam">Inhibitor</span>
+          <span class="ov-baan"><i style="width:71.4%"></i></span>
+          <span class="ov-tijd">+5:00</span>
+        </li>
+      </ul>
+      <p class="ov-voet">
+        Counted from a kill the whole lobby watched, never from a schedule. No enemy
+        cooldowns, no ward positions &mdash; the client does not hand those over and
+        the overlay does not ask.
+      </p></div>
+      <figcaption class="kd-bron">Respawn windows exactly as the app counts them, from HERSTELTIJD in src/core/services/liveInzichten.ts.</figcaption>
+    </figure>
     <div class="kenmerk-tekst">
       <p class="kenmerk-label">In-game overlay</p>
       <h3>Objective timers, on top of the game</h3>
       <p>A dragon falling puts a banner on all ten screens, so counting forward from it is arithmetic, not information you were not given. The panel carries that, the gold difference in items on the field, your skill order so far, and a nudge when your trinket slot is sitting empty.</p>
     </div>
   </article><article class="kenmerk rise" id="builds">
-    <div class="kenmerk-beeld">
-      <img src="img/app/builds.png" alt="What people build, not what somebody thinks they should" loading="lazy" />
-    </div>
+    <figure class="kenmerk-beeld is-shot">
+      <div class="kd-chroom">
+        <span class="kd-merk" aria-hidden="true"></span>
+        <span class="kd-titel">Builds</span>
+        <span class="kd-stip" aria-hidden="true"></span>
+      </div>
+      <div class="kd-shot"><img src="img/app/builds.png" alt="What people build, not what somebody thinks they should" loading="lazy" decoding="async" /></div>
+      <figcaption class="kd-bron">Builds in the running app, captured on Windows. Not a mockup, not a render.</figcaption>
+    </figure>
     <div class="kenmerk-tekst">
       <p class="kenmerk-label">Builds</p>
       <h3>What people build, not what somebody thinks they should</h3>
       <p>Items, boots and summoner spells ranked by what actually won, per lane, with the number of games behind every row. No editor's picks and no theory -- if a build is listed it is because people played it and it worked.</p>
     </div>
   </article><article class="kenmerk gedraaid rise" id="matchups">
-    <div class="kenmerk-beeld">
-      <img src="img/app/matchups.png" alt="Counters that hold up per lane" loading="lazy" />
-    </div>
+    <figure class="kenmerk-beeld is-shot">
+      <div class="kd-chroom">
+        <span class="kd-merk" aria-hidden="true"></span>
+        <span class="kd-titel">Matchups</span>
+        <span class="kd-stip" aria-hidden="true"></span>
+      </div>
+      <div class="kd-shot"><img src="img/app/matchups.png" alt="Counters that hold up per lane" loading="lazy" decoding="async" /></div>
+      <figcaption class="kd-bron">Matchups in the running app, captured on Windows. Not a mockup, not a render.</figcaption>
+    </figure>
     <div class="kenmerk-tekst">
       <p class="kenmerk-label">Matchups</p>
       <h3>Counters that hold up per lane</h3>
       <p>A matchup pooled across every lane tells you a bot-lane marksman beats a mid-lane mage, which is true and useless. Ours are computed per lane and filtered by how often that pairing actually happens, so a counter is a counter where you will meet it.</p>
     </div>
   </article><article class="kenmerk rise" id="sample">
-    <div class="kenmerk-beeld">
-      <span class="kenmerk-wacht">Every number</span>
-    </div>
+    <figure class="kenmerk-beeld is-demo">
+      <div class="kd-chroom">
+        <span class="kd-merk" aria-hidden="true"></span>
+        <span class="kd-titel">Tryndamere &mdash; every lane</span>
+        <span class="kd-stip" aria-hidden="true"></span>
+      </div>
+      <div class="kd-body">
+      <ul class="sp-lijst">
+        
+        <li>
+          <span class="sp-lane">Top</span>
+          <span class="sp-baan"><i class="wr-hi" style="width:66.7%"></i></span>
+          <span class="sp-wr wr-hi">58.0<small>%</small></span>
+          <span class="sp-games">12,397</span>
+        </li>
+        <li>
+          <span class="sp-lane">Jungle</span>
+          <span class="sp-baan"><i class="wr-hi" style="width:71.7%"></i></span>
+          <span class="sp-wr wr-hi">58.6<small>%</small></span>
+          <span class="sp-games">9,110</span>
+        </li>
+        <li>
+          <span class="sp-lane">Mid</span>
+          <span class="sp-baan"><i class="wr-hi" style="width:60.8%"></i></span>
+          <span class="sp-wr wr-hi">57.3<small>%</small></span>
+          <span class="sp-games">1,253</span>
+        </li>
+        <li>
+          <span class="sp-lane">Bot</span>
+          <span class="sp-baan"><i class="wr-ok" style="width:25.8%"></i></span>
+          <span class="sp-wr wr-ok">53.1<small>%</small></span>
+          <span class="sp-games">291</span>
+        </li>
+        <li class="sp-dun">
+          <span class="sp-lane">Support</span>
+          <span class="sp-uitleg">below the bar &mdash; no number shown</span>
+          <span class="sp-teller">73<i>/100</i></span>
+        </li>
+      </ul>
+      <p class="sp-voet">
+        Tryndamere has been played support 73 times. That is a real number of
+        games and still not enough, so the row says so instead of printing 45.2%.
+      </p></div>
+      <figcaption class="kd-bron">The 100-game floor and the (wins + 10) / (games + 20) smoothing come from champions.json, the same method the app runs.</figcaption>
+    </figure>
     <div class="kenmerk-tekst">
       <p class="kenmerk-label">Every number</p>
       <h3>Sample size attached, always</h3>
       <p>A 62% win rate over nine games is noise wearing a percentage. Every figure on the site and in the app carries the count it came from, and anything too thin to mean something says so instead of showing a number.</p>
     </div>
   </article><article class="kenmerk gedraaid rise" id="lokaal">
-    <div class="kenmerk-beeld">
-      <span class="kenmerk-wacht">Local first</span>
-    </div>
+    <figure class="kenmerk-beeld is-demo">
+      <div class="kd-chroom">
+        <span class="kd-merk" aria-hidden="true"></span>
+        <span class="kd-titel">data/matches.jsonl</span>
+        <span class="kd-stip" aria-hidden="true"></span>
+      </div>
+      <div class="kd-body">
+      <div class="lo-kop">
+        <span class="lo-pad">data/<b>matches.jsonl</b></span>
+        <span class="lo-vorm">one JSON object per game, newline separated</span>
+      </div>
+      <ul class="lo-tel">
+        <li><span>lines read</span><b>128,904</b></li>
+        <li><span>games counted</span><b>125,096</b></li>
+        <li><span>duplicate ids skipped</span><b>9</b></li>
+        <li><span>unreadable lines</span><b>0</b></li>
+      </ul>
+      <p class="lo-voet">
+        16.16 and 16.15 &middot; 29 Jul 2026 &ndash; 23 Aug 2026
+        &middot; MIT
+      </p></div>
+      <figcaption class="kd-bron">The format the app writes on your own disk. These counts are from our copy of it, read while this page was generated.</figcaption>
+    </figure>
     <div class="kenmerk-tekst">
       <p class="kenmerk-label">Local first</p>
       <h3>No account, no telemetry, open source</h3>

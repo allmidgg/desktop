@@ -1559,13 +1559,424 @@ const KENMERKEN = [
   },
 ];
 
-/** One showcase block, image left or right depending on its position. */
+/* ── Showcase demos ──────────────────────────────────────────────────────────
+   Six blocks, and not every one of the six screenshots exists yet. An empty frame
+   saying "screenshot in progress" sells nothing: it shows precisely none of
+   what the thing does. So until there is a photo, the frame holds a working
+   piece of the feature instead of a placeholder -- drawn in HTML from the same
+   125,096 games as the rest of the site.
+
+   Two rules keep that honest. One: no figure in here that does not come from
+   data/*.json or from a constant that lives in the app itself. Two: every frame
+   says at the bottom where its numbers came from, so nobody mistakes a rendered
+   table for a screenshot.
+
+   The choices below are computed, not picked: which champion ends up in which
+   block follows from the data and therefore moves with the next crawl. `claim`
+   tracks who is already on screen, so the six blocks show six different
+   champions instead of the same one four times. */
+
+const demoGebruikt = new Set();
+const claim = (baseId) => (demoGebruikt.add(baseId), baseId);
+const vrij = (baseId) => !demoGebruikt.has(baseId);
+
+const laneLabel = (key) => LANES.find((l) => l.key === key)?.label ?? key;
+
+/** The most-picked champion+lane: the champ select screen you are most likely to see. */
+function demoPick() {
+  let beste = null;
+  for (const c of Object.values(champions.champions)) {
+    if (!vrij(c.baseId)) continue;
+    for (const l of c.lanes) {
+      if (!l.qualified) continue;
+      if (!beste || l.pickRate > beste.lane.pickRate) beste = { champ: c, lane: l };
+    }
+  }
+  if (beste) claim(beste.champ.baseId);
+  return beste;
+}
+
+/** The champion+lane with the most build games: the fattest sample builds.json holds. */
+function demoBuild() {
+  let beste = null;
+  for (const c of Object.values(builds.champions)) {
+    if (!vrij(c.baseId)) continue;
+    for (const l of c.lanes) {
+      if ((l.items?.length ?? 0) < 4) continue;
+      if (!beste || l.games > beste.lane.games) beste = { champ: c, lane: l };
+    }
+  }
+  if (beste) claim(beste.champ.baseId);
+  return beste;
+}
+
+/**
+ * One matchup that lands differently in two lanes, with the pooled figure beside it.
+ *
+ * That is exactly what the block claims, so it has to come out of the data and
+ * not out of an example somebody hand-picked. Both lanes need 100 direct
+ * meetings -- below that the gap proves noise rather than lanes.
+ */
+function demoSplit() {
+  let beste = null;
+  for (const c of Object.values(champions.champions)) {
+    if (!vrij(c.baseId)) continue;
+
+    const gepoold = new Map();
+    for (const m of [...c.beats, ...c.losesTo]) gepoold.set(m.baseId, m);
+
+    const perLane = new Map();
+    for (const l of c.lanes) {
+      if (!l.qualified) continue;
+      for (const m of [...l.beats, ...l.losesTo]) {
+        if (m.games < 100) continue;
+        if (!perLane.has(m.baseId)) perLane.set(m.baseId, []);
+        perLane.get(m.baseId).push({ lane: l.lane, winrate: m.winrate, games: m.games });
+      }
+    }
+
+    for (const [id, rijen] of perLane) {
+      const pool = gepoold.get(id);
+      if (!pool || rijen.length < 2) continue;
+      const wrs = rijen.map((r) => r.winrate);
+      const spreiding = Math.max(...wrs) - Math.min(...wrs);
+      if (!beste || spreiding > beste.spreiding) {
+        beste = {
+          champ: c,
+          tegen: pool,
+          gepoold: pool,
+          rijen: [...rijen].sort((a, b) => b.games - a.games),
+          spreiding,
+        };
+      }
+    }
+  }
+  if (beste) claim(beste.champ.baseId);
+  return beste;
+}
+
+/**
+ * The champion that shows the threshold doing its job: several lanes with a
+ * number, and at least one lane that deliberately does not get one.
+ */
+function demoDrempel() {
+  let beste = null;
+  for (const c of Object.values(champions.champions)) {
+    if (!vrij(c.baseId)) continue;
+    const geteld = c.lanes.filter((l) => l.qualified).length;
+    const dun = c.lanes.filter((l) => !l.qualified && l.games > 0);
+    if (geteld < 3 || !dun.length) continue;
+    if (!beste || c.totalGames > beste.champ.totalGames) beste = { champ: c, dun: dun[0] };
+  }
+  if (beste) claim(beste.champ.baseId);
+  return beste;
+}
+
+/* The order they stand in here is the order in which they get to pick. */
+const DEMO = {
+  pick: demoPick(),
+  build: demoBuild(),
+  split: demoSplit(),
+  drempel: demoDrempel(),
+};
+
+/**
+ * How long an objective stays down.
+ *
+ * Mirrored from HERSTELTIJD in src/core/services/liveInzichten.ts, because that
+ * is what the overlay actually adds up. If it changes there it has to change
+ * here; do not invent a third value.
+ */
+const HERSTELTIJD_DEMO = [
+  { soort: "Dragon", seconden: 6 * 60 },
+  { soort: "Baron", seconden: 7 * 60 },
+  { soort: "Inhibitor", seconden: 5 * 60 },
+];
+
+const klok = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+
+/* ── The demos themselves ────────────────────────────────────────────────── */
+
+/** One row: portrait, name, win rate, games. The same shape in every demo. */
+const demoRij = (id, naam, winrate, games) => `
+        <li>
+          <img src="${iconOf(id)}" alt="" width="128" height="128" loading="lazy" />
+          <span class="dm-naam">${esc(naam)}</span>
+          <span class="dm-wr ${wrClass(winrate)}">${pct(winrate)}<small>%</small></span>
+          <span class="dm-games">${n(games)}</span>
+        </li>`;
+
+/** Champion select: what you locked, and who is standing across from you. */
+function demoSelect() {
+  const d = DEMO.pick;
+  if (!d) return null;
+  const { champ, lane } = d;
+  const rang = lane.rank && lane.rankOf ? `#${lane.rank} of ${lane.rankOf}` : null;
+
+  // Equal-length columns: a list of three next to a list of two reads as a bug
+  // rather than as data. This only shortens, it never pads.
+  const kort = Math.min(3, lane.beats.length && lane.losesTo.length ? Math.min(lane.beats.length, lane.losesTo.length) : 3);
+
+  return {
+    titel: `Locked in &mdash; ${esc(laneLabel(lane.lane))}`,
+    body: `
+      <div class="dm-kop">
+        <img class="dm-portret" src="${iconOf(champ.baseId)}" alt="" width="128" height="128" loading="lazy" />
+        <div class="dm-kopnaam">
+          <p class="dm-titel">${esc(champ.name)}</p>
+          <p class="dm-onder">${esc(laneLabel(lane.lane))}${rang ? ` &middot; ${rang}` : ""} &middot; ${pct(lane.pickRate)}% of the lane</p>
+        </div>
+        <p class="dm-groot ${wrClass(lane.winrate)}">${pct(lane.winrate)}<small>%</small><span>${n(lane.games)} games</span></p>
+      </div>
+      <div class="dm-duel">
+        <div>
+          <p class="dm-kolomkop">Wins into</p>
+          <ul class="dm-lijst">${lane.beats.slice(0, kort).map((m) => demoRij(m.baseId, m.name, m.winrate, m.games)).join("")}</ul>
+        </div>
+        <div>
+          <p class="dm-kolomkop">Loses to</p>
+          <ul class="dm-lijst">${lane.losesTo.slice(0, kort).map((m) => demoRij(m.baseId, m.name, m.winrate, m.games)).join("")}</ul>
+        </div>
+      </div>`,
+    bron: `Real numbers for ${esc(champ.name)} in ${esc(laneLabel(lane.lane))}, drawn live from the ${n(T.games)}-game set.`,
+  };
+}
+
+/** The overlay: the three timers it counts, with the windows the app uses. */
+function demoOverlay() {
+  const langste = Math.max(...HERSTELTIJD_DEMO.map((o) => o.seconden));
+  return {
+    titel: "Overlay &mdash; objectives",
+    body: `
+      <ul class="ov-lijst">
+        ${HERSTELTIJD_DEMO.map(
+          (o) => `
+        <li>
+          <span class="ov-naam">${esc(o.soort)}</span>
+          <span class="ov-baan"><i style="width:${((o.seconden / langste) * 100).toFixed(1)}%"></i></span>
+          <span class="ov-tijd">+${klok(o.seconden)}</span>
+        </li>`,
+        ).join("")}
+      </ul>
+      <p class="ov-voet">
+        Counted from a kill the whole lobby watched, never from a schedule. No enemy
+        cooldowns, no ward positions &mdash; the client does not hand those over and
+        the overlay does not ask.
+      </p>`,
+    bron: "Respawn windows exactly as the app counts them, from HERSTELTIJD in src/core/services/liveInzichten.ts.",
+  };
+}
+
+/** Builds: the real top items of the fattest sample there is. */
+function demoBuilds() {
+  const d = DEMO.build;
+  if (!d) return null;
+  const { champ, lane } = d;
+
+  const itemRijen = (rij) => `
+        <li>
+          <img src="${itemIcon(rij.baseId)}" alt="" width="64" height="64" loading="lazy" />
+          <span class="dm-naam">${esc(rij.naam)}</span>
+          <span class="dm-pick">${pct(rij.pickRate)}<small>%</small></span>
+          <span class="dm-wr ${wrClass(rij.winrate)}">${pct(rij.winrate)}<small>%</small></span>
+        </li>`;
+
+  const spel = (lane.spells ?? [])[0];
+
+  return {
+    titel: `Builds &mdash; ${esc(champ.name)}, ${esc(laneLabel(lane.lane))}`,
+    body: `
+      <div class="dm-kop">
+        <img class="dm-portret" src="${iconOf(champ.baseId)}" alt="" width="128" height="128" loading="lazy" />
+        <div class="dm-kopnaam">
+          <p class="dm-titel">${esc(champ.name)}</p>
+          <p class="dm-onder">${esc(laneLabel(lane.lane))} &middot; ${n(lane.games)} games</p>
+        </div>
+        <p class="dm-groot ${wrClass(lane.winrate)}">${pct(lane.winrate)}<small>%</small><span>lane win rate</span></p>
+      </div>
+      <div class="dm-koprij"><span>Most built</span><span class="dm-pick">Built in</span><span class="dm-wr">Won</span></div>
+      <ul class="dm-lijst dm-items">${lane.items.slice(0, 4).map(itemRijen).join("")}</ul>
+      ${
+        lane.boots?.[0] || spel
+          ? `<div class="dm-strook">
+        ${
+          lane.boots?.[0]
+            ? `<span class="dm-chip"><img src="${itemIcon(lane.boots[0].baseId)}" alt="" width="64" height="64" loading="lazy" />${esc(lane.boots[0].naam)} <b>${pct(lane.boots[0].pickRate)}%</b></span>`
+            : ""
+        }
+        ${
+          spel
+            ? `<span class="dm-chip"><img src="${spellIcon(spel.spells[0])}" alt="" width="64" height="64" loading="lazy" /><img src="${spellIcon(spel.spells[1])}" alt="" width="64" height="64" loading="lazy" />${esc(spellName(spel.spells[0]))} + ${esc(spellName(spel.spells[1]))} <b>${pct(spel.pickRate)}%</b></span>`
+            : ""
+        }
+      </div>`
+          : ""
+      }`,
+    bron: `Every row is finished inventories out of ${n(lane.games)} recorded ${esc(champ.name)} games. Nothing here is anybody's opinion.`,
+  };
+}
+
+/** Matchups: the same duel pooled, and under it what it really does per lane. */
+function demoMatchups() {
+  const d = DEMO.split;
+  if (!d) return null;
+  const { champ, gepoold, rijen } = d;
+
+  return {
+    titel: `${esc(champ.name)} vs ${esc(gepoold.name)}`,
+    body: `
+      <div class="mu-paar">
+        <img src="${iconOf(champ.baseId)}" alt="" width="128" height="128" loading="lazy" />
+        <span class="mu-vs">vs</span>
+        <img src="${iconOf(gepoold.baseId)}" alt="" width="128" height="128" loading="lazy" />
+      </div>
+      <div class="mu-gepoold">
+        <span class="mu-tag">Pooled over every lane</span>
+        <span class="mu-wr">${pct(gepoold.winrate)}<small>%</small></span>
+        <span class="mu-games">${n(gepoold.games)} games</span>
+      </div>
+      <p class="mu-pijl">the same matchup, split by lane</p>
+      <ul class="mu-lanes">
+        ${rijen
+          .map(
+            (r) => `
+        <li>
+          <span class="mu-lane">${esc(laneLabel(r.lane))}</span>
+          <span class="mu-baan"><i class="${wrClass(r.winrate)}" style="width:${bar(r.winrate, 20).toFixed(1)}%"></i></span>
+          <span class="mu-wr ${wrClass(r.winrate)}">${pct(r.winrate)}<small>%</small></span>
+          <span class="mu-games">${n(r.games)}</span>
+        </li>`,
+          )
+          .join("")}
+      </ul>`,
+    bron: `${pct(d.spreiding)} points apart, same two champions. Both lanes clear 100 direct meetings.`,
+  };
+}
+
+/** Sample size: the lanes that earn a number, and the one that does not. */
+function demoSample() {
+  const d = DEMO.drempel;
+  if (!d) return null;
+  const { champ } = d;
+  const rijen = laneLijst(champ);
+
+  return {
+    titel: `${esc(champ.name)} &mdash; every lane`,
+    body: `
+      <ul class="sp-lijst">
+        ${rijen
+          .map((r) => {
+            if (!r.games) {
+              return `
+        <li class="sp-leeg">
+          <span class="sp-lane">${esc(r.label)}</span>
+          <span class="sp-uitleg">no recorded games</span>
+        </li>`;
+            }
+            if (!r.qualified) {
+              return `
+        <li class="sp-dun">
+          <span class="sp-lane">${esc(r.label)}</span>
+          <span class="sp-uitleg">below the bar &mdash; no number shown</span>
+          <span class="sp-teller">${n(r.games)}<i>/100</i></span>
+        </li>`;
+            }
+            return `
+        <li>
+          <span class="sp-lane">${esc(r.label)}</span>
+          <span class="sp-baan"><i class="${wrClass(r.winrate)}" style="width:${bar(r.winrate, 12).toFixed(1)}%"></i></span>
+          <span class="sp-wr ${wrClass(r.winrate)}">${pct(r.winrate)}<small>%</small></span>
+          <span class="sp-games">${n(r.games)}</span>
+        </li>`;
+          })
+          .join("")}
+      </ul>
+      <p class="sp-voet">
+        ${esc(champ.name)} has been played ${esc(laneLabel(d.dun.lane).toLowerCase())} ${n(d.dun.games)} times. That is a real number of
+        games and still not enough, so the row says so instead of printing ${pct(d.dun.winrate)}%.
+      </p>`,
+    bron: `The 100-game floor and the (wins + 10) / (games + 20) smoothing come from champions.json, the same method the app runs.`,
+  };
+}
+
+/** Local: the file itself, with the counts from the build that made this page. */
+function demoLokaal() {
+  const regels = builds.totals?.regelsGelezen ?? null;
+  const rij = (label, waarde) =>
+    waarde === null || waarde === undefined
+      ? ""
+      : `<li><span>${esc(label)}</span><b>${n(waarde)}</b></li>`;
+
+  return {
+    titel: "data/matches.jsonl",
+    body: `
+      <div class="lo-kop">
+        <span class="lo-pad">data/<b>matches.jsonl</b></span>
+        <span class="lo-vorm">one JSON object per game, newline separated</span>
+      </div>
+      <ul class="lo-tel">
+        ${rij("lines read", regels)}
+        ${rij("games counted", T.games)}
+        ${rij("duplicate ids skipped", CH.overgeslagenDubbeleGameIds)}
+        ${rij("unreadable lines", CH.onleesbareRegels)}
+      </ul>
+      <p class="lo-voet">
+        ${esc(CH.patches.join(" and "))} &middot; ${DATE(T.eersteGame)} &ndash; ${DATE(T.laatsteGame)}
+        &middot; MIT
+      </p>`,
+    bron: "The format the app writes on your own disk. These counts are from our copy of it, read while this page was generated.",
+  };
+}
+
+/** Which demo belongs to which block. Missing one falls back to the empty frame. */
+const DEMOS = {
+  select: demoSelect,
+  overlay: demoOverlay,
+  builds: demoBuilds,
+  matchups: demoMatchups,
+  sample: demoSample,
+  lokaal: demoLokaal,
+};
+
+/** The window around image or demo: chrome on top, caption underneath. */
+function kenmerkVenster(k, demo, heeftBeeld) {
+  const titel = heeftBeeld ? esc(k.label) : (demo?.titel ?? esc(k.label));
+  const inhoud = heeftBeeld
+    ? `<div class="kd-shot"><img src="${k.beeld}" alt="${esc(k.titel)}" loading="lazy" decoding="async" /></div>`
+    : `<div class="kd-body">${demo.body}</div>`;
+  const bron = heeftBeeld
+    ? `${esc(k.label)} in the running app, captured on Windows. Not a mockup, not a render.`
+    : demo.bron;
+
+  return `<figure class="kenmerk-beeld ${heeftBeeld ? "is-shot" : "is-demo"}">
+      <div class="kd-chroom">
+        <span class="kd-merk" aria-hidden="true"></span>
+        <span class="kd-titel">${titel}</span>
+        <span class="kd-stip" aria-hidden="true"></span>
+      </div>
+      ${inhoud}
+      <figcaption class="kd-bron">${bron}</figcaption>
+    </figure>`;
+}
+
+/**
+ * One showcase block, image left or right depending on its position.
+ *
+ * A screenshot if there is one. If there is not, a demo built from real data --
+ * and only if that is missing too, the empty frame, because then there really
+ * is nothing to show.
+ */
 function kenmerkBlok(k, i) {
   const heeftBeeld = existsSync(join(HERE, k.beeld));
+  const demo = heeftBeeld ? null : DEMOS[k.id]?.();
+
+  const beeld =
+    heeftBeeld || demo
+      ? kenmerkVenster(k, demo, heeftBeeld)
+      : `<div class="kenmerk-beeld"><span class="kenmerk-wacht">${esc(k.label)}</span></div>`;
+
   return `<article class="kenmerk${i % 2 ? " gedraaid" : ""} rise" id="${k.id}">
-    <div class="kenmerk-beeld">
-      ${heeftBeeld ? `<img src="${k.beeld}" alt="${esc(k.titel)}" loading="lazy" />` : `<span class="kenmerk-wacht">${esc(k.label)}</span>`}
-    </div>
+    ${beeld}
     <div class="kenmerk-tekst">
       <p class="kenmerk-label">${esc(k.label)}</p>
       <h3>${esc(k.titel)}</h3>
@@ -4073,6 +4484,254 @@ footer::before {
   .mn-lead:hover { transform: none; }
   .mn-lead:hover .mn-lead-art img { transform: none; }
   .mn-tabs label:active { transform: none; }
+}
+
+
+/* PASTE TARGET: append inside the 'const css = ' template literal in
+   site/build.mjs, immediately before the closing backtick+semicolon that sits
+   just above 'writeFileSync(join(HERE, "style.css"), css, "utf8");'.
+   Contains no backticks and no interpolation, so it is safe inside that template. */
+
+/* ── Feature showcase, second pass: the window and what is inside it ─────────
+   Every block is now a window with chrome on top and a provenance line at the
+   bottom, and the content is either a screenshot or a demo drawn from the real
+   data. Both sit in the same frame, so the rhythm of the six blocks does not
+   jump the moment a screenshot lands.
+
+   Two base rules would wreck this and are therefore put back deliberately:
+   .kenmerk-beeld is a grid with place-items:center (right for a single image,
+   fatal for a panel of rows), and .kenmerk-beeld img sits at width:100% (right
+   for a screenshot, fatal for a 26px item icon).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.kenmerk-beeld.is-demo, .kenmerk-beeld.is-shot {
+  margin: 0; padding: 0;
+  display: flex; flex-direction: column; align-items: stretch;
+  place-items: stretch; overflow: hidden;
+}
+.kenmerk-beeld.is-demo { background: linear-gradient(168deg, var(--raised) 0%, var(--surface) 46%, var(--ground) 100%); }
+
+/* Chrome: one gold mark, the title of what you are looking at, and a dull grip
+   on the right. No fake window buttons -- those promise a window this is not. */
+.kd-chroom {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.5rem 0.72rem; flex: none;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.008));
+}
+.kd-merk {
+  width: 8px; height: 8px; border-radius: 2px; flex: none;
+  background: var(--gold); box-shadow: 0 0 0 3px rgba(231, 199, 110, 0.12);
+}
+.kd-titel {
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.11em;
+  text-transform: uppercase; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.kd-stip {
+  margin-left: auto; width: 26px; height: 5px; border-radius: 999px; flex: none;
+  background: repeating-linear-gradient(90deg, var(--line-lit) 0 5px, transparent 5px 9px);
+}
+
+.kd-body { padding: clamp(0.8rem, 2vw, 1.15rem); display: grid; gap: 0.72rem; align-content: start; flex: 1 1 auto; }
+
+.kd-bron {
+  flex: none; margin: 0; padding: 0.55rem 0.8rem;
+  border-top: 1px solid var(--line); background: rgba(0, 0, 0, 0.26);
+  font-size: 0.68rem; line-height: 1.5; color: var(--dim);
+}
+
+/* Screenshot: full bleed, one fall of light over it, nothing else in the way. */
+.kd-shot { position: relative; overflow: hidden; background: #05060b; }
+.kd-shot img { display: block; width: 100%; height: auto; }
+.kd-shot::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(202deg, rgba(255, 255, 255, 0.055), transparent 40%);
+}
+
+/* Icons in a demo are icons, not a page-wide illustration. Every size below
+   either carries two selector parts or comes later in the file than
+   .kenmerk-beeld img { width: 100% }, otherwise that rule wins and an item icon
+   becomes a banner. A blanket width:auto on .is-demo img would out-specify the
+   sizes themselves, which is why it is deliberately absent. */
+.kenmerk:hover .kenmerk-beeld.is-demo img { transform: none; }
+
+/* ── Shared demo parts ───────────────────────────────────────────────────── */
+
+.dm-kop {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.7rem; align-items: center;
+  padding-bottom: 0.6rem; border-bottom: 1px solid var(--line);
+}
+img.dm-portret { width: 44px; height: 44px; border-radius: 9px; border: 1px solid var(--line-lit); }
+.dm-titel { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1rem; color: var(--ink); }
+.dm-onder {
+  margin: 0.14rem 0 0; font-family: var(--mono); font-size: 0.6rem;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim);
+}
+.dm-groot {
+  margin: 0; display: grid; justify-items: end; gap: 0.16rem;
+  font-family: var(--mono); font-weight: 700; font-size: 1.32rem; line-height: 1;
+}
+.dm-groot small { font-size: 0.52em; opacity: 0.72; }
+.dm-groot span {
+  font-family: var(--body); font-weight: 400; font-size: 0.6rem;
+  letter-spacing: 0.04em; color: var(--dim);
+}
+
+.dm-koprij {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 0.5rem;
+  padding: 0 0.42rem 0 calc(26px + 0.92rem);
+  font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--dim);
+}
+
+.dm-lijst { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.26rem; }
+.dm-lijst li {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 0.5rem; align-items: center;
+  padding: 0.3rem 0.42rem; border-radius: 7px;
+  background: rgba(255, 255, 255, 0.022); border: 1px solid rgba(255, 255, 255, 0.03);
+}
+.dm-lijst img { width: 22px; height: 22px; border-radius: 5px; flex: none; }
+.dm-items img { width: 26px; height: 26px; border-radius: 6px; }
+.dm-naam {
+  font-size: 0.78rem; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dm-wr, .dm-pick, .dm-games { font-family: var(--mono); font-size: 0.72rem; text-align: right; }
+.dm-wr { min-width: 3.3rem; font-weight: 500; }
+.dm-pick { min-width: 3.1rem; color: var(--muted); }
+.dm-games { min-width: 3.1rem; color: var(--dim); }
+.dm-wr small, .dm-pick small { font-size: 0.76em; opacity: 0.6; }
+
+.dm-duel { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 0.85rem; }
+.dm-kolomkop {
+  margin: 0 0 0.35rem; font-family: var(--mono); font-size: 0.56rem;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--dim);
+}
+
+.dm-strook { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.dm-chip {
+  display: inline-flex; align-items: center; gap: 0.36rem;
+  padding: 0.26rem 0.55rem 0.26rem 0.3rem;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); font-size: 0.7rem; color: var(--muted);
+}
+.dm-chip img { width: 18px; height: 18px; border-radius: 4px; }
+.dm-chip b { font-family: var(--mono); font-weight: 500; color: var(--ink); }
+
+/* ── Overlay: the three windows it counts ────────────────────────────────── */
+
+.ov-lijst { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.ov-lijst li { display: grid; grid-template-columns: 5.4rem minmax(0, 1fr) 3.3rem; gap: 0.6rem; align-items: center; }
+.ov-naam { font-family: var(--display); font-weight: 600; font-size: 0.84rem; color: var(--ink); }
+.ov-baan, .mu-baan, .sp-baan {
+  height: 8px; border-radius: 999px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line);
+}
+.ov-baan i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); }
+.ov-tijd { font-family: var(--mono); font-size: 0.92rem; font-weight: 500; color: var(--gold-lit); text-align: right; }
+.ov-voet, .sp-voet { margin: 0.15rem 0 0; font-size: 0.72rem; line-height: 1.55; color: var(--muted); }
+
+/* ── Matchups: the pooled figure, and what the lanes leave of it ─────────── */
+
+.mu-paar { display: flex; align-items: center; justify-content: center; gap: 0.7rem; }
+.mu-paar img { width: 40px; height: 40px; border-radius: 9px; border: 1px solid var(--line-lit); }
+.mu-vs { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
+
+.mu-gepoold {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 0.6rem; align-items: baseline;
+  padding: 0.5rem 0.6rem; border-radius: 8px;
+  border: 1px dashed var(--line-lit); background: rgba(255, 255, 255, 0.014);
+}
+/* Grey on purpose: this is the number the block is arguing against. */
+.mu-gepoold .mu-wr { color: var(--dim); }
+.mu-tag {
+  font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--dim);
+}
+.mu-wr { font-family: var(--mono); font-size: 0.92rem; font-weight: 500; text-align: right; min-width: 3.3rem; }
+.mu-wr small { font-size: 0.72em; opacity: 0.6; }
+.mu-games { font-family: var(--mono); font-size: 0.68rem; color: var(--dim); text-align: right; min-width: 3.4rem; }
+
+.mu-pijl {
+  margin: 0; text-align: center;
+  font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--gold-dim);
+}
+.mu-pijl::before {
+  content: ""; display: block; width: 1px; height: 15px; margin: 0 auto 0.35rem;
+  background: linear-gradient(var(--line-lit), var(--gold-dim));
+}
+
+.mu-lanes, .sp-lijst { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.28rem; }
+.mu-lanes li {
+  display: grid; grid-template-columns: 4.4rem minmax(0, 1fr) 3.3rem 3.4rem;
+  gap: 0.5rem; align-items: center;
+  padding: 0.34rem 0.45rem; border-radius: 7px; background: rgba(255, 255, 255, 0.022);
+}
+.mu-lane, .sp-lane {
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.mu-baan i, .sp-baan i { display: block; height: 100%; background: currentColor; }
+
+/* ── Sample size: the lanes with a number, and the one without ───────────── */
+
+.sp-lijst li {
+  display: grid; grid-template-columns: 4.4rem minmax(0, 1fr) 3.3rem 3.4rem;
+  gap: 0.5rem; align-items: center;
+  padding: 0.34rem 0.45rem; border-radius: 7px; background: rgba(255, 255, 255, 0.022);
+  border: 1px solid transparent;
+}
+.sp-wr { font-family: var(--mono); font-size: 0.8rem; font-weight: 500; text-align: right; }
+.sp-wr small { font-size: 0.72em; opacity: 0.6; }
+.sp-games { font-family: var(--mono); font-size: 0.68rem; color: var(--dim); text-align: right; }
+.sp-lijst .sp-dun {
+  grid-template-columns: 4.4rem minmax(0, 1fr) auto;
+  background: rgba(231, 199, 110, 0.05); border-color: rgba(231, 199, 110, 0.22); border-style: dashed;
+}
+.sp-lijst .sp-leeg { grid-template-columns: 4.4rem minmax(0, 1fr); opacity: 0.6; }
+.sp-uitleg { font-size: 0.7rem; color: var(--muted); }
+.sp-teller { font-family: var(--mono); font-size: 0.76rem; color: var(--gold-lit); text-align: right; }
+.sp-teller i { font-style: normal; color: var(--dim); }
+
+/* ── Local: the file, and what was counted in it ─────────────────────────── */
+
+.lo-kop { display: grid; gap: 0.2rem; padding-bottom: 0.55rem; border-bottom: 1px solid var(--line); }
+.lo-pad { font-family: var(--mono); font-size: 0.86rem; color: var(--dim); }
+.lo-pad b { font-weight: 500; color: var(--gold-lit); }
+.lo-vorm { font-size: 0.68rem; color: var(--dim); }
+.lo-tel { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.34rem; }
+.lo-tel li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.6rem; align-items: baseline; }
+.lo-tel span { font-size: 0.75rem; color: var(--muted); }
+.lo-tel b { font-family: var(--mono); font-weight: 500; font-size: 0.84rem; color: var(--ink); }
+.lo-voet {
+  margin: 0.1rem 0 0; font-family: var(--mono); font-size: 0.62rem;
+  letter-spacing: 0.05em; color: var(--dim);
+}
+
+/* Narrow column: four-column rows drop to three, the labels stay put. */
+@media (max-width: 420px) {
+  .mu-lanes li, .sp-lijst li { grid-template-columns: 3.6rem minmax(0, 1fr) 3.2rem; }
+  .mu-games, .sp-games { display: none; }
+  .ov-lijst li { grid-template-columns: 4.6rem minmax(0, 1fr) 3rem; }
+}
+
+/* Bars grow with the reveal, and only where there is a reveal: without
+   JavaScript nobody gets to look at an empty track. */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal .rise .ov-baan i,
+  .reveal .rise .mu-baan i,
+  .reveal .rise .sp-baan i { transform: scaleX(0); transform-origin: left center; }
+  .reveal .rise.in .ov-baan i,
+  .reveal .rise.in .mu-baan i,
+  .reveal .rise.in .sp-baan i { transform: scaleX(1); transition: transform var(--dur-slow) var(--ease-out) 90ms; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kenmerk:hover .kenmerk-beeld.is-shot img { transform: none; }
 }
 `;
 writeFileSync(join(HERE, "style.css"), css, "utf8");
