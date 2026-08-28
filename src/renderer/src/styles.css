@@ -151,6 +151,111 @@ body {
   border: 1px solid var(--color-line);
 }
 
+/* ── Knoppen ───────────────────────────────────────────────────────────────
+   Vier soorten en niet meer. Primair is het enige dat goud vult; als er twee
+   gouden knoppen op een scherm staan is er geen primaire actie meer. */
+@utility knop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@utility knop-primair {
+  background: var(--color-gold-400);
+  color: #0a0906;
+  box-shadow: var(--glow-gold);
+}
+@utility knop-secundair {
+  background: var(--color-surface-2);
+  border-color: var(--color-line);
+  color: var(--color-ink-100);
+}
+@utility knop-spook {
+  background: transparent;
+  border-color: var(--color-line);
+  color: var(--color-ink-300);
+}
+@utility knop-gevaar {
+  background: transparent;
+  border-color: var(--color-loss-500);
+  color: var(--color-loss-400);
+}
+
+/* ── Badges ────────────────────────────────────────────────────────────────
+   Klein, strak, en de kleur zegt wat het is: goud voor rang en merk, groen en
+   rood voor uitkomst, blauw voor verandering. */
+@utility badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: var(--radius-xs);
+  border: 1px solid;
+  padding: 0.14rem 0.4rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+@utility badge-goud {
+  border-color: var(--color-gold-500);
+  background: rgba(231, 199, 110, 0.1);
+  color: var(--color-gold-300);
+}
+@utility badge-goed {
+  border-color: rgba(46, 204, 113, 0.4);
+  background: rgba(46, 204, 113, 0.1);
+  color: var(--color-jade-300);
+}
+@utility badge-slecht {
+  border-color: rgba(224, 106, 106, 0.4);
+  background: rgba(224, 106, 106, 0.1);
+  color: var(--color-loss-400);
+}
+@utility badge-neutraal {
+  border-color: var(--color-line);
+  background: var(--color-surface-2);
+  color: var(--color-ink-300);
+}
+
+/* ── Invoer ────────────────────────────────────────────────────────────────
+   Focus is goud, want dat is waar je aandacht is -- en het is een van de
+   weinige plekken waar goud iets betekent dat geen data is. */
+@utility veld {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-line);
+  background: var(--color-surface-2);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-ink-100);
+  transition:
+    border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Randen die iets betekenen ─────────────────────────────────────────────
+   Een gewonnen of verloren wedstrijd krijgt een smalle streep aan de zijkant,
+   niet een gekleurd vlak. Het hele kaartje inkleuren maakt van een uitslag een
+   waarschuwing. */
+@utility rand-winst {
+  box-shadow: inset 3px 0 0 var(--color-jade-500);
+}
+@utility rand-verlies {
+  box-shadow: inset 3px 0 0 var(--color-loss-500);
+}
+
 @utility num {
   font-variant-numeric: tabular-nums;
 }
@@ -419,4 +524,29 @@ body::after {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--color-ink-500);
+}
+
+
+/* Hover en focus voor de primitieven. Buiten @utility, want die kent geen
+   pseudo-selectors. */
+.knop-primair:hover { background: var(--color-gold-300); }
+.knop-secundair:hover { background: var(--color-surface-3); border-color: var(--color-line-lit); }
+.knop-spook:hover { border-color: var(--color-gold-500); color: var(--color-ink-100); }
+.knop-gevaar:hover { background: rgba(224, 106, 106, 0.1); }
+.knop:active { transform: translateY(0.5px); }
+.knop:disabled { opacity: 0.45; cursor: default; transform: none; }
+
+.veld::placeholder { color: var(--color-ink-500); }
+.veld:focus-visible {
+  outline: none;
+  border-color: var(--color-gold-500);
+  background: var(--color-surface-3);
+  box-shadow: var(--glow-gold);
+}
+
+/* Toetsenbordfocus, overal hetzelfde en altijd zichtbaar. */
+:where(button, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
 }

@@ -1,6 +1,7 @@
 /** Small building blocks shared by every view. */
 import { Fragment, type ReactNode } from "react";
 import type { RankedSummary } from "../../core/services/player";
+import { MerkWapen } from "./merk";
 
 /** Client assets are proxied through the jade:// protocol in the main process. */
 export const asset = (path: string): string => (path ? `jade://asset${path}` : "");
@@ -315,11 +316,34 @@ export function SkillGrid({ order, compact = false }: { order: string[]; compact
   );
 }
 
-export function EmptyState({ title, hint }: { title: string; hint?: string }): JSX.Element {
+/**
+ * Een leeg scherm, met opzet ontworpen.
+ *
+ * Hiervoor stonden hier twee regels grijze tekst in een grote doos, en dat
+ * leest als "er ontbreekt iets" in plaats van "hier komt iets". Het merk erbij
+ * maakt er een plek van die klopt: rustig genoeg om niet als fout te lezen,
+ * aanwezig genoeg om te laten zien dat het scherm het doet.
+ *
+ * `actie` is er voor de gevallen waarin de gebruiker het leeg-zijn kan
+ * oplossen -- dan hoort de weg eruit ernaast te staan en niet ergens anders.
+ */
+export function EmptyState({
+  title,
+  hint,
+  actie,
+}: {
+  title: string;
+  hint?: string;
+  actie?: ReactNode;
+}): JSX.Element {
   return (
-    <div className="flex flex-col items-center justify-center gap-1 py-16 text-center">
-      <p className="text-sm text-ink-300">{title}</p>
-      {hint ? <p className="max-w-sm text-xs text-ink-500">{hint}</p> : null}
+    <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+      <MerkWapen size={84} />
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-medium text-ink-100">{title}</p>
+        {hint ? <p className="mx-auto max-w-sm text-xs leading-relaxed text-ink-500">{hint}</p> : null}
+      </div>
+      {actie ? <div className="mt-1">{actie}</div> : null}
     </div>
   );
 }

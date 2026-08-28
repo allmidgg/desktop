@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { AppSnapshot, Settings, UploadStatus } from "../../shared/types";
+import { Merk } from "./merk";
 import { LiveView } from "./views/LiveView";
 import { ProfileView } from "./views/ProfileView";
 import { RunesView } from "./views/RunesView";
@@ -550,6 +551,12 @@ function Sidebar({
       {/* Dezelfde toren als op het installatiescherm: wie de app installeert
           ziet hem daar, en herkent hem hier terug. */}
       <img src="/toren.png" alt="" aria-hidden="true" className="rail-toren" />
+
+      {/* Het merk bovenaan, dezelfde SVG als in de tray, de splash en de lege
+          schermen. Eén bron, zodat ze niet uit elkaar kunnen lopen. */}
+      <div className="relative z-10 mb-4 grid place-items-center">
+        <Merk size={30} gloed />
+      </div>
       {TABS.map((entry) => {
         const active = tab === entry.id;
         return (
