@@ -217,11 +217,12 @@ function StatusBalk({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
  * anders. Wie het niet met de grenzen eens is kan ze hier zien staan in plaats
  * van te moeten raden waar ze vandaan komen.
  */
+/** `winrate` is een fractie (0.553), zoals overal in deze codebase. */
 function tierLetter(winrate: number): { letter: string; klasse: string } {
-  if (winrate >= 55) return { letter: "S", klasse: "text-gold-300 border-gold-500" };
-  if (winrate >= 52) return { letter: "A", klasse: "text-jade-300 border-jade-500/50" };
-  if (winrate >= 49) return { letter: "B", klasse: "text-ink-100 border-line-lit" };
-  if (winrate >= 46) return { letter: "C", klasse: "text-ink-300 border-line" };
+  if (winrate >= 0.55) return { letter: "S", klasse: "text-gold-300 border-gold-500" };
+  if (winrate >= 0.52) return { letter: "A", klasse: "text-jade-300 border-jade-500/50" };
+  if (winrate >= 0.49) return { letter: "B", klasse: "text-ink-100 border-line-lit" };
+  if (winrate >= 0.46) return { letter: "C", klasse: "text-ink-300 border-line" };
   return { letter: "D", klasse: "text-loss-400 border-loss-500/40" };
 }
 
@@ -268,7 +269,7 @@ function TierKolom({
                 <button
                   key={rij.championId}
                   onClick={() => onKies(rij.championId)}
-                  title={`${champ?.name ?? ""} — ${rij.winrate.toFixed(1)}% over ${rij.games} games`}
+                  title={`${champ?.name ?? ""} — ${(rij.winrate * 100).toFixed(1)}% over ${rij.games} games`}
                   className={`group relative overflow-hidden rounded-sm border transition-colors ${
                     aan ? "border-gold-500" : "border-line hover:border-gold-500/60"
                   }`}
@@ -280,7 +281,7 @@ function TierKolom({
                     {tier.letter}
                   </span>
                   <span className="num absolute inset-x-0 bottom-0 bg-void/85 py-0.5 text-center text-[9px] font-semibold text-ink-100">
-                    {rij.winrate.toFixed(1)}%
+                    {(rij.winrate * 100).toFixed(1)}%
                   </span>
                 </button>
               );
@@ -331,8 +332,8 @@ function ChampionKolom({
               <p className="truncate text-sm font-semibold text-ink-100">{champ.name}</p>
               {detail?.stat ? (
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                  <span className={`badge ${detail.stat.winrate >= 50 ? "badge-goed" : "badge-slecht"}`}>
-                    {detail.stat.winrate.toFixed(1)}% WR
+                  <span className={`badge ${detail.stat.winrate >= 0.5 ? "badge-goed" : "badge-slecht"}`}>
+                    {(detail.stat.winrate * 100).toFixed(1)}% WR
                   </span>
                   <span className="badge badge-neutraal">{detail.stat.games} games</span>
                 </div>
@@ -355,7 +356,7 @@ function ChampionKolom({
                       key={entry.itemId}
                       src={asset(item?.iconPath ?? "")}
                       alt={item?.name ?? ""}
-                      title={`${item?.name ?? ""} — ${entry.winrate.toFixed(1)}% over ${entry.games} games`}
+                      title={`${item?.name ?? ""} — ${(entry.winrate * 100).toFixed(1)}% over ${entry.games} games`}
                       width={30}
                       height={30}
                       className="rounded-sm border border-line"
@@ -418,7 +419,9 @@ function JouwStats({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
 function WinrateRing({ winrate }: { winrate: number }): JSX.Element {
   const straal = 26;
   const omtrek = 2 * Math.PI * straal;
-  const vol = (Math.max(0, Math.min(100, winrate)) / 100) * omtrek;
+  // winrate is een fractie; hier wordt hij pas een percentage.
+  const pct = Math.max(0, Math.min(100, winrate * 100));
+  const vol = (pct / 100) * omtrek;
   return (
     <div className="relative grid h-[68px] w-[68px] shrink-0 place-items-center">
       <svg width="68" height="68" className="-rotate-90">
@@ -435,7 +438,7 @@ function WinrateRing({ winrate }: { winrate: number }): JSX.Element {
         />
       </svg>
       <div className="absolute text-center">
-        <p className="num text-sm font-bold text-ink-100">{Math.round(winrate)}%</p>
+        <p className="num text-sm font-bold text-ink-100">{Math.round(pct)}%</p>
         <p className="text-[8px] tracking-[0.1em] text-ink-600 uppercase">Winrate</p>
       </div>
     </div>

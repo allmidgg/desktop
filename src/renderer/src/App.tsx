@@ -555,7 +555,7 @@ function Sidebar({
     <nav className="rail relative z-10 flex w-[84px] shrink-0 flex-col items-center gap-1 overflow-hidden py-5">
       {/* Dezelfde toren als op het installatiescherm: wie de app installeert
           ziet hem daar, en herkent hem hier terug. */}
-      <img src="/toren.png" alt="" aria-hidden="true" className="rail-toren" />
+      <img src="/merk/rail-toren.png" alt="" aria-hidden="true" className="rail-toren" />
 
       {/* Het merk bovenaan, dezelfde SVG als in de tray, de splash en de lege
           schermen. Eén bron, zodat ze niet uit elkaar kunnen lopen. */}

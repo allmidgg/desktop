@@ -440,11 +440,11 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: -2;
-  background-image: url("/toren.png");
-  background-size: 140% auto;
-  background-position: 30% 20%;
-  opacity: 0.045;
-  filter: saturate(0.6) blur(1px);
+  background-image: url("/merk/slagveld.png");
+  background-size: cover;
+  background-position: center;
+  opacity: 0.13;
+  filter: saturate(0.7);
   pointer-events: none;
 }
 
@@ -493,13 +493,13 @@ body::after {
 }
 .rail-toren {
   position: absolute;
-  bottom: 0;
+  bottom: -8px;
   left: 50%;
-  width: 190px;
+  width: 132px;
   transform: translateX(-50%);
-  opacity: 0.5;
+  opacity: 0.85;
   pointer-events: none;
-  mask-image: linear-gradient(180deg, transparent, #000 45%);
+  mask-image: linear-gradient(180deg, transparent, #000 38%);
   -webkit-mask-image: linear-gradient(180deg, transparent, #000 45%);
 }
 
@@ -549,4 +549,52 @@ body::after {
   outline: 2px solid var(--color-gold-500);
   outline-offset: 2px;
   border-radius: var(--radius-xs);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MATERIAAL
+   Uit de stijlgids gesneden: donker steen met gouden aders. Ligt op panelen
+   onder de inhoud door, op een paar procent -- het moet voelbaar zijn en niet
+   zichtbaar. En een haarlijn goud langs de bovenrand, zodat een paneel een
+   voorwerp wordt in plaats van een vlak.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.panel,
+.panel-klik {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.panel::before,
+.panel-klik::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: url("/merk/textuur-1.png");
+  background-size: cover;
+  background-position: center;
+  opacity: 0.055;
+  pointer-events: none;
+}
+/* De gouden haarlijn bovenaan: licht dat over de rand valt. */
+.panel::after,
+.panel-klik::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(231, 199, 110, 0.28) 22%,
+    rgba(231, 199, 110, 0.28) 78%,
+    transparent
+  );
+  pointer-events: none;
+}
+/* Panelen krijgen een echte rand, zoals in de gids: 1px koel blauwgrijs. */
+.panel {
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-2);
 }
