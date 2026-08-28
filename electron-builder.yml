@@ -47,24 +47,32 @@ win:
       arch: [x64]
 
 nsis:
-  # De kopbanner rechtsboven op de vervolgschermen. NSIS wil hier echt een BMP,
-  # geen PNG -- het is een oud formaat en dat merk je hier.
-  #
-  # installerHeaderIcon bestaat alleen voor een-klik-installers en
-  # uninstallerHeader bestaat helemaal niet; allebei laten staan liet
-  # electron-builder de config afkeuren.
-  installerHeader: build/installerHeader.bmp
-  # De verticale strook links op het welkomst- en afrondscherm.
-  installerSidebar: build/installerSidebar.bmp
-  uninstallerSidebar: build/uninstallerSidebar.bmp
+  # Sluit de draaiende app af voor we eroverheen schrijven. Zie
+  # build/installer.nsh -- dat is het enige dat NSIS niet uit zichzelf doet.
+  include: build/installer.nsh
+
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
 
-  # Geen stille één-klik-installatie. Dit is een .exe die naast je game draait;
-  # wie hem installeert hoort te zien waar hij landt. Dat is dezelfde belofte
-  # als de veiligheidssectie op de site doet.
-  oneClick: false
-  allowToChangeInstallationDirectory: true
+  # Eén klik en klaar, zoals Discord en Blitz het doen: geen wizard, alleen een
+  # voortgangsbalk, en de app start zelf op als hij er staat.
+  #
+  # Dit vervangt een eerdere keuze. Er stond hier dat een .exe die naast je game
+  # draait hoort te laten zien waar hij landt, en dat argument is niet slecht --
+  # maar het levert vier schermen op om door te klikken voor een beslissing die
+  # bijna niemand anders neemt dan de standaard. De app installeert per
+  # gebruiker onder %LOCALAPPDATA%\\Programs en zijn gegevens staan los onder
+  # %APPDATA%, dus er is niets dat een keuze nodig heeft.
+  oneClick: true
+
+  # Alleen bij een één-klik-installer: het icoon boven de voortgangsbalk. Dit
+  # is nu het enige beeld dat iemand tijdens het installeren ziet, dus het is
+  # het icoon zelf en niet de bronzen band.
+  installerHeaderIcon: build/icon.ico
+
+  # Na afloop meteen starten. Bij een één-klik-installer is er geen scherm meer
+  # om dit op te vragen, dus het gebeurt gewoon -- wie installeert wil hem zien.
+  runAfterFinish: true
 
   # Per gebruiker installeren zet de app in %LOCALAPPDATA%\Programs in plaats van
   # Program Files. Dat scheelt de UAC-prompt bij het installeren, en belangrijker:
