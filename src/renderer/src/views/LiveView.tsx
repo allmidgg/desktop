@@ -6,8 +6,9 @@
  */
 import { bouwPad } from "../../../shared/build";
 import type {
-  AppSnapshot, BuildStep, ChampionSummary, GameDetail, GameDetailPlayer, ItemSummary,
-  LiveGamePlayer, LiveGameSnapshot, LiveInzichtenUit, RecentGameSummary, TeamTotaalUit,
+  AppSnapshot, BuildStep, ChampionDetail, ChampionSummary, GameDetail, GameDetailPlayer,
+  ItemSummary, LiveGamePlayer, LiveGameSnapshot, LiveInzichtenUit, RecentGameSummary,
+  TeamTotaalUit, TierEntry,
 } from "../../../shared/types";
 import { ChampSelectView } from "./ChampSelectView";
 import { Fragment, useEffect, useState } from "react";
@@ -819,7 +820,7 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
       {rest.length ? (
         <Panel className="divide-y divide-ink-900/60">
           {rest.map((p, j) => (
-            <LivePlayerRow key={`rest-${j}`} p={p} items={items} champions={champions} />
+            <LivePlayerRow key={`rest-${j}`} p={p} items={items} champions={champions} index={j} />
           ))}
         </Panel>
       ) : null}

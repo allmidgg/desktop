@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import type {
-  AppSnapshot, ChampionDetail, ItemEntry, Position, SpellEntry, TierEntry,
+  AppSnapshot, ChampionDetail, ChampionSummary, ItemEntry, Position, SpellEntry, TierEntry,
 } from "../../../shared/types";
 import {
   asset, ChampionIcon, EmptyState, Panel, PositionIcon, POSITION_LABELS, SectionTitle, Spinner,
@@ -94,45 +94,12 @@ export function MetaView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
               />
             </Panel>
           ) : (
-            <div className="space-y-1">
-              {tier.map((entry, index) => {
-                const champion = champions.get(entry.championId);
-                const active = selected === entry.championId;
-                return (
-                  <button
-                    key={entry.championId}
-                    onClick={() => setSelected(entry.championId)}
-                    className={`panel flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
-                      active ? "border-gold-400/45" : "hover:border-line-lit"
-                    }`}
-                  >
-                    <span className="num w-6 text-center text-[12px] text-ink-700">{index + 1}</span>
-                    <ChampionIcon iconPath={champion?.iconPath} name={champion?.name} size={34} />
-                    <span className="flex-1 truncate text-[13px] font-medium">
-                      {champion?.name ?? entry.championId}
-                    </span>
-                    <span
-                      className={`num w-14 text-right text-[13px] font-semibold ${winrateTone(entry.winrate)}`}
-                    >
-                      {(entry.winrate * 100).toFixed(0)}%
-                    </span>
-                    <span className="num w-16 text-right text-[11px] text-ink-500">{entry.games}g</span>
-                    <span className="num w-16 text-right text-[11px] text-ink-500">
-                      {(entry.pickRate * 100).toFixed(1)}%
-                    </span>
-                    <span className="num w-14 text-right text-[11px] text-ink-500">
-                      {entry.kda.toFixed(2)}
-                    </span>
-                  </button>
-                );
-              })}
-              <div className="flex gap-3 px-3 pt-1 text-[10px] tracking-wide text-ink-700 uppercase">
-                <span className="ml-auto w-14 text-right">winrate</span>
-                <span className="w-16 text-right">games</span>
-                <span className="w-16 text-right">pick</span>
-                <span className="w-14 text-right">kda</span>
-              </div>
-            </div>
+            <TierBanden
+              tier={tier}
+              champions={champions}
+              selected={selected}
+              onSelect={setSelected}
+            />
           )}
         </div>
 
@@ -352,5 +319,90 @@ function SpellBlock({
         ))}
       </div>
     </Panel>
+  );
+}
+
+/**
+ * De tier-banden.
+ *
+ * Hiervoor stond hier een tabel: eenenzestig rijen met vier getallen elk. Dat
+ * is compleet en het is onleesbaar -- je ziet pas wie sterk is nadat je hebt
+ * gelezen. Een band per tier laat dat in één blik zien, en de portretten doen
+ * het werk dat de namen deden.
+ *
+ * De grenzen staan hieronder en worden ook getoond. Ze zijn van ons, niet van
+ * de data: champions.json kent geen tiers. Wie het er niet mee eens is hoort te
+ * kunnen zien waar ze liggen in plaats van een letter te moeten geloven.
+ */
+const BANDEN: Array<{ letter: string; vanaf: number; kleur: string; rand: string }> = [
+  { letter: "S", vanaf: 0.545, kleur: "text-gold-300", rand: "border-gold-500" },
+  { letter: "A", vanaf: 0.52, kleur: "text-jade-300", rand: "border-jade-500/45" },
+  { letter: "B", vanaf: 0.49, kleur: "text-ink-100", rand: "border-line-lit" },
+  { letter: "C", vanaf: 0.46, kleur: "text-ink-300", rand: "border-line" },
+  { letter: "D", vanaf: -1, kleur: "text-loss-400", rand: "border-loss-500/40" },
+];
+
+function TierBanden({
+  tier,
+  champions,
+  selected,
+  onSelect,
+}: {
+  tier: TierEntry[];
+  champions: Map<number, ChampionSummary>;
+  selected: number | null;
+  onSelect: (id: number) => void;
+}): JSX.Element {
+  // Eén doorloop: elke champion in de eerste band waar hij boven de grens valt.
+  const perBand = BANDEN.map((band) => ({
+    band,
+    rijen: tier.filter((e) => {
+      const hoger = BANDEN.find((b) => b.vanaf > band.vanaf && e.winrate >= b.vanaf);
+      return e.winrate >= band.vanaf && !hoger;
+    }),
+  })).filter((g) => g.rijen.length > 0);
+
+  return (
+    <div className="space-y-2">
+      {perBand.map(({ band, rijen }) => (
+        <div key={band.letter} className="panel flex items-start gap-3 p-3">
+          {/* De letter draagt de band en staat daarom apart, niet als kolom. */}
+          <div
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-md border text-lg font-bold ${band.rand} ${band.kleur}`}
+            style={{ background: "rgba(255,255,255,0.02)" }}
+          >
+            {band.letter}
+          </div>
+          <div className="flex flex-1 flex-wrap gap-1.5">
+            {rijen.map((entry) => {
+              const champion = champions.get(entry.championId);
+              const aan = selected === entry.championId;
+              return (
+                <button
+                  key={entry.championId}
+                  onClick={() => onSelect(entry.championId)}
+                  title={`${champion?.name ?? entry.championId} — ${(entry.winrate * 100).toFixed(1)}% over ${entry.games} games, ${entry.kda.toFixed(2)} KDA`}
+                  className={`relative overflow-hidden rounded-md border transition-colors ${
+                    aan ? "border-gold-400" : "border-line hover:border-gold-500/60"
+                  }`}
+                >
+                  <ChampionIcon iconPath={champion?.iconPath} name={champion?.name} size={44} />
+                  {/* De winrate onderaan het portret: het getal hoort bij het
+                      gezicht en niet in een kolom drie plekken verderop. */}
+                  <span className="num absolute inset-x-0 bottom-0 bg-void/85 py-px text-center text-[9px] font-semibold text-ink-100">
+                    {(entry.winrate * 100).toFixed(0)}%
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <span className="num shrink-0 pt-1 text-[10px] text-ink-700">{rijen.length}</span>
+        </div>
+      ))}
+      <p className="px-1 pt-1 text-[10px] text-ink-700">
+        Bands are ours, not Riot&rsquo;s: S from 54.5% win rate, A from 52%, B from 49%, C from 46%.
+        Every champion here already clears the {MIN_GAMES}-game floor.
+      </p>
+    </div>
   );
 }
