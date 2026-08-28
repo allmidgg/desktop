@@ -11,6 +11,7 @@ import type {
   TeamTotaalUit, TierEntry,
 } from "../../../shared/types";
 import { ChampSelectView } from "./ChampSelectView";
+import { MerkGeslepen } from "../merk";
 import { Fragment, useEffect, useState } from "react";
 import {
   asset, ChampionIcon, EmptyState, FormDots, ItemRow, Panel, RankPill, SectionTitle, SkillGrid,
@@ -84,24 +85,7 @@ function GeenGame({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
     <div className="animate-rise flex min-h-[60vh] items-center justify-center">
       <div className="w-full max-w-lg text-center">
         {/* Het merk, rustig: de M met de duikende middenstok. */}
-        <svg
-          viewBox="0 0 120 118"
-          width="54"
-          height="54"
-          fill="none"
-          className="mx-auto mb-5 opacity-70"
-          aria-hidden="true"
-        >
-          <path
-            d="M14 102 L33 20 L60 60 L87 20 L106 102"
-            stroke="#7a683a"
-            strokeWidth="9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path d="M60 60 L60 104" stroke="#b89a4d" strokeWidth="10" strokeLinecap="round" />
-          <circle cx="60" cy="104" r="6" fill="#e7c76e" />
-        </svg>
+        <MerkGeslepen size={58} className="mx-auto mb-5 opacity-80" />
 
         <h2 className="mb-2 text-lg font-semibold text-ink-100">No game running</h2>
         <p className="mx-auto mb-7 max-w-sm text-sm leading-relaxed text-ink-500">

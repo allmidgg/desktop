@@ -44,8 +44,8 @@ export function OverlayView({ snapshot }: { snapshot: AppSnapshot | null }): JSX
         style={vergrendeld ? undefined : ({ WebkitAppRegion: "drag" } as React.CSSProperties)}
         className={`w-[230px] rounded-xl p-2.5 text-ink-100 backdrop-blur-[3px] transition-colors ${
           vergrendeld
-            ? "border border-white/[0.07] bg-[#070810]/55 shadow-[0_8px_28px_-14px_rgba(0,0,0,0.9)]"
-            : "cursor-move border-2 border-dashed border-gold-400/70 bg-[#070810]/90"
+            ? "border border-white/[0.07] bg-void/60 shadow-[0_8px_28px_-14px_rgba(0,0,0,0.9)]"
+            : "cursor-move border-2 border-dashed border-gold-400/70 bg-void/92"
         }`}
       >
         {!vergrendeld ? (

@@ -285,7 +285,7 @@ function AppMenu({ settings }: { settings: Settings }): JSX.Element {
       </button>
 
       {open ? (
-        <div className="absolute top-full right-0 z-50 mt-1.5 w-72 rounded-xl border border-line bg-[#0a0d14] p-3 shadow-[0_18px_40px_-18px_rgba(0,0,0,0.9)]">
+        <div className="absolute top-full right-0 z-50 mt-1.5 w-72 rounded-xl border border-line bg-surface p-3 shadow-[0_18px_40px_-18px_rgba(0,0,0,0.9)]">
           <p className="mb-2.5 text-[10px] tracking-[0.14em] text-ink-600 uppercase">Behaviour</p>
 
           <Schakelaar
@@ -343,7 +343,7 @@ function Schakelaar({
         }`}
       >
         <span
-          className={`h-3 w-3 rounded-full bg-[#0a0d14] transition-transform ${aan ? "translate-x-3" : ""}`}
+          className={`h-3 w-3 rounded-full bg-surface transition-transform ${aan ? "translate-x-3" : ""}`}
         />
       </span>
       <span>
