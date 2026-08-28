@@ -13,40 +13,68 @@
  * wat "dit is de app" betekende, nooit wat een getal betekent.
  */
 @theme {
-  /* Achtergronden: site --ground / --surface / --raised. */
-  --color-void: #070810;
-  --color-surface: #11141f;
-  --color-surface-2: #161a27;
+  /* ── Grond en oppervlakken ───────────────────────────────────────────────
+     Drie niveaus, en niet meer: de app zelf, een sectie, en iets waar je op
+     kunt klikken. Meer trappen leverden precies het "rechthoek in rechthoek"
+     op waar deze herziening mee begon. */
+  --color-void: #06080c; /* de applicatie zelf */
+  --color-surface: #0d1117; /* een sectie */
+  --color-surface-2: #131922; /* iets aanklikbaars */
+  --color-surface-3: #1a212c; /* datzelfde, maar aangewezen */
 
-  /* Randen: site --line / --line-lit. */
-  --color-line: #232838;
-  --color-line-lit: #2f3648;
+  /* Randen: koel blauwgrijs, altijd 1px, altijd ingehouden. */
+  --color-line: #2a3342;
+  --color-line-lit: #3a475c;
 
-  /* Merkaccent. Precies de drie goudtinten van de site. */
-  --color-gold-300: #f4e0a6; /* site --gold-lit: tekst op donker */
-  --color-gold-400: #e7c76e; /* site --gold:     het accent zelf */
-  --color-gold-500: #9a7f38; /* site --gold-dim: randen, gedempt */
+  /* ── Merkaccent ──────────────────────────────────────────────────────────
+     Alleen voor identiteit, selectie en wat er echt toe doet. Nooit als vlak,
+     nooit als standaardrand. Fel geel bestaat hier niet: dit is verweerd
+     messing, geen highlighter. */
+  --color-gold-300: #f0dca0; /* tekst op donker */
+  --color-gold-400: #e7c76e; /* het accent zelf */
+  --color-gold-500: #b89c4a; /* gedempt: randen, iconen */
+  --color-gold-600: #7a6426; /* donker: scheidingen */
 
-  /* Betekeniskleuren -- ongewijzigd. Groen blijft groen, rood blijft rood. */
-  --color-jade-300: #7df3c8;
-  --color-jade-400: #4de7ad;
-  --color-jade-500: #24d391;
-  --color-jade-600: #12a973;
+  /* ── Betekeniskleuren ────────────────────────────────────────────────────
+     Deze horen bij de data en niet bij het merk. Groen is gewonnen, rood is
+     verloren, en de rune- en masterybomen houden hun eigen kleur. Goud
+     vervangt alleen wat "dit is de app" betekende, nooit wat een getal zegt. */
+  --color-jade-300: #6ee7a8;
+  --color-jade-400: #2ecc71;
+  --color-jade-500: #22a35a;
+  --color-jade-600: #177842;
 
-  --color-loss-400: #ff6b74;
-  --color-loss-500: #e0454f;
+  --color-loss-400: #e06a6a;
+  --color-loss-500: #b84a4a;
 
-  --color-ink-100: #e9edf7; /* site --ink */
-  --color-ink-300: #9aa4bd; /* site --muted */
-  --color-ink-500: #6d768f; /* site --dim */
-  /* De site heeft geen vierde inkttrap. Dit is een tussenstap tussen --line-lit
-     en --dim: --line-lit zelf als tekstkleur zakt onder het contrast dat deze
-     minilabels nu hebben (1.66:1 tegen 1.95:1), dus die is hier onbruikbaar. */
-  --color-ink-700: #3c4356;
+  --color-info-400: #57a6ff;
+  --color-magic-400: #b86bff;
+  --color-teal-400: #2dd4bf;
+
+  /* ── Tekst ───────────────────────────────────────────────────────────────
+     Twee trappen die er echt toe doen, plus twee zwakkere voor labels. */
+  --color-ink-100: #e6eaf0; /* primair */
+  --color-ink-300: #8b94a6; /* secundair */
+  --color-ink-500: #5d6675; /* labels */
+  --color-ink-700: #3a4150; /* nauwelijks aanwezig */
 
   --font-sans: "Inter", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
 
+  /* ── Vormtaal ────────────────────────────────────────────────────────────
+     8pt-raster voor ruimte; radii die functioneel aanvoelen in plaats van als
+     SaaS-pillen. 16px is het maximum en alleen voor hele secties. */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
   --radius-panel: 16px;
+
+  /* ── Schaduw ─────────────────────────────────────────────────────────────
+     Donker en breed. De gouden gloed is geen schaduw maar een aanwijzing, en
+     hoort alleen om iets dat op dat moment actief is. */
+  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --glow-gold: 0 0 16px rgba(231, 199, 110, 0.15);
 }
 
 html,
