@@ -1538,3 +1538,34 @@ button.tier-tegel,
   outline-offset: -3px;
   border-radius: var(--radius-sm);
 }
+
+/* ── Wisselen van tab ──────────────────────────────────────────────────────
+   Een scherm dat er ineens staat leest als een sprong; een scherm dat opkomt
+   leest als navigeren. Kort en klein gehouden: 260ms en zes pixels. Alles
+   daarboven wordt een animatie waar je op moet wachten, en dat is precies wat
+   een werkende app niet moet doen. */
+.tabwissel {
+  animation: tabwissel 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes tabwissel {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Het gouden streepje in de rail schuift mee in plaats van te verspringen. */
+.rail-aan {
+  transition:
+    top 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabwissel { animation: none; }
+  .rail-aan { transition: none; }
+}

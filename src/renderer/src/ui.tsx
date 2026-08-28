@@ -158,6 +158,31 @@ const TIER_COLORS: Record<string, string> = {
   diamond: "text-[#7aa8ff] border-[#7aa8ff]/30 bg-[#7aa8ff]/10",
 };
 
+/**
+ * De tiers waarvoor Riot een embleem publiceert.
+ *
+ * Classic heeft twee eigen rangen -- wood en salt -- die in normale League niet
+ * bestaan en dus geen officieel beeld hebben. Die houden hun gekleurde pil; de
+ * rest krijgt het echte embleem ernaast. Een verzonnen icoontje voor wood zou
+ * naast zeven echte staan en dat zie je meteen.
+ */
+const EMBLEEM_TIERS = new Set([
+  "iron",
+  "bronze",
+  "silver",
+  "gold",
+  "platinum",
+  "emerald",
+  "diamond",
+  "master",
+  "grandmaster",
+  "challenger",
+]);
+
+/** Riots eigen embleem, van dezelfde spiegel waar de app zijn iconen vandaan haalt. */
+const embleemUrl = (tier: string): string =>
+  `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-shared-components/global/default/${tier.toLowerCase()}.png`;
+
 export function RankPill({ rank, compact = false }: { rank: RankedSummary | null; compact?: boolean }): JSX.Element {
   if (!rank) {
     return (
@@ -166,9 +191,30 @@ export function RankPill({ rank, compact = false }: { rank: RankedSummary | null
       </span>
     );
   }
-  const tone = TIER_COLORS[rank.tier.toLowerCase()] ?? "text-ink-300 border-white/10 bg-white/[0.04]";
+  const tier = rank.tier.toLowerCase();
+  const tone = TIER_COLORS[tier] ?? "text-ink-300 border-white/10 bg-white/[0.04]";
   const label = compact ? `${rank.tier} ${rank.division}`.trim() : rank.label;
-  return <span className={`rang-pil num rounded-md border px-2 py-0.5 text-[11px] font-medium ${tone}`}>{label}</span>;
+  const heeftEmbleem = EMBLEEM_TIERS.has(tier);
+  return (
+    <span
+      className={`rang-pil num inline-flex items-center gap-1.5 rounded-md border py-0.5 text-[11px] font-medium ${tone} ${heeftEmbleem ? "pr-2 pl-1" : "px-2"}`}
+    >
+      {heeftEmbleem ? (
+        <img
+          src={embleemUrl(tier)}
+          alt=""
+          width={16}
+          height={16}
+          className="shrink-0"
+          // Geen embleem is geen fout: dan blijft de pil zoals hij was.
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
+        />
+      ) : null}
+      {label}
+    </span>
+  );
 }
 
 export function Winrate({ winrate, games }: { winrate: number; games: number }): JSX.Element {

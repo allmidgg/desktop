@@ -67,10 +67,37 @@ export function MerkWapen({ size = 96 }: { size?: number }): JSX.Element {
       <div
         className="absolute inset-0 rounded-full"
         style={{
-          background: "radial-gradient(circle, rgba(231,199,110,0.07), transparent 68%)",
+          background: "radial-gradient(circle, rgba(231,199,110,0.08), transparent 68%)",
         }}
       />
-      <Merk size={size * 0.62} className="relative opacity-45" />
+      {/* Het geslepen schild in plaats van de vlakke M: een leeg scherm is de
+          plek waar het merk de ruimte heeft om er echt uit te zien. */}
+      <img
+        src="/merk/schild.png"
+        alt=""
+        aria-hidden="true"
+        className="relative opacity-50"
+        style={{ width: size * 0.68, height: "auto" }}
+      />
     </div>
+  );
+}
+
+/**
+ * Het geslepen merk, voor waar het groot genoeg staat om het te zien.
+ *
+ * De SVG-versie hierboven blijft voor kleine maten: op 16 pixels wint een
+ * getekend pad het altijd van een geschaalde foto. Dit is voor de rail en
+ * alles daarboven.
+ */
+export function MerkGeslepen({ size = 32, className = "" }: { size?: number; className?: string }): JSX.Element {
+  return (
+    <img
+      src="/merk/logo.png"
+      alt=""
+      aria-hidden="true"
+      className={className}
+      style={{ width: size, height: "auto" }}
+    />
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { AppSnapshot, Settings, UploadStatus } from "../../shared/types";
-import { Merk } from "./merk";
+import { MerkGeslepen } from "./merk";
 import { LiveView } from "./views/LiveView";
 import { ProfileView } from "./views/ProfileView";
 import { RunesView } from "./views/RunesView";
@@ -114,6 +114,10 @@ function MainWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element
       <div className="relative flex min-h-0 flex-1">
         <Sidebar tab={tab} onSelect={setTab} hasChampSelect={inChampSelect} />
         <main className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
+          {/* De key is het hele punt: wisselt hij, dan hangt React de oude
+              boom af en zet een nieuwe neer, en dan speelt de animatie opnieuw
+              af. Zonder key blijft het dezelfde node en gebeurt er niets. */}
+          <div key={tab} className="tabwissel">
           {!snapshot ? null : tab === "live" ? (
             <LiveView snapshot={snapshot} onNavigate={setTab} />
           ) : tab === "meta" ? (
@@ -125,6 +129,7 @@ function MainWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element
           ) : (
             <MasteriesView snapshot={snapshot} />
           )}
+          </div>
         </main>
       </div>
     </div>
@@ -141,7 +146,7 @@ function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
           column rather than two blocks stacked on each other. Same SVG as the
           tray, the splash and the empty screens; only the place changed. */}
       <div className="grid shrink-0 place-items-center" style={{ width: "var(--rail-breedte)" }}>
-        <Merk size={48} gloed />
+        <MerkGeslepen size={46} />
       </div>
 
       {/* The lockup: name above, mode below, both gold. Colouring only MID made
