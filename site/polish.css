@@ -19,7 +19,9 @@ a, button, input, summary { -webkit-tap-highlight-color: transparent; }
 .champkaart:focus-visible, .mn-lead:focus-within { border-color: var(--gold); }
 @media (max-width: 900px) {
   .balk-nav .wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
-  .balk-nav .secties { grid-column: 1 / -1; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+  .balk-nav .secties { grid-column: 1 / -1; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .balk-nav .secties::-webkit-scrollbar { display: none; }
+  .balk-nav .secties a[aria-current="page"]::after { bottom: 0; }
   .balk-nav .secties a { flex: none; }
   .balk-nav .kopzoek { margin: 0; order: initial; }
   .balk-nav .btn { min-height: 38px; }

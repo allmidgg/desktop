@@ -47,6 +47,12 @@ win:
       arch: [x64]
 
 nsis:
+  # De kopbanner rechtsboven op de vervolgschermen. NSIS wil hier echt een BMP,
+  # geen PNG -- het is een oud formaat en dat merk je hier.
+  installerHeaderIcon: build/icon.ico
+  installerHeader: build/installerHeader.bmp
+  uninstallerHeader: build/uninstallerHeader.bmp
+
   # Geen stille één-klik-installatie. Dit is een .exe die naast je game draait;
   # wie hem installeert hoort te zien waar hij landt. Dat is dezelfde belofte
   # als de veiligheidssectie op de site doet.

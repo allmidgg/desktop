@@ -9,11 +9,13 @@ import { fileURLToPath } from "node:url";
 
 const site = dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(resolve(site, "index.html"), "utf8");
-const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+// Script strings can contain HTML templates; only inspect actual markup.
+const markup = html.replace(/(<script\b[^>]*>)[\s\S]*?(<\/script>)/gi, "$1$2");
+const ids = [...markup.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
 assert.equal(new Set(ids).size, ids.length, "Duplicate IDs in the generated homepage");
 
 let checked = 0;
-for (const [, target] of html.matchAll(/\b(?:href|src)="([^"]+)"/g)) {
+for (const [, target] of markup.matchAll(/\b(?:href|src)="([^"]+)"/g)) {
   if (/^(?:[a-z]+:|\/\/)/i.test(target)) continue;
   const [path, hash] = target.split("#");
   const file = path ? resolve(site, path.split("?")[0]) : resolve(site, "index.html");
