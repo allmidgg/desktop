@@ -97,11 +97,30 @@ body {
 /* Glaslaag. Het wit-percentage is vervangen door de surface- en line-tokens van
    de site, zodat een paneel dezelfde blauwgrijze kaart is als daar; de
    doorzichtigheid blijft zodat de gloed erdoorheen komt. */
+/* Laag 2: een sectie. Groepeert zonder te roepen -- vulling, geen rand.
+   Dit was hiervoor laag 3 (rand en al), en omdat elk paneel het gebruikte
+   kreeg alles evenveel nadruk: rechthoek in rechthoek, en niets belangrijker
+   dan iets anders. */
 @utility panel {
+  background: color-mix(in oklab, var(--color-surface) 55%, transparent);
+  border-radius: var(--radius-panel);
+  backdrop-filter: blur(14px);
+}
+
+/* Laag 3: iets waar je iets mee kunt. Hier hoort de rand, en alleen hier mag
+   goud verschijnen -- daardoor betekent goud "hier kun je klikken" in plaats
+   van "dit is de app". */
+@utility panel-klik {
   background: color-mix(in oklab, var(--color-surface) 80%, transparent);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-panel);
   backdrop-filter: blur(14px);
+  transition:
+    border-color 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@utility panel-rand {
+  border: 1px solid var(--color-line);
 }
 
 @utility num {
@@ -261,4 +280,115 @@ body {
   .rim {
     animation: none;
   }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DIEPTE EN HIËRARCHIE
+   ---------------------------------------------------------------------------
+   Twee dingen lieten de app als een admin-dashboard voelen.
+
+   Eén: alles stond op hetzelfde vlakke #070810. Een interface zonder diepte
+   leest als een formulier. Nu ligt er een battlefield-textuur achter, op een
+   paar procent -- genoeg om te merken, te weinig om te zien.
+
+   Twee: alles had dezelfde rand, radius en achtergrond, dus niets was
+   belangrijker dan iets anders. Nu zijn er drie niveaus:
+     laag 1  de pagina        -- geen rand, alleen de grond
+     laag 2  een sectie       -- zachte vulling, geen rand of een halve
+     laag 3  iets aanklikbaars -- rand, en die licht op bij hover
+   Alleen laag 3 mag goud worden. Daardoor betekent goud "hier kun je iets",
+   in plaats van "dit is de app".
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* De grond: textuur achter alles, vast zodat de inhoud eroverheen beweegt. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: url("/toren.png");
+  background-size: 140% auto;
+  background-position: 30% 20%;
+  opacity: 0.045;
+  filter: saturate(0.6) blur(1px);
+  pointer-events: none;
+}
+
+/* Een warme poel linksboven, waar de rail staat, en verder wegzakkend. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 6% 0%, rgba(231, 199, 110, 0.055), transparent 62%),
+    radial-gradient(80% 60% at 100% 100%, rgba(231, 199, 110, 0.03), transparent 60%);
+}
+
+/* ── Laag 2: een sectie. Vulling zonder rand -- het groepeert, het roept niet. */
+.vlak-2 {
+  background: rgba(255, 255, 255, 0.022);
+  border-radius: var(--radius-panel);
+}
+
+/* ── Laag 3: aanklikbaar. Rand, en goud zodra je erover gaat. */
+.vlak-3 {
+  background: rgba(17, 20, 31, 0.72);
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  transition:
+    border-color 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.vlak-3:hover {
+  border-color: var(--color-gold-500);
+  background: rgba(231, 199, 110, 0.045);
+}
+
+/* ── De linkerrail ────────────────────────────────────────────────────────
+   Donker steen in plaats van hetzelfde vlak als de rest, met de toren aan de
+   voet. Dat beeld is dezelfde toren als in de installer: wie de app installeert
+   ziet hem daar, en dan weer hier. */
+.rail {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 30%),
+    linear-gradient(180deg, #0b0d16, #080a12);
+  border-right: 1px solid var(--color-line);
+}
+.rail-toren {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 190px;
+  transform: translateX(-50%);
+  opacity: 0.5;
+  pointer-events: none;
+  mask-image: linear-gradient(180deg, transparent, #000 45%);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 45%);
+}
+
+/* De actieve tab: een gouden streep die in de rand van de rail zit, plus een
+   zachte gloed eromheen. Zonder die gloed leest de streep als een randje. */
+.rail-aan {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 26px;
+  width: 2px;
+  transform: translateY(-50%);
+  border-radius: 0 2px 2px 0;
+  background: var(--color-gold-400);
+  box-shadow: 0 0 12px 1px rgba(231, 199, 110, 0.55);
+}
+
+/* ── Sectiekoppen: karakter in de titel, strakte in de data ─────────────── */
+.sectiekop {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
 }

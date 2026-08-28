@@ -546,19 +546,22 @@ function Sidebar({
   hasChampSelect: boolean;
 }): JSX.Element {
   return (
-    <nav className="relative z-10 flex w-[76px] shrink-0 flex-col items-center gap-1 border-r border-line py-5">
+    <nav className="rail relative z-10 flex w-[84px] shrink-0 flex-col items-center gap-1 overflow-hidden py-5">
+      {/* Dezelfde toren als op het installatiescherm: wie de app installeert
+          ziet hem daar, en herkent hem hier terug. */}
+      <img src="/toren.png" alt="" aria-hidden="true" className="rail-toren" />
       {TABS.map((entry) => {
         const active = tab === entry.id;
         return (
           <button
             key={entry.id}
             onClick={() => onSelect(entry.id)}
-            className={`group relative flex w-full flex-col items-center gap-1.5 py-3 transition-colors ${
+            className={`group relative z-10 flex w-full flex-col items-center gap-1.5 py-3 transition-colors ${
               active ? "text-gold-300" : "text-ink-500 hover:text-ink-300"
             }`}
           >
             {active ? (
-              <span className="absolute top-1/2 left-0 h-7 w-[2px] -translate-y-1/2 rounded-r bg-gold-400" />
+              <span className="rail-aan" />
             ) : null}
             <svg
               width="21"
