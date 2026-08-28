@@ -258,7 +258,7 @@ function PlayerCard({
   return (
     <Panel
       className={`flex items-center gap-3 px-3 py-2 ${alignRight ? "flex-row-reverse text-right" : ""} ${
-        highlight ? "border-gold-400/45" : ""
+        highlight ? "paneel-goud" : ""
       }`}
     >
       <ChampionIcon iconPath={champion?.iconPath} name={champion?.name} size={42} dim={hovering} />

@@ -37,10 +37,25 @@ const QUEUE_LABELS: Record<number, string> = {
   4320: "Co-op vs AI",
 };
 
-export function LiveView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
+/**
+ * Where this screen can send you.
+ *
+ * Deliberately narrower than App's own Tab union: the live screen is where you
+ * already are, so "live" is never a destination it should be able to offer.
+ */
+export type SnelnavDoel = "meta" | "profile" | "runes" | "masteries";
+
+export function LiveView({
+  snapshot,
+  onNavigate,
+}: {
+  snapshot: AppSnapshot;
+  /** The tab strip lives in the shell, so the view cannot switch it itself. */
+  onNavigate: (tab: SnelnavDoel) => void;
+}): JSX.Element {
   if (snapshot.connection !== "connected") return <GeenGame snapshot={snapshot} />;
   if (snapshot.champSelect) return <ChampSelectView snapshot={snapshot} />;
-  return <LiveInhoud snapshot={snapshot} />;
+  return <LiveInhoud snapshot={snapshot} onNavigate={onNavigate} />;
 }
 
 /**
@@ -127,7 +142,13 @@ function GeenGame({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
   );
 }
 
-function LiveInhoud({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
+function LiveInhoud({
+  snapshot,
+  onNavigate,
+}: {
+  snapshot: AppSnapshot;
+  onNavigate: (tab: SnelnavDoel) => void;
+}): JSX.Element {
   const [geopend, setGeopend] = useState<number | null>(null);
   const [gekozen, setGekozen] = useState<number | null>(null);
 
@@ -171,10 +192,17 @@ function LiveInhoud({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
               </div>
             )}
           </div>
+
+          <Snelnav onNavigate={onNavigate} />
         </div>
 
         <div className="space-y-5">
-          <TierKolom snapshot={snapshot} gekozen={gekozen} onKies={setGekozen} />
+          <TierKolom
+            snapshot={snapshot}
+            gekozen={gekozen}
+            onKies={setGekozen}
+            onNavigate={onNavigate}
+          />
           <ChampionKolom snapshot={snapshot} championId={gekozen} />
           <JouwStats snapshot={snapshot} />
         </div>
@@ -183,23 +211,128 @@ function LiveInhoud({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
   );
 }
 
+/**
+ * De vier uitgangen van het live-scherm.
+ *
+ * Three of them go exactly where the left rail goes, which looks like a
+ * duplicate and is not one. The rail is permanent chrome and permanent chrome
+ * goes unread; this bar is the last thing under the match list, so it is in
+ * front of you at the moment you have finished reading and are looking for what
+ * is next. A destination you can reach two ways beats one you can only reach
+ * through a strip your eye has learned to skip.
+ *
+ * Champions is the odd one: it has no tab of its own. Meta is where it belongs
+ * anyway -- that screen is a per-lane list of every champion in the database,
+ * with a build and a matchup behind each portrait, which is what "browse all
+ * champs" means. The cost is that the rail lights up "Meta" after you clicked
+ * "Champions"; renaming that one tab would close the gap, but the mock-up still
+ * calls it Meta, so it keeps the name it has.
+ *
+ * The icons are drawn rather than shipped, the way PositionIcon is: four line
+ * glyphs at 22px in a 24 grid, so they stay crisp at any scale and cost nothing
+ * to load.
+ */
+const SNELNAV: Array<{ doel: SnelnavDoel; titel: string; onder: string; pad: string[] }> = [
+  {
+    doel: "profile",
+    titel: "Profile",
+    onder: "Overview & Stats",
+    pad: ["M12 12.4a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4Z", "M4.4 20.4a7.6 7.6 0 0 1 15.2 0"],
+  },
+  {
+    doel: "runes",
+    titel: "Runes",
+    onder: "Build your runes",
+    pad: [
+      "M12 7.6 16.4 12 12 16.4 7.6 12Z",
+      "M12 2.4 13.8 4.2 12 6 10.2 4.2Z",
+      "M21.6 12 19.8 13.8 18 12 19.8 10.2Z",
+      "M12 21.6 10.2 19.8 12 18 13.8 19.8Z",
+      "M2.4 12 4.2 10.2 6 12 4.2 13.8Z",
+    ],
+  },
+  {
+    doel: "masteries",
+    titel: "Masteries",
+    onder: "Mastery pages",
+    pad: [
+      "M12 3 14.4 6 12 9 9.6 6Z",
+      "M12 9v3",
+      "M6.6 15v-3h10.8v3",
+      "M6.6 15 9 18 6.6 21 4.2 18Z",
+      "M17.4 15 19.8 18 17.4 21 15 18Z",
+    ],
+  },
+  {
+    doel: "meta",
+    titel: "Champions",
+    onder: "Browse all champs",
+    pad: [
+      "M5.2 10.2a6.8 6.8 0 0 1 13.6 0v7.3a2.3 2.3 0 0 1-2.3 2.3H7.5a2.3 2.3 0 0 1-2.3-2.3Z",
+      "M5.2 13.8h13.6",
+      "M12 13.8v6",
+    ],
+  },
+];
+
+function Snelnav({ onNavigate }: { onNavigate: (tab: SnelnavDoel) => void }): JSX.Element {
+  return (
+    <Panel className="snelnav">
+      {SNELNAV.map((entry) => (
+        <button
+          key={entry.doel}
+          type="button"
+          onClick={() => onNavigate(entry.doel)}
+          className="snelnav-item"
+        >
+          <svg
+            className="snelnav-icoon"
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            {entry.pad.map((d, i) => (
+              <path key={i} d={d} />
+            ))}
+          </svg>
+          <span className="min-w-0">
+            <span className="snelnav-titel truncate">{entry.titel}</span>
+            <span className="snelnav-onder truncate">{entry.onder}</span>
+          </span>
+        </button>
+      ))}
+    </Panel>
+  );
+}
+
 /** De statusbalk: waar je nu bent, en je rang ernaast. */
 function StatusBalk({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
   return (
-    <Panel className="flex items-center justify-between gap-4 p-5">
+    <Panel className="flex items-center justify-between gap-6 p-5">
       <div>
+        {/* Sizes and padding here were already right once the mock-up was pinned
+            to the correct scale: the phase line measures 101 CSS wide at a 17px
+            cap, which is exactly this text-lg, and the text starts 20.5 px
+            inside the panel, which is exactly this p-5. What was wrong was the
+            air between the lines and the brightness of the sentence. */}
         <p className="sectiekop">Status</p>
-        <p className="mt-1.5 text-lg font-semibold text-ink-100">
+        <p className="mt-2 text-lg font-semibold text-ink-100">
           {PHASE_LABELS[snapshot.phase] ?? snapshot.phase}
         </p>
-        <p className="mt-1 text-xs text-ink-500">
+        <p className="mt-1.5 text-xs text-ink-300">
           The scout opens by itself as soon as champion select begins.
         </p>
       </div>
       {snapshot.profile ? (
-        <div className="flex flex-col items-end gap-2">
+        <div className="status-rang flex flex-col items-end gap-2">
           <RankPill rank={snapshot.profile.rank} />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Winrate winrate={snapshot.profile.jade.winrate} games={snapshot.profile.jade.games} />
             <FormDots results={snapshot.profile.jade.recentResults} />
           </div>
@@ -217,24 +350,60 @@ function StatusBalk({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
  * anders. Wie het niet met de grenzen eens is kan ze hier zien staan in plaats
  * van te moeten raden waar ze vandaan komen.
  */
-/** `winrate` is een fractie (0.553), zoals overal in deze codebase. */
-function tierLetter(winrate: number): { letter: string; klasse: string } {
-  if (winrate >= 0.55) return { letter: "S", klasse: "text-gold-300 border-gold-500" };
-  if (winrate >= 0.52) return { letter: "A", klasse: "text-jade-300 border-jade-500/50" };
-  if (winrate >= 0.49) return { letter: "B", klasse: "text-ink-100 border-line-lit" };
-  if (winrate >= 0.46) return { letter: "C", klasse: "text-ink-300 border-line" };
-  return { letter: "D", klasse: "text-loss-400 border-loss-500/40" };
+/**
+ * `winrate` is een fractie (0.553), zoals overal in deze codebase.
+ *
+ * Two shapes come out of one rule, because the letter shows up twice on this
+ * screen and the mock-up draws it differently each time. `klasse` is the filled
+ * seal on a tier tile; `tekst` is only a colour, for the outlined chip in the
+ * champion panel, which takes its border and fill from currentColor. One
+ * function so a champion can never be an S in one panel and something else in
+ * the other.
+ */
+function tierLetter(winrate: number): { letter: string; klasse: string; tekst: string } {
+  // Only S is inverted -- solid gold with a dark letter -- because it is the one
+  // that has to be findable in a row of six at a glance; the rest stay dark
+  // plates so they read as a scale below it rather than five more things
+  // shouting.
+  if (winrate >= 0.55)
+    return { letter: "S", klasse: "border-gold-400 bg-gold-400 text-void", tekst: "text-gold-300" };
+  if (winrate >= 0.52)
+    return { letter: "A", klasse: "border-jade-500/60 bg-jade-500/25 text-jade-300", tekst: "text-jade-300" };
+  if (winrate >= 0.49)
+    return { letter: "B", klasse: "border-line-lit bg-void/85 text-ink-100", tekst: "text-ink-100" };
+  if (winrate >= 0.46)
+    return { letter: "C", klasse: "border-line bg-void/85 text-ink-300", tekst: "text-ink-300" };
+  return { letter: "D", klasse: "border-loss-500/50 bg-void/85 text-loss-400", tekst: "text-loss-400" };
 }
 
-/** De tier list voor jouw lane, met de portretten erbij. */
+/**
+ * De grenzen, op de tooltip van de letter zelf.
+ *
+ * Ze stonden als vijfde tekstregel onder het raster. Dat is veel ruimte voor een
+ * regel die je één keer leest, en het is precies de ruimte die de uitgang uit dit
+ * paneel nodig had. Aan de letter hangen zet de uitleg waar de vraag ontstaat.
+ */
+const TIER_REGEL = "S 55%+ · A 52%+ · B 49%+ · C 46%+ · D below";
+
+/**
+ * De tier list voor jouw lane, met de portretten erbij.
+ *
+ * Six cards on one row. The card is a portrait and not a square because both the
+ * face and the winrate have to be readable and at 50px across only one of them
+ * fits; the number therefore gets a band of its own under the art instead of
+ * lying over it. The letter hangs on the corner so it covers nothing, and the
+ * grid keeps 4px of headroom for that overhang.
+ */
 function TierKolom({
   snapshot,
   gekozen,
   onKies,
+  onNavigate,
 }: {
   snapshot: AppSnapshot;
   gekozen: number | null;
   onKies: (id: number) => void;
+  onNavigate: (tab: SnelnavDoel) => void;
 }): JSX.Element {
   const [rijen, setRijen] = useState<TierEntry[] | null>(null);
   const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
@@ -245,22 +414,24 @@ function TierKolom({
 
   return (
     <Panel className="p-4">
-      <div className="mb-3 flex items-baseline justify-between">
+      <div className="mb-4 flex items-baseline justify-between">
         <p className="sectiekop">Mid tier list</p>
-        <span className="text-[10px] text-ink-500">at least 25 games</span>
+        <span className="text-[11px] text-ink-300">at least 25 games</span>
       </div>
 
       {!rijen ? (
-        <div className="grid grid-cols-6 gap-1.5">
+        // The skeleton is the same card, so the panel keeps its height and
+        // nothing below it jumps when the list arrives.
+        <div className="grid grid-cols-6 gap-1.5 pt-1">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="aspect-square rounded-sm bg-surface-2" />
+            <div key={i} className="tier-tegel" />
           ))}
         </div>
       ) : rijen.length === 0 ? (
         <EmptyState title="Not enough games yet" hint="The database grows while you play." />
       ) : (
         <>
-          <div className="grid grid-cols-6 gap-1.5">
+          <div className="grid grid-cols-6 gap-1.5 pt-1">
             {rijen.slice(0, 6).map((rij) => {
               const champ = champions.get(rij.championId);
               const tier = tierLetter(rij.winrate);
@@ -270,31 +441,52 @@ function TierKolom({
                   key={rij.championId}
                   onClick={() => onKies(rij.championId)}
                   title={`${champ?.name ?? ""} — ${(rij.winrate * 100).toFixed(1)}% over ${rij.games} games`}
-                  className={`group relative overflow-hidden rounded-sm border transition-colors ${
-                    aan ? "border-gold-500" : "border-line hover:border-gold-500/60"
-                  }`}
+                  className={`tier-tegel ${aan ? "tier-tegel-aan" : ""}`}
                 >
-                  <ChampionIcon iconPath={champ?.iconPath} name={champ?.name} size={48} />
-                  <span
-                    className={`absolute top-0 left-0 rounded-br-sm border-r border-b bg-void/85 px-1 text-[9px] font-bold ${tier.klasse}`}
-                  >
+                  <span className="tier-art">
+                    <ChampionIcon iconPath={champ?.iconPath} name={champ?.name} fill />
+                  </span>
+                  <span className="num tier-wr">{(rij.winrate * 100).toFixed(1)}%</span>
+                  <span className={`tier-badge ${tier.klasse}`} title={TIER_REGEL}>
                     {tier.letter}
                   </span>
-                  <span className="num absolute inset-x-0 bottom-0 bg-void/85 py-0.5 text-center text-[9px] font-semibold text-ink-100">
-                    {(rij.winrate * 100).toFixed(1)}%
-                  </span>
+                  {aan ? <span className="tier-punt" aria-hidden="true" /> : null}
                 </button>
               );
             })}
           </div>
-          <p className="mt-2.5 text-center text-[10px] text-ink-600">
-            S 55%+ · A 52%+ · B 49%+ · C 46%+ · D below
-          </p>
+
+          {/* The way out of the six. The legend it replaces moved onto the
+              letter's own tooltip, which is where the question gets asked. */}
+          <button type="button" onClick={() => onNavigate("meta")} className="tier-meer">
+            View full tier list
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M4 12h14" />
+              <path d="m13 6 6 6-6 6" />
+            </svg>
+          </button>
         </>
       )}
     </Panel>
   );
 }
+
+/**
+ * Seven item slots, because that is what the mock-up lays out and what fits on
+ * one line beside the marker bar and the arrow: 3 + 16 + 7*30 + 6*6 + 32 comes
+ * to 291 of the 328 px the panel has inside its padding.
+ */
+const CHAMPION_ITEMS = 7;
 
 /** Wat er bekend is over de champion die je aanklikte. */
 function ChampionKolom({
@@ -305,10 +497,14 @@ function ChampionKolom({
   championId: number | null;
 }): JSX.Element {
   const [detail, setDetail] = useState<ChampionDetail | null>(null);
+  const [alles, setAlles] = useState(false);
   const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
   const items = new Map(snapshot.items.map((i) => [i.jadeId, i]));
 
   useEffect(() => {
+    // An expanded build row belongs to the champion it was opened on, so it
+    // collapses again the moment a different one is picked.
+    setAlles(false);
     if (championId === null) {
       setDetail(null);
       return;
@@ -319,51 +515,105 @@ function ChampionKolom({
 
   const champ = championId === null ? null : champions.get(championId);
 
+  const tier = detail?.stat ? tierLetter(detail.stat.winrate) : null;
+
   return (
-    <Panel className="p-4">
+    <Panel className="paneel-champion p-4">
       <p className="sectiekop mb-3">Champion</p>
       {!champ ? (
-        <EmptyState title="Pick a champion" hint="Builds and matchups appear here." />
+        <div className="champion-leeg">
+          <EmptyState
+            title="Pick a champion"
+            hint="Builds and matchups appear here."
+            actie={<span className="champion-scheiding" aria-hidden="true" />}
+          />
+        </div>
       ) : (
         <div>
-          <div className="flex items-center gap-3">
-            <ChampionIcon iconPath={champ.iconPath} name={champ.name} size={52} />
+          <div className="flex items-center gap-5">
+            <ChampionIcon
+              iconPath={champ.iconPath}
+              name={champ.name}
+              size={76}
+              className="champion-portret"
+            />
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-ink-100">{champ.name}</p>
-              {detail?.stat ? (
-                <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                  <span className={`badge ${detail.stat.winrate >= 0.5 ? "badge-goed" : "badge-slecht"}`}>
+              <p className="truncate text-[18px] leading-[22px] font-semibold text-ink-100">
+                {champ.name}
+              </p>
+              {/* The client ships each champion's classes and we show the first
+                  one. It stays absent rather than guessed when the catalogue has
+                  none, which happens for anything the client added since the
+                  summary file was last read. */}
+              {champ.roles[0] ? (
+                <p className="truncate text-[12px] leading-4 text-ink-300 capitalize">
+                  {champ.roles[0]}
+                </p>
+              ) : null}
+              {detail?.stat && tier ? (
+                <div className="mt-1.5 flex items-center gap-3">
+                  {/* Same letter and the same hue as the tier list two panels up,
+                      so one champion never reads as an S there and as something
+                      else here. The sample size moved onto the winrate's title:
+                      it is what you check, not what you scan. */}
+                  <span className={`badge ${tier.tekst}`}>{tier.letter} Tier</span>
+                  <span
+                    className={`badge ${detail.stat.winrate >= 0.5 ? "badge-goed" : "badge-slecht"}`}
+                    title={`${(detail.stat.winrate * 100).toFixed(1)}% won over ${detail.stat.games} games`}
+                  >
                     {(detail.stat.winrate * 100).toFixed(1)}% WR
                   </span>
-                  <span className="badge badge-neutraal">{detail.stat.games} games</span>
                 </div>
               ) : (
-                <p className="mt-1 text-[11px] text-ink-500">Loading…</p>
+                <p className="mt-1.5 text-[11px] text-ink-500">Loading…</p>
               )}
             </div>
           </div>
 
           {detail && detail.items.length > 0 ? (
-            <div className="mt-3.5">
-              <p className="mb-1.5 text-[10px] tracking-[0.12em] text-ink-600 uppercase">
-                Most built
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {detail.items.slice(0, 6).map((entry) => {
-                  const item = items.get(entry.itemId);
-                  return (
-                    <img
-                      key={entry.itemId}
-                      src={asset(item?.iconPath ?? "")}
-                      alt={item?.name ?? ""}
-                      title={`${item?.name ?? ""} — ${(entry.winrate * 100).toFixed(1)}% over ${entry.games} games`}
-                      width={30}
-                      height={30}
-                      className="rounded-sm border border-line"
-                    />
-                  );
-                })}
-              </div>
+            <div className="champion-items">
+              <span className="champion-items-baken" aria-hidden="true" />
+              {(alles ? detail.items : detail.items.slice(0, CHAMPION_ITEMS)).map((entry) => {
+                const item = items.get(entry.itemId);
+                return (
+                  <img
+                    key={entry.itemId}
+                    src={asset(item?.iconPath ?? "")}
+                    alt={item?.name ?? ""}
+                    title={`${item?.name ?? ""} — ${(entry.winrate * 100).toFixed(1)}% over ${entry.games} games`}
+                    width={30}
+                    height={30}
+                  />
+                );
+              })}
+              {/* The mock-up ends the row with an arrow, so it has to lead
+                  somewhere real: it opens the builds that did not fit on the
+                  line. Disabled rather than dropped when there is nothing more,
+                  because a row that loses its last element on some champions and
+                  not on others reads as a bug. */}
+              <button
+                type="button"
+                className="champion-items-meer"
+                onClick={() => setAlles(!alles)}
+                disabled={detail.items.length <= CHAMPION_ITEMS}
+                aria-expanded={alles}
+                title={alles ? "Show fewer items" : "Show every item built"}
+                aria-label={alles ? "Show fewer items" : "Show every item built"}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </button>
             </div>
           ) : null}
         </div>
@@ -373,11 +623,21 @@ function ChampionKolom({
 }
 
 /**
- * Jouw eigen cijfers, met één getal dat groter is dan de rest.
+ * Jouw eigen cijfers, met de twee waarvoor je kwam in goud.
  *
- * De brief vraagt om precies dat: één hoofdstatistiek in plaats van vijf
- * getallen die allemaal even hard roepen. Winrate is die ene, want dat is wat
- * mensen van zichzelf willen weten.
+ * One headline statistic instead of five figures shouting equally loudly is
+ * still the point, but the mock-up makes the case differently: winrate, KDA and
+ * games share one frame, and colour rather than size decides what carries. Gold
+ * goes on the two numbers you would look up anyway; every label around them
+ * stays grey, so the row has one voice instead of five.
+ *
+ * The averages at the bottom are the three numbers the KDA is made of, and they
+ * are worth showing precisely because the ratio hides them: 2.33 is the same
+ * whether you die twice a game or six times.
+ *
+ * Note the labels were not too faint before, they were too loud: `text-ink-600`
+ * is not a token in @theme, so Tailwind never generated the class and every one
+ * of these labels inherited ink-100 and came out near white.
  */
 function JouwStats({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
   const jade = snapshot.profile?.jade;
@@ -385,61 +645,102 @@ function JouwStats({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
     <Panel className="p-4">
       <div className="mb-3 flex items-baseline justify-between">
         <p className="sectiekop">Your stats (Classic)</p>
+        {/* The window is not a guess: src/main/service.ts asks
+            buildPlayerProfile for thirty games. Saying which thirty beats
+            leaving the reader to work out what "your stats" averages over. */}
+        <span className="text-[10px] text-ink-300">Last 30 games</span>
       </div>
       {!jade || jade.games === 0 ? (
         <EmptyState title="No games recorded" hint="Your own numbers appear once you have played." />
       ) : (
         <>
-          <div className="flex items-center gap-4">
-            <WinrateRing winrate={jade.winrate} />
-            <div className="grid flex-1 grid-cols-2 gap-3 text-center">
-              <div>
-                <p className="num text-xl font-bold text-ink-100">{jade.kda.toFixed(2)}</p>
-                <p className="text-[10px] tracking-[0.1em] text-ink-600 uppercase">KDA</p>
-              </div>
-              <div>
-                <p className="num text-xl font-bold text-ink-100">{jade.games}</p>
-                <p className="text-[10px] tracking-[0.1em] text-ink-600 uppercase">Games</p>
-              </div>
+          <div className="stats-kader">
+            <div className="stats-ring">
+              <WinrateRing winrate={jade.winrate} />
+            </div>
+            <div className="stats-cel">
+              <p className="num text-[24px] leading-none font-bold text-gold-400">
+                {jade.kda.toFixed(2)}
+              </p>
+              <p className="mt-1.5 text-[10px] tracking-[0.1em] text-ink-300 uppercase">KDA</p>
+            </div>
+            <div className="stats-cel">
+              <p className="num text-[24px] leading-none font-bold text-gold-400">{jade.games}</p>
+              <p className="mt-1.5 text-[10px] tracking-[0.1em] text-ink-300 uppercase">Games</p>
             </div>
           </div>
-          {jade.recentResults.length > 0 ? (
-            <div className="mt-3.5 flex items-center justify-between border-t border-line pt-3">
-              <span className="text-[10px] tracking-[0.1em] text-ink-600 uppercase">Recent form</span>
-              <FormDots results={jade.recentResults} />
+
+          {/* No rule of its own: the bottom edge of the frame above is already
+              the line the mock-up separates these two rows with. */}
+          <div className="mt-3.5 flex items-center justify-between gap-3">
+            {jade.recentResults.length > 0 ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-ink-300">Recent form</span>
+                <FormDots results={jade.recentResults} />
+              </div>
+            ) : (
+              <div />
+            )}
+            <div className="text-right">
+              <p className="num text-[14px] text-ink-100">
+                {jade.avgKills.toFixed(1)} / {jade.avgDeaths.toFixed(1)} /{" "}
+                {jade.avgAssists.toFixed(1)}
+              </p>
+              <p className="text-[11px] text-ink-300">avg KDA</p>
             </div>
-          ) : null}
+          </div>
         </>
       )}
     </Panel>
   );
 }
 
-/** Winrate als ring: één blik, geen tabel. */
+/**
+ * Winrate als ring: één blik, geen tabel.
+ *
+ * The mock-up draws it 80px across with a 5px band. The radius below is
+ * therefore measured to the middle of the stroke and not to the outer edge: an
+ * SVG circle grows outwards by half the stroke on either side, so taking the
+ * drawn diameter as the radius would put the ring five pixels wider than the
+ * design and out of its frame.
+ */
 function WinrateRing({ winrate }: { winrate: number }): JSX.Element {
-  const straal = 26;
+  const maat = 80;
+  const dikte = 5;
+  const straal = (maat - dikte) / 2;
   const omtrek = 2 * Math.PI * straal;
   // winrate is een fractie; hier wordt hij pas een percentage.
   const pct = Math.max(0, Math.min(100, winrate * 100));
   const vol = (pct / 100) * omtrek;
   return (
-    <div className="relative grid h-[68px] w-[68px] shrink-0 place-items-center">
-      <svg width="68" height="68" className="-rotate-90">
-        <circle cx="34" cy="34" r={straal} fill="none" stroke="var(--color-line)" strokeWidth="4" />
+    <div className="relative grid shrink-0 place-items-center" style={{ width: maat, height: maat }}>
+      <svg width={maat} height={maat} className="-rotate-90">
+        {/* The unrun part of the ring is a shade, not a border: at full strength
+            a five-pixel line reads as a second ring competing with the gold. */}
         <circle
-          cx="34"
-          cy="34"
+          cx={maat / 2}
+          cy={maat / 2}
+          r={straal}
+          fill="none"
+          stroke="var(--color-surface-3)"
+          strokeWidth={dikte}
+        />
+        {/* Butt caps, as in the mock-up. A rounded cap would also lie at the
+            ends: it adds half a stroke of arc at both, so a 97% winrate would
+            close the circle and read as 100%. */}
+        <circle
+          cx={maat / 2}
+          cy={maat / 2}
           r={straal}
           fill="none"
           stroke="var(--color-gold-400)"
-          strokeWidth="4"
-          strokeLinecap="round"
+          strokeWidth={dikte}
           strokeDasharray={`${vol} ${omtrek}`}
         />
       </svg>
       <div className="absolute text-center">
-        <p className="num text-sm font-bold text-ink-100">{Math.round(pct)}%</p>
-        <p className="text-[8px] tracking-[0.1em] text-ink-600 uppercase">Winrate</p>
+        <p className="num text-xl leading-none font-bold text-ink-100">{Math.round(pct)}%</p>
+        <p className="mt-1 text-[8px] tracking-[0.1em] text-ink-300 uppercase">Winrate</p>
       </div>
     </div>
   );
@@ -476,7 +777,7 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
       </SectionTitle>
 
       {live.note ? (
-        <Panel className="border-gold-500/30 p-3 text-xs text-ink-400">{live.note}</Panel>
+        <Panel className="paneel-goud p-3 text-xs text-ink-400">{live.note}</Panel>
       ) : null}
 
       {live.inzichten ? <Inzichtenbalk inzichten={live.inzichten} /> : null}
@@ -484,7 +785,7 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
       <OverlayKnoppen aan={snapshot.settings.overlay} beeldmodus={snapshot.beeldmodus} />
 
       {jij?.trinketLeeg ? (
-        <Panel className="rim border-gold-400/40 bg-gold-400/[0.06] p-3 text-xs text-gold-300">
+        <Panel className="rim paneel-goud bg-gold-400/[0.06] p-3 text-xs text-gold-300">
           Your trinket slot is empty.
         </Panel>
       ) : null}
@@ -991,35 +1292,53 @@ function GameRow({
   const csPerMin = minutes > 0 ? game.cs / minutes : 0;
 
   return (
-    <Panel className={`overflow-hidden transition-colors ${open ? "border-gold-400/40" : ""}`}>
+    <Panel className={`overflow-hidden transition-colors ${open ? "paneel-goud" : ""}`}>
     <button
       type="button"
       onClick={onToggle}
-      className={`group relative flex w-full items-center gap-4 py-3 pr-5 pl-4 text-left transition-colors hover:bg-white/[0.03] ${
-        game.win ? "bg-jade-500/[0.035]" : "bg-loss-500/[0.03]"
+      className={`group relative flex w-full items-center gap-3 py-2.5 pr-4 pl-4 text-left transition-colors hover:bg-white/[0.03] ${
+        game.win ? "wedstrijdrij-winst" : "wedstrijdrij-verlies"
       }`}
     >
+      {/* The stripe is the one place the outcome is stated at full strength, so
+          it takes the bright semantic colours rather than the muted edge tones:
+          the mock-up reads (10,228,164) and (223,62,56) on this very pixel.
+          Everything else in the row stays neutral, which is what lets a column
+          of seven results be scanned down the left edge alone. */}
       <span
-        className={`absolute top-0 bottom-0 left-0 w-[3px] ${game.win ? "bg-jade-500" : "bg-loss-500/80"}`}
+        className={`absolute top-0 bottom-0 left-0 w-[3px] ${game.win ? "bg-jade-400" : "bg-loss-400"}`}
       />
 
-      <div className="flex items-center gap-2">
-        <ChampionIcon iconPath={champion?.iconPath} name={champion?.name} size={46} />
-        <SpellPair spells={[game.spell1Id, game.spell2Id]} lookup={spells} size={21} />
+      <div className="flex shrink-0 items-center gap-1.5">
+        <ChampionIcon
+          iconPath={champion?.iconPath}
+          name={champion?.name}
+          size={36}
+          className="rij-portret"
+        />
+        {/* 16 + 3 + 16 is 35, so the two spells end level with the 36px portrait
+            instead of setting the height of the row themselves. */}
+        <span className="rij-spells">
+          <SpellPair spells={[game.spell1Id, game.spell2Id]} lookup={spells} size={16} />
+        </span>
       </div>
 
-      <div className="w-[130px]">
-        <p className="truncate text-sm font-medium">{champion?.name ?? game.championId}</p>
-        <p className={`text-[11px] font-medium ${game.win ? "text-jade-400" : "text-loss-400"}`}>
+      <div className="w-[108px] shrink-0">
+        <p className="truncate text-sm font-semibold text-ink-100">
+          {champion?.name ?? game.championId}
+        </p>
+        <p
+          className={`truncate text-[11px] font-semibold ${game.win ? "text-jade-400" : "text-loss-400"}`}
+        >
           {game.win ? "Victory" : "Defeat"}
-          <span className="ml-1.5 font-normal text-ink-700">
+          <span className="ml-1.5 font-normal text-ink-500">
             {QUEUE_LABELS[game.queueId] ?? "Classic"}
           </span>
         </p>
       </div>
 
-      <div className="w-[104px]">
-        <p className="num text-sm">
+      <div className="w-[92px] shrink-0">
+        <p className="num text-sm text-ink-100">
           {game.kills} <span className="text-ink-700">/</span>{" "}
           <span className="text-loss-400">{game.deaths}</span> <span className="text-ink-700">/</span>{" "}
           {game.assists}
@@ -1027,23 +1346,45 @@ function GameRow({
         <p className="num text-[11px] text-ink-500">{kda.toFixed(2)} KDA</p>
       </div>
 
-      <div className="w-[86px]">
-        <p className="num text-sm">{game.cs}</p>
-        <p className="num text-[11px] text-ink-500">{csPerMin.toFixed(1)} cs/min</p>
+      <div className="w-[64px] shrink-0">
+        <p className="num text-sm text-ink-100">{game.cs}</p>
+        <p className="num text-[11px] text-ink-500">{csPerMin.toFixed(1)} CS/min</p>
       </div>
 
-      <div className="w-[80px]">
-        <p className="num text-sm">{(game.gold / 1000).toFixed(1)}k</p>
+      <div className="w-[48px] shrink-0">
+        <p className="num text-sm text-ink-100">{(game.gold / 1000).toFixed(1)}k</p>
         <p className="num text-[11px] text-ink-500">gold</p>
       </div>
 
-      <ItemRow items={game.items} lookup={items} size={26} />
+      {/* An item icon that has been squeezed is no longer the item: the artwork
+          is square and reads by silhouette. So this block never shrinks, and the
+          slack in the row comes out of the text columns beside it instead. */}
+      <span className="rij-items shrink-0">
+        <ItemRow items={game.items} lookup={items} size={22} />
+      </span>
 
-      <div className="ml-auto text-right">
-        <p className="num text-[12px] text-ink-300">{Math.floor(minutes)} min</p>
-        <p className="num text-[11px] text-ink-700">{relativeDate(game.createdAt)}</p>
+      <div className="ml-auto shrink-0 text-right">
+        <p className="num text-[11px] text-ink-300">{Math.floor(minutes)} min</p>
+        <p className="num text-[11px] text-ink-500">{relativeDate(game.createdAt)}</p>
       </div>
-      <span className={`ml-1 text-ink-600 transition-transform ${open ? "rotate-90" : ""}`}>&rsaquo;</span>
+
+      {/* A drawn chevron rather than a typographic angle quote, because the
+          glyph's size and baseline move with whichever font actually loads, and
+          at this size it landed as a comma. */}
+      <svg
+        viewBox="0 0 24 24"
+        width="12"
+        height="12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        className={`shrink-0 text-ink-500 transition-transform ${open ? "rotate-90" : ""}`}
+      >
+        <path d="m9 6 6 6-6 6" />
+      </svg>
     </button>
     {open ? <GameDetailPaneel gameId={game.gameId} snapshot={snapshot} /> : null}
     </Panel>

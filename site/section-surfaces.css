@@ -1,275 +1,215 @@
-/* Homepage section surfaces. Keep all radar positions in home.css. */
+/* Composition, not extra chrome: the hero and radar lead the page. */
 .am-home :is(.am-universe, .am-experience, .am-data, .am-faq, .am-download) {
-  --am-surface-accent: #e7c76e;
   position: relative;
   isolation: isolate;
-  border-block: 1px solid #a9bdd329;
-  background-color: #0b1018;
-  background-image: radial-gradient(ellipse at 85% 35%, #47618e26, transparent 66%);
+  border: 0;
+  background-color: var(--am-bg);
+  background-image: var(--am-atmosphere-bg);
 }
-
-/* Two scales of linework stay visible at the edges and through open space. */
 .am-home :is(.am-universe, .am-experience, .am-data, .am-faq, .am-download)::before {
   content: "";
   position: absolute;
   z-index: -1;
   inset: 0;
   pointer-events: none;
-  background-image:
-    linear-gradient(#adbed01b 1px, transparent 1px),
-    linear-gradient(90deg, #adbed01b 1px, transparent 1px),
-    linear-gradient(#adbed018 1px, transparent 1px),
-    linear-gradient(90deg, #adbed018 1px, transparent 1px);
-  background-size: 48px 48px, 48px 48px, 192px 192px, 192px 192px;
-  background-position: center top;
-  mask-image: linear-gradient(#000, #000 82%, #0008);
+  background-image: linear-gradient(transparent 85%, var(--am-bg)), var(--am-star-field);
+  background-size: auto, var(--am-star-spacing);
+  opacity: .4;
 }
-
-.am-home :is(.am-universe, .am-experience, .am-data, .am-faq, .am-download)::after {
+.am-home :is(.am-experience, .am-data, .am-faq, .am-download)::after {
   content: "";
   position: absolute;
-  inset: -1px 0 auto;
-  height: 2px;
+  inset: 0 0 auto;
+  height: 1px;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent 10%, #e7c76e70 35%, #e7c76e 50%, #e7c76e70 65%, transparent 90%);
+  background: linear-gradient(90deg, transparent, #a9bdd32b 20% 80%, transparent);
 }
-
 .am-home .am-section { padding-block: 84px; }
-.am-home .am-experience {
-  background-color: #10151c;
-  background-image: radial-gradient(ellipse at 8% 20%, #b6934a1c, transparent 58%);
-}
-.am-home .am-data {
-  background-color: #0a1017;
-  background-image: radial-gradient(ellipse at 70% 60%, #517a8e1f, transparent 66%);
-}
-.am-home .am-faq {
-  background-color: #10141b;
-  background-image: radial-gradient(ellipse at 12% 55%, #a68c5420, transparent 60%);
-}
-.am-home .am-download {
-  background-color: #0b1017;
-  background-image: radial-gradient(ellipse at 50% 60%, #e7c76e24, transparent 70%);
-}
+.am-home .am-section h2 { font-size: clamp(2rem, 2.8vw, 2.5rem); line-height: 1.12; letter-spacing: -.035em; }
 
-/* A chapter header, not an unconnected heading floating in empty space. */
-.am-home .am-section-head,
-.am-home .am-faq-layout > div:first-child {
-  position: relative;
-  padding: 30px 32px;
-  border: 1px solid #b6c4d331;
-  border-left: 3px solid var(--am-surface-accent);
-  border-radius: 3px 14px 14px 3px;
-  background: radial-gradient(ellipse at 0 0, #e7c76e0b, transparent 65%), linear-gradient(115deg, #171e28f5, #0d131ce8);
-  box-shadow: 0 14px 40px -26px #000b, inset 0 1px #ffffff06;
-}
-.am-home .am-section-head {
-  align-items: center;
-  gap: 36px;
-  margin-bottom: 36px;
-}
+/* One calm strip between the opening and the game universe. */
+.am-home .am-proof-strip { background: #0c1016; }
+.am-home .am-proof-strip .wrap { padding-block: 24px; gap: 26px; }
+.am-home .am-proof-strip .am-metric { padding: 0; gap: 14px; background: none; border: 0; border-radius: 0; box-shadow: none; }
+.am-home .am-proof-strip .am-metric:not(:first-child) { padding-left: 26px; border-left: 1px solid var(--am-line); }
+.am-home .am-proof-strip .am-metric-icon { width: 38px; height: 40px; border-color: #e7c76e24; box-shadow: none; }
+.am-home .am-proof-strip .am-metric b { font-size: 1.25rem; }
+.am-home .am-proof-strip .am-metric p span { font-size: .67rem; }
+.am-home .am-proof-strip .wrap > a { font-size: .7rem; }
+
+/* A label, heading and short introduction; no freestanding title cards. */
+.am-home .am-section-head { display: grid; grid-template-columns: 1.15fr 1fr; gap: 64px; align-items: end; margin-bottom: 34px; padding: 0; border: 0; background: none; box-shadow: none; }
 .am-home .am-section-head > div:first-child,
 .am-home .am-faq-layout > div:first-child {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  column-gap: 14px;
-  row-gap: 18px;
-  align-content: start;
-  align-items: center;
-  min-width: 0;
+  display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 14px 10px;
+  align-content: start; align-items: center; min-width: 0;
 }
-.am-home .am-section-symbol {
-  display: inline-grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  color: var(--am-gold);
-  background: linear-gradient(145deg, #e7c76e1c, #e7c76e07);
-  border: 1px solid #e7c76e4f;
-  border-radius: 10px;
-  box-shadow: inset 0 1px #fff2, 0 4px 20px #0002;
-}
+.am-home .am-section-symbol { display: inline-grid; place-items: center; width: 24px; height: 24px; color: var(--am-gold); }
+.am-home .am-section-symbol > .am-icon { width: 21px; height: 21px; }
 .am-home .am-section-head .am-section-symbol,
 .am-home .am-faq-layout > div:first-child > .am-section-symbol { grid-column: 1; grid-row: 1; }
-.am-home .am-section-head > div:first-child > .am-kicker,
-.am-home .am-faq-layout > div:first-child > .am-kicker {
-  grid-column: 2;
-  grid-row: 1;
-  margin: 0;
-  color: #d5c28d;
-  letter-spacing: .12em;
-}
+.am-home .am-section-head .am-kicker,
+.am-home .am-faq-layout > div:first-child > .am-kicker { grid-column: 2; grid-row: 1; margin: 0; font-size: .61rem; letter-spacing: .11em; }
 .am-home .am-section-head h2,
 .am-home .am-faq-layout > div:first-child > h2 { grid-column: 1 / -1; margin: 0; }
-.am-home .am-section-head > :last-child:not(:first-child) {
-  padding-left: 28px;
-  border-left: 1px solid #b6c4d32b;
-}
 .am-home .am-section-head > p,
-.am-home .am-section-head > div > p:not(.am-kicker) { color: #aeb9c8; }
+.am-home .am-section-head > div > p:not(.am-kicker) { font-size: .87rem; line-height: 1.75; max-width: 47ch; }
+.am-home .am-section-head .am-dataset-date { margin-top: 10px; font-size: .64rem; }
 
-/* A framed navigation field behind the radar; its shared centre is untouched. */
-.am-home .am-radar {
-  isolation: isolate;
-  border-radius: 18px;
-  background: radial-gradient(circle at center, #47658d2b, #111c2a38 58%, transparent 78%);
+/* The intro and selected game share the radar's vertical composition. */
+.am-home .am-universe-layout {
+  display: grid;
+  grid-template-columns: minmax(0, .86fr) minmax(0, 1.14fr);
+  grid-template-areas: "intro radar" "details radar";
+  grid-template-rows: auto auto;
+  gap: 28px 64px;
+  align-items: start;
 }
-.am-home .am-radar::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  pointer-events: none;
-  border: 1px solid #b0c4e13d;
-  border-radius: inherit;
-  background:
-    linear-gradient(#e7c76e8c, #e7c76e8c) left 16px top 16px / 25px 2px no-repeat,
-    linear-gradient(#e7c76e8c, #e7c76e8c) left 16px top 16px / 2px 25px no-repeat,
-    linear-gradient(#e7c76e8c, #e7c76e8c) right 16px bottom 16px / 25px 2px no-repeat,
-    linear-gradient(#e7c76e8c, #e7c76e8c) right 16px bottom 16px / 2px 25px no-repeat,
-    linear-gradient(140deg, #19253777, #0d152077);
-  box-shadow: inset 0 0 70px #060b1455, 0 20px 45px -32px #000b;
+.am-home .am-universe-intro { grid-area: intro; align-self: end; min-width: 0; }
+.am-home .am-universe-intro .am-kicker { margin-bottom: 17px; font-size: .61rem; letter-spacing: .11em; }
+.am-home .am-universe-intro .am-icon { width: 21px; height: 21px; }
+.am-home .am-universe-intro h2 { margin: 0; }
+.am-home .am-universe-intro > p:not(.am-kicker) { color: var(--am-muted); font-size: .87rem; line-height: 1.75; max-width: 43ch; margin: 17px 0 0; }
+.am-home .am-game-details { grid-area: details; min-height: 295px; }
+.am-home .am-game-detail { padding: 23px 0 0; border: 0; border-top: 1px solid var(--am-line); border-radius: 0; background: none; box-shadow: none; }
+.am-home .am-game-id { gap: 12px; padding: 0; border: 0; }
+.am-home .am-game-mark { width: 34px; height: 38px; font-size: .58rem; }
+.am-home .am-game-id h3 { font-size: 1rem; }
+.am-home .am-game-id small { font-size: .53rem; }
+.am-home .am-game-status { font-size: .55rem; }
+.am-home .am-game-detail h4 { font-size: 1.05rem; margin: 19px 0 9px; }
+.am-home .am-game-detail > p { font-size: .83rem; line-height: 1.75; margin-bottom: 15px; }
+.am-home .am-game-tags { gap: 7px 17px; margin-bottom: 20px; }
+.am-home .am-game-tags li { display: inline-flex; align-items: center; gap: 7px; border: 0; padding: 0; font-size: .65rem; }
+.am-home .am-game-tags li::before { content: ""; width: 3px; height: 3px; border-radius: 50%; background: var(--game-color); }
+.am-home .am-game-detail .am-link { width: auto; gap: 20px; font-size: .8rem; }
+.am-home .am-roadmap-note { font-size: .64rem; line-height: 1.7; margin: 15px 0 0; max-width: 57ch; }
+.am-home .am-universe-layout > noscript { grid-column: 1 / -1; }
+.am-home .am-radar {
+  grid-area: radar; align-self: center; justify-self: center;
+  width: 100%; max-width: 620px; margin: 0; isolation: isolate;
+  background: radial-gradient(ellipse at center, #47658d20, transparent 69%);
 }
 .am-home .am-radar-grid {
-  inset: 1px;
-  border-radius: 17px;
-  background-image: linear-gradient(#acc7e61a 1px, transparent 1px), linear-gradient(90deg, #acc7e61a 1px, transparent 1px);
-  background-size: 28px 28px;
-  background-position: center;
-  mask-image: radial-gradient(ellipse at center, #000, #0009 65%, transparent 96%);
+  inset: 0; background-image: var(--am-star-field); background-size: var(--am-star-spacing);
+  background-position: center; opacity: .4; mask-image: radial-gradient(ellipse at center, #000, transparent 78%);
 }
-.am-home .am-orbit-outer { border-color: #b7d2ff52; }
-.am-home .am-orbit-inner { border-color: #b7d2ff36; }
-.am-home .am-radar-caption { color: #a2afc2; }
-.am-home .am-game-detail {
-  border-color: #b0c4e13d;
-  background: linear-gradient(135deg, #1a2431f5, #0d141ff5);
-  box-shadow: 0 18px 42px -28px #000c;
-}
+.am-home .am-orbit-outer { border-color: #b7d2ff3e; }
+.am-home .am-orbit-inner { border-color: #b7d2ff2c; }
+.am-home .am-radar-caption { bottom: -6px; color: #8b99ae; font-size: .5rem; }
 
-/* Feature tabs and examples form one recognizable product area. */
-.am-home .am-feature-tabs {
-  gap: 6px;
-  margin-bottom: 20px;
-  padding: 7px;
-  border: 1px solid #b6c4d331;
-  border-radius: 11px;
-  background: #0b111bf2;
-}
-.am-home .am-feature-tabs button {
-  justify-content: center;
-  flex: 1;
-  padding: 15px 18px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-}
-.am-home .am-feature-tabs button[aria-selected="true"] {
-  border-color: #e7c76e4c;
-  background: linear-gradient(130deg, #e7c76e1c, #e7c76e08);
-}
-.am-home .am-feature-tabs button[aria-selected="true"]::after { display: none; }
-.am-home .am-feature-tabs button:hover { color: #e7c76e; background-color: #e7c76e08; }
-.am-home .am-feature-panel {
-  gap: 42px;
-  padding: 32px;
-  border: 1px solid #b6c4d331;
-  border-radius: 14px;
-  background: linear-gradient(115deg, #171f2af5, #0d131cf2);
-  box-shadow: 0 16px 45px -30px #000b;
-}
-.am-home .am-principles {
-  gap: 16px;
-  margin-top: 20px;
-  padding-top: 0;
-  border-top: 0;
-}
-.am-home .am-principles article {
-  position: relative;
-  padding: 24px;
-  border: 1px solid #b6c4d329;
-  border-radius: 10px;
-  background: #111923ed;
-}
-.am-home .am-principles p { max-width: none; }
-.am-home .am-champion-card {
-  border-color: #b6c4d340;
-  box-shadow: 0 15px 40px -24px #000c;
-}
-.am-home .am-data-footer {
-  padding: 20px 24px;
-  margin-top: 20px;
-  border: 1px solid #b6c4d329;
-  border-radius: 9px;
-  background: #111923eb;
-}
+/* Tabs and demonstration belong to one product surface. */
+.am-home .am-feature-workspace { border: 1px solid #b6c4d32c; border-radius: 14px; background: linear-gradient(125deg, #151c27ed, #0c121beb); box-shadow: 0 24px 60px -44px #000; }
+.am-home .am-feature-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; padding: 0 18px; margin: 0; border: 0; border-bottom: 1px solid var(--am-line); overflow: visible; }
+.am-home .am-feature-tabs button { justify-content: center; gap: 12px; padding: 20px 14px; min-width: 0; border: 0; border-radius: 0; background: none; font-size: .8rem; }
+.am-home .am-feature-tabs button[aria-selected="true"] { background: none; }
+.am-home .am-feature-tabs button[aria-selected="true"]::after { display: block; bottom: -1px; left: 14px; right: 14px; height: 2px; }
+.am-home .am-feature-tabs button:hover { color: var(--am-gold); }
+.am-home .am-feature-panel { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 46px; padding: 32px; min-height: 450px; }
+.am-home .am-feature-copy h3 { font-size: clamp(1.5rem, 2vw, 1.85rem); line-height: 1.15; margin-top: 14px; }
+.am-home .am-feature-copy > p { font-size: .85rem; line-height: 1.8; }
+.am-home .am-feature-copy .am-link { font-size: .8rem; }
+.am-home .am-demo { box-shadow: 0 15px 35px -24px #000; }
+.am-home .am-principles { gap: 0; margin-top: 32px; padding: 0; border: 0; }
+.am-home .am-principles article { position: relative; padding: 0 30px; }
+.am-home .am-principles article:first-child { padding-left: 0; }
+.am-home .am-principles article:last-child { padding-right: 0; }
+.am-home .am-principles article + article { border-left: 1px solid var(--am-line); }
+.am-home .am-principles article > span .am-icon { width: 21px; height: 21px; }
+.am-home .am-principles h3 { font-size: .95rem; }
+.am-home .am-principles p { font-size: .77rem; max-width: 40ch; }
 
-.am-home .am-faq-layout { align-items: start; gap: 36px; }
-.am-home .am-faq-layout > div:first-child > .am-link { grid-column: 1 / -1; margin-top: 2px; }
-.am-home .am-faq-list { display: grid; gap: 10px; border-top: 0; }
-.am-home .am-faq details {
-  padding-inline: 22px;
-  border: 1px solid #b6c4d331;
-  border-radius: 9px;
-  background: #0d141eed;
-}
-.am-home .am-faq details[open] { border-color: #e7c76e52; background: #171e27f5; }
-.am-home .am-faq summary { padding-block: 21px; }
+/* Artwork and useful numbers carry the proof section. */
+.am-home .am-data .am-section-head { margin-bottom: 28px; }
+.am-home .am-champion-card { box-shadow: 0 15px 30px -28px #000; }
+.am-home .am-champion-art { aspect-ratio: 1.95; }
+.am-home .am-data-footer { padding: 0; margin-top: 23px; border: 0; background: none; }
+.am-home .am-data-footer p { font-size: .67rem; }
+
+/* Secondary sections have a quieter hierarchy. */
+.am-home .am-faq { padding-block: 65px; }
+.am-home .am-faq-layout { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 80px; align-items: start; }
+.am-home .am-faq h2 { font-size: 2rem; }
+.am-home .am-faq-layout > div:first-child > .am-link { grid-column: 1 / -1; margin-top: 4px; justify-self: start; }
+.am-home .am-faq-list { border-top: 1px solid var(--am-line); }
+.am-home .am-faq details { padding-inline: 0; border: 0; border-bottom: 1px solid var(--am-line); background: none; }
+.am-home .am-faq summary { padding-block: 19px; font-size: .86rem; }
 .am-home .am-faq summary:hover { color: var(--am-gold); }
-.am-home .am-download > .wrap {
-  margin-block: 48px;
-  padding: 58px 24px;
-  border: 1px solid #e7c76e47;
-  border-radius: 18px;
-  background: radial-gradient(ellipse at 50% 0, #e7c76e13, transparent 65%), #0d131dcc;
-  box-shadow: 0 22px 50px -30px #000;
-}
-.am-home .am-download > .wrap > .am-section-symbol { position: relative; width: 52px; height: 52px; margin-bottom: 18px; }
-.am-home .am-download .am-kicker { position: relative; }
-.am-home .am-download-orbits { z-index: -1; border-color: #e7c76e28; }
-.am-home .am-download-orbits::before,
-.am-home .am-download-orbits::after { border-color: #e7c76e22; }
+.am-home .am-download { text-align: left; }
+.am-home .am-download > .wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 60px; padding-block: 60px; }
+.am-home .am-download-copy, .am-home .am-download-action { position: relative; }
+.am-home .am-download .am-kicker { justify-content: flex-start; margin-bottom: 17px; font-size: .61rem; }
+.am-home .am-download .am-kicker .am-icon { width: 21px; height: 21px; }
+.am-home .am-download h2 { font-size: clamp(2rem, 2.8vw, 2.5rem); line-height: 1.12; }
+.am-home .am-download-copy > p:not(.am-kicker) { margin: 16px 0 0; max-width: 50ch; font-size: .86rem; line-height: 1.75; color: var(--am-muted); }
+.am-home .am-download-action { text-align: center; }
+.am-home .am-download-orbits { width: 420px; height: 420px; left: 77%; opacity: .6; z-index: -1; }
 
 @media (max-width: 1100px) {
-  .am-home .am-section-head { padding: 26px; gap: 26px; }
-  .am-home .am-feature-panel { gap: 28px; padding: 26px; }
+  .am-home .am-universe-layout { gap: 24px 35px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
+  .am-home .am-section-head { gap: 36px; }
+  .am-home .am-feature-panel { gap: 30px; padding: 26px; }
+  .am-home .am-proof-strip .wrap { gap: 18px; }
+  .am-home .am-proof-strip .am-metric:not(:first-child) { padding-left: 18px; }
 }
 @media (max-width: 900px) {
-  .am-home .am-section { padding-block: 64px; }
-  .am-home .am-section-head { gap: 22px; }
-  .am-home .am-section-head > :last-child:not(:first-child) {
-    padding: 18px 0 0;
-    border-left: 0;
-    border-top: 1px solid #b6c4d32b;
-    max-width: none;
-  }
-  .am-home .am-radar { margin-bottom: 25px; }
-  .am-home .am-principles article { padding: 20px; }
-  .am-home .am-faq-layout { gap: 24px; }
+  .am-home .am-section { padding-block: 60px; }
+  .am-home .am-section-head { grid-template-columns: 1fr; gap: 16px; margin-bottom: 28px; }
+  .am-home .am-section-head > p, .am-home .am-section-head > div > p:not(.am-kicker) { max-width: 60ch; }
+  .am-home .am-universe-layout { grid-template-columns: 1fr; grid-template-areas: "intro" "radar" "details"; gap: 24px; }
+  .am-home .am-universe-intro { align-self: start; }
+  .am-home .am-universe-intro > p:not(.am-kicker) { max-width: 60ch; }
+  .am-home .am-radar { max-width: 560px; }
+  .am-home .am-game-details { min-height: 0; width: 100%; }
+  .am-home .am-game-detail { padding-top: 24px; }
+  .am-home .am-game-detail > p { max-width: 67ch; }
+  .am-home .am-feature-panel { grid-template-columns: 1fr; gap: 26px; }
+  .am-home .am-feature-copy > p { max-width: 65ch; }
+  .am-home .am-faq-layout { grid-template-columns: 1fr; gap: 26px; }
+  .am-home .am-download > .wrap { grid-template-columns: 1fr; gap: 28px; padding-block: 48px; }
+  .am-home .am-download-action { justify-self: start; text-align: left; }
+}
+@media (max-width: 700px) {
+  .am-home .am-proof-strip .wrap { gap: 22px 18px; }
+  .am-home .am-proof-strip .am-metric { flex-direction: row; align-items: center; gap: 12px; }
+  .am-home .am-proof-strip .am-metric:nth-child(2) { padding-left: 18px; }
+  .am-home .am-proof-strip .am-metric:nth-child(3) { padding: 18px 0 0; border-left: 0; border-top: 1px solid var(--am-line); }
+  .am-home .am-proof-strip .wrap > a { padding: 0; }
 }
 @media (max-width: 600px) {
   .am-home .am-section { padding-block: 44px; }
-  .am-home :is(.am-universe, .am-experience, .am-data, .am-faq, .am-download)::before {
-    background-size: 32px 32px, 32px 32px, 128px 128px, 128px 128px;
-  }
-  .am-home .am-section-head,
-  .am-home .am-faq-layout > div:first-child { padding: 22px 20px; border-radius: 3px 11px 11px 3px; }
-  .am-home .am-section-head { margin-bottom: 26px; }
-  .am-home .am-section-head > div:first-child,
-  .am-home .am-faq-layout > div:first-child { grid-template-columns: 36px minmax(0, 1fr); column-gap: 11px; row-gap: 16px; }
-  .am-home .am-section-symbol { width: 36px; height: 36px; border-radius: 8px; }
-  .am-home .am-section-head .am-kicker { letter-spacing: .08em; font-size: .5rem; }
-  .am-home .am-section-head h2 { font-size: clamp(1.9rem, 7.6vw, 2.7rem); }
-  .am-home .am-radar { border-radius: 12px; }
-  .am-home .am-radar-grid { border-radius: 11px; }
-  .am-home .am-feature-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 5px; overflow: visible; }
-  .am-home .am-feature-tabs button { flex-direction: column; gap: .45rem; padding: 12px 5px; min-width: 0; min-height: 70px; white-space: normal; text-align: center; line-height: 1.4; }
-  .am-home .am-feature-panel { padding: 23px 18px; gap: 22px; }
-  .am-home .am-principles { gap: 12px; }
-  .am-home .am-principles article { padding: 22px 20px 22px 66px; }
-  .am-home .am-principles article > span { top: 22px; left: 20px; }
-  .am-home .am-data-footer { padding: 18px; }
-  .am-home .am-faq details { padding-inline: 18px; }
-  .am-home .am-faq summary { padding-block: 18px; }
-  .am-home .am-download > .wrap { margin-block: 28px; padding: 42px 18px; border-radius: 12px; }
-  .am-home .am-download h2 { font-size: clamp(2rem, 8vw, 2.8rem); }
+  .am-home .am-section h2, .am-home .am-download h2 { font-size: 1.9rem; }
+  .am-home .am-section-head { gap: 14px; margin-bottom: 24px; }
+  .am-home .am-section-head > p, .am-home .am-section-head > div > p:not(.am-kicker) { font-size: .82rem; }
+  .am-home .am-section-head .am-kicker, .am-home .am-universe-intro .am-kicker { font-size: .55rem; letter-spacing: .08em; }
+  .am-home .am-universe-layout { gap: 23px; }
+  .am-home .am-universe-intro > p:not(.am-kicker) { margin-top: 13px; font-size: .82rem; }
+  .am-home .am-radar { min-height: 330px; }
+  .am-home .am-radar-caption { bottom: -8px; font-size: .42rem; }
+  .am-home .am-game-details { margin-top: 10px; }
+  .am-home .am-game-detail > p { font-size: .81rem; }
+  .am-home .am-feature-tabs { padding: 0 5px; }
+  .am-home .am-feature-tabs button { flex-direction: column; gap: 8px; padding: 15px 5px; min-height: 73px; white-space: normal; font-size: .65rem; line-height: 1.4; text-align: center; }
+  .am-home .am-feature-tabs button[aria-selected="true"]::after { left: 5px; right: 5px; }
+  .am-home .am-feature-panel { padding: 24px 17px; gap: 23px; min-height: 0; }
+  .am-home .am-feature-copy h3 { font-size: 1.5rem; }
+  .am-home .am-feature-copy > p { font-size: .81rem; }
+  .am-home .am-principles { grid-template-columns: 1fr; gap: 22px; margin-top: 26px; }
+  .am-home .am-principles article, .am-home .am-principles article:first-child, .am-home .am-principles article:last-child { padding: 0 0 0 36px; border: 0; }
+  .am-home .am-principles article > span { position: absolute; left: 0; top: 0; }
+  .am-home .am-principles h3 { margin-top: 0; }
+  .am-home .am-principles p { max-width: none; }
+  .am-home .am-champion-art { aspect-ratio: 2; }
+  .am-home .am-data-footer { gap: 12px; }
+  .am-home .am-faq h2 { font-size: 1.75rem; }
+  .am-home .am-faq summary { font-size: .82rem; padding-block: 18px; }
+  .am-home .am-download > .wrap { gap: 25px; padding-block: 40px; }
+  .am-home .am-download-copy > p:not(.am-kicker) { font-size: .82rem; }
+  .am-home .am-download .btn { font-size: .75rem; padding-inline: 1.1rem; }
+  .am-home .am-proof-strip .am-metric { gap: 10px; align-items: flex-start; }
+  .am-home .am-proof-strip .am-metric-icon { width: 30px; height: 33px; }
+  .am-home .am-proof-strip .am-metric-icon .am-icon { width: 19px; height: 19px; }
+  .am-home .am-proof-strip .am-metric b { font-size: 1.08rem; }
+  .am-home .am-proof-strip .am-metric p span { font-size: .61rem; }
+  .am-home .am-proof-strip .am-metric:nth-child(2) { padding-left: 12px; }
 }

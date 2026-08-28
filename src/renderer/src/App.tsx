@@ -115,7 +115,7 @@ function MainWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element
         <Sidebar tab={tab} onSelect={setTab} hasChampSelect={inChampSelect} />
         <main className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
           {!snapshot ? null : tab === "live" ? (
-            <LiveView snapshot={snapshot} />
+            <LiveView snapshot={snapshot} onNavigate={setTab} />
           ) : tab === "meta" ? (
             <MetaView snapshot={snapshot} />
           ) : tab === "profile" ? (
@@ -133,47 +133,47 @@ function MainWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element
 
 function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
   const connected = snapshot?.connection === "connected";
-  const database = snapshot?.database;
   return (
-    <header className="drag relative z-10 flex h-11 shrink-0 items-center justify-between border-b border-line pr-1 pl-5">
-      {/* Het woordmerk als lockup: naam boven, modus eronder. Groter dan het
-          was, want dit is het eerste wat iemand ziet -- maar zonder eigen vlak,
-          zodat de balk stil blijft. */}
-      <div className="flex flex-col justify-center leading-none">
-        <span className="text-[17px] font-bold tracking-[0.06em] text-ink-100">
-          ALL<span className="text-gold-400">MID</span>
-        </span>
-        <span className="mt-1 text-[9px] tracking-[0.22em] text-ink-600 uppercase">
-          League Classic
-        </span>
+    <header className="drag titelbalk relative z-10 flex shrink-0 items-center pr-2">
+      {/* The emblem stands over the rail instead of inside it. In the mock-up
+          the rail runs to x=721 and its centre is x=689, and the mark's ink is
+          centred on x=689.0 -- so the left edge of the window reads as one
+          column rather than two blocks stacked on each other. Same SVG as the
+          tray, the splash and the empty screens; only the place changed. */}
+      <div className="grid shrink-0 place-items-center" style={{ width: "var(--rail-breedte)" }}>
+        <Merk size={48} gloed />
       </div>
 
-      <div className="flex items-center gap-4">
-        {database?.community || (database && database.matches > 0) ? (
-          <span
-            className="num text-[11px] text-ink-700"
-            title={
-              database.community
-                ? `${database.community.games.toLocaleString("en-US")} shared games from ${database.community.players.toLocaleString("en-US")} players, collected up to ${new Date(database.community.newestGame).toLocaleString()}. You have crawled ${database.matches.toLocaleString("en-US")} yourself; those are already included.`
-                : "Games in your local Classic database"
-            }
-          >
-            {(database.community?.games ?? database.matches).toLocaleString("en-US")} games
-            {database.community ? " shared" : ""}
-            {database.crawling ? " · syncing" : ""}
-          </span>
-        ) : null}
+      {/* The lockup: name above, mode below, both gold. Colouring only MID made
+          the eye split one name into two words, and the design wants a single
+          object sitting on the rail. */}
+      <div className="flex flex-col justify-center pl-1">
+        <span className="woordmerk">ALLMID</span>
+        <span className="woordmerk-sub">League Classic</span>
+      </div>
+
+      {/* Pinned to the top of the bar rather than centred in it. The bar grew
+          to hold the emblem, but the drawing keeps this cluster where a window's
+          controls belong -- its glyph centres sit 28px down a 72px bar, which is
+          the top-aligned 44px button row and not the middle of the header. */}
+      <div className="ml-auto flex items-center gap-4 self-start pt-1.5">
         {snapshot ? <UpdateBadge update={snapshot.update} /> : null}
         {snapshot ? <SharingBadge upload={snapshot.upload} /> : null}
         {snapshot ? <AppMenu settings={snapshot.settings} /> : null}
-        <div className="flex items-center gap-2 text-[11px] text-ink-500">
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${
-              connected ? "animate-pulse-ring bg-jade-500" : "bg-ink-700"
-            }`}
-          />
-          {connected ? (snapshot?.summoner?.riotId ?? "connected") : (snapshot?.error ?? "connecting...")}
+
+        {/* Once the Riot ID is on screen you are connected, so a lamp beside it
+            says the same thing twice and the mock-up leaves it out. It comes
+            back only when there is no client, which is the one moment the lamp
+            carries news. The games counter left the bar entirely: it was the
+            only thing here that changed by itself, and the number already lives
+            in the sharing popover under "Shared so far". */}
+        <div className="flex items-center gap-2 text-[12px]">
+          {connected ? null : <span className="h-1.5 w-1.5 rounded-full bg-ink-700" />}
+          <span className={connected ? "text-ink-100" : "text-ink-500"}>
+            {connected ? (snapshot?.summoner?.riotId ?? "connected") : (snapshot?.error ?? "connecting...")}
+          </span>
         </div>
+
         <div className="no-drag flex items-center">
           <WindowButton onClick={() => window.jade.minimize()} path="M4 9h10" />
           <WindowButton onClick={() => window.jade.maximize()} path="M4.5 4.5h9v9h-9z" />
@@ -261,15 +261,19 @@ function AppMenu({ settings }: { settings: Settings }): JSX.Element {
 
   return (
     <div className="no-drag relative" ref={box}>
+      {/* Gold and box-free at rest. In the mock-up this icon measures 15 CSS px
+          across and samples at (194,154,89), which is gold-500 to the digit --
+          it is one of the three warm marks that carry the brand across the bar,
+          not a grey utility button parked next to them. */}
       <button
         onClick={() => setOpen(!open)}
         title="Settings"
         aria-label="Settings"
-        className={`flex items-center rounded-lg p-1.5 transition-colors ${
-          open ? "bg-white/8 text-ink-100" : "text-ink-500 hover:bg-white/5 hover:text-ink-300"
+        className={`flex items-center rounded-lg p-1 transition-colors ${
+          open ? "bg-white/8 text-gold-300" : "text-gold-500 hover:bg-white/5 hover:text-gold-300"
         }`}
       >
-        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
+        <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.4">
           <circle cx="8" cy="8" r="2.2" />
           <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4M12.6 12.6l-1.4-1.4M4.8 4.8L3.4 3.4" />
         </svg>
@@ -384,40 +388,44 @@ function SharingBadge({ upload }: { upload: UploadStatus }): JSX.Element {
   }
 
   const failing = Boolean(upload.error) && upload.enabled;
-  const dot = !upload.enabled
-    ? "bg-ink-700"
+
+  // The pill keeps its shape through every state and only changes temperature,
+  // so the bad news lands where the good news does and nothing in the bar moves
+  // sideways when an upload fails.
+  const pil = !upload.enabled ? "deelpil-uit" : failing ? "deelpil-fout" : "";
+
+  // The lamp is an outline rather than a disc: the mock-up ring measures 10 CSS
+  // px across with a dark centre, and an outline reads as a status light where a
+  // filled dot reads as a bullet.
+  const stip = !upload.enabled
+    ? "text-ink-700"
     : upload.busy
-      ? "animate-pulse-ring bg-gold-400"
+      ? "animate-pulse-ring text-gold-400"
       : failing
-        ? "bg-loss-500"
-        : "bg-jade-500";
+        ? "text-loss-400"
+        : "text-jade-400";
 
   return (
     <div className="no-drag relative" ref={box}>
       <button
         onClick={() => setOpen(!open)}
         title="Match data sharing"
-        className={`flex items-center gap-2 rounded-lg px-2 py-1 text-[11px] transition-colors ${
-          open ? "bg-white/8 text-ink-100" : "text-ink-500 hover:bg-white/5 hover:text-ink-300"
-        }`}
+        className={`deelpil ${pil} ${open ? "ring-1 ring-white/15" : ""}`}
       >
-        <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+        <span className={`deel-stip ${stip}`} />
         <span>
           {!upload.enabled
-            ? "not sharing"
+            ? "Not sharing"
             : upload.busy
-              ? "sharing..."
+              ? "Sharing..."
               : failing
-                ? "sharing paused"
-                : "sharing"}
+                ? "Sharing paused"
+                : "Sharing"}
         </span>
-        {upload.enabled && upload.shared > 0 ? (
-          <span className="num text-ink-700">{upload.shared.toLocaleString("en-US")}</span>
-        ) : null}
       </button>
 
       {open ? (
-        <div className="panel absolute top-[calc(100%+8px)] right-0 z-30 w-[340px] p-4 text-left">
+        <div className="panel panel-zwevend absolute top-[calc(100%+8px)] right-0 z-30 w-[340px] p-4 text-left">
           <label
             className={`flex cursor-pointer items-start gap-2.5 ${busy ? "opacity-60" : ""}`}
           >
@@ -531,7 +539,7 @@ function WindowButton({
   return (
     <button
       onClick={onClick}
-      className={`grid h-11 w-12 place-items-center text-ink-500 transition-colors ${
+      className={`grid h-11 w-12 place-items-center text-ink-300 transition-colors ${
         danger ? "hover:bg-loss-500 hover:text-white" : "hover:bg-white/8 hover:text-ink-100"
       }`}
     >
@@ -552,43 +560,53 @@ function Sidebar({
   hasChampSelect: boolean;
 }): JSX.Element {
   return (
-    <nav className="rail relative z-10 flex w-[84px] shrink-0 flex-col items-center gap-1 overflow-hidden py-5">
+    <nav
+      className="rail relative z-10 flex shrink-0 flex-col items-center overflow-hidden pt-2"
+      style={{ width: "var(--rail-breedte)" }}
+    >
       {/* Dezelfde toren als op het installatiescherm: wie de app installeert
           ziet hem daar, en herkent hem hier terug. */}
       <img src="/merk/rail-toren.png" alt="" aria-hidden="true" className="rail-toren" />
 
-      {/* Het merk bovenaan, dezelfde SVG als in de tray, de splash en de lege
-          schermen. Eén bron, zodat ze niet uit elkaar kunnen lopen. */}
-      <div className="relative z-10 mb-4 grid place-items-center">
-        <Merk size={30} gloed />
-      </div>
+      {/* The mark used to sit here and now stands in the title bar, on this
+          rail's own centre line, so that emblem and wordmark form one lockup
+          instead of the mark hanging under its own name. */}
       {TABS.map((entry) => {
         const active = tab === entry.id;
         return (
           <button
             key={entry.id}
             onClick={() => onSelect(entry.id)}
-            className={`group relative z-10 flex w-full flex-col items-center gap-1.5 py-3 transition-colors ${
-              active ? "text-gold-300" : "text-ink-500 hover:text-ink-300"
+            className={`rail-item group relative z-10 flex w-full flex-col items-center justify-center gap-1.5 transition-colors ${
+              active ? "rail-item-aan text-gold-300" : "rail-item-uit"
             }`}
           >
+            {/* Three marks, one state. The bar owns the left edge, the two
+                lozenges pin the item to the rail's divider, and together they
+                say "this tab is the surface you are standing on" -- which a
+                colour change on its own never managed. */}
             {active ? (
-              <span className="rail-aan" />
+              <>
+                <span className="rail-aan" />
+                <span className="rail-ruit rail-ruit-boven" />
+                <span className="rail-ruit rail-ruit-onder" />
+              </>
             ) : null}
             <svg
-              width="21"
-              height="21"
+              width="22"
+              height="22"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.5"
+              strokeWidth="1.75"
               strokeLinejoin="round"
+              className={active ? "rail-icoon-aan" : undefined}
             >
               <path d={entry.icon} />
             </svg>
-            <span className="text-[10px] font-medium tracking-wide">{entry.label}</span>
+            <span className="text-[12px] font-medium">{entry.label}</span>
             {entry.id === "live" && hasChampSelect && !active ? (
-              <span className="absolute top-2.5 right-4 h-1.5 w-1.5 rounded-full bg-gold-400" />
+              <span className="absolute top-3 right-3.5 h-1.5 w-1.5 rounded-full bg-gold-400" />
             ) : null}
           </button>
         );

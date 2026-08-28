@@ -598,3 +598,943 @@ body::after {
   border: 1px solid var(--color-line);
   box-shadow: var(--shadow-2);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SLICETIME — the mock-up, merged into one pass
+   ---------------------------------------------------------------------------
+   THE SCALE, because every number below depends on it.
+
+   slicetime.png is a drawing, not a screenshot, so it has to be pinned to a
+   ruler before any measurement means anything. Three structural anchors agree:
+   the rail measures 66 image pixels against `w-[84px]` (0.786), the right-hand
+   column measures 281 against its 360px track (0.781), and the tier tiles land
+   on the same figure. One image pixel is therefore 1.282 CSS pixels, and the
+   window drawn there stands for a window about 1120 wide rather than the 1280
+   the app opens at -- which is why the rail and the right column look wider in
+   the drawing than the code makes them. The column widths are left alone: they
+   are what every other measurement is anchored to, and moving them would
+   invalidate the lot.
+
+   Everything below was taken off the image with a pixel probe at that scale.
+   Colours need no conversion, so those are quoted as measured.
+
+   These rules sit after the originals on purpose. They are overrides, and at
+   equal specificity the later rule wins. They are also deliberately unlayered:
+   Tailwind v4 puts its utilities in @layer utilities, and unlayered CSS beats
+   any layer regardless of specificity, so a plain class here is what lets
+   `.champion-portret` win from `rounded-xl` without !important.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* The rail and the cell the emblem sits above are the same column. In the
+     drawing the rail runs x 657..721 and its centre is x=689; the emblem's ink
+     is centred on x=689.0. Half a pixel apart is a decision, not a coincidence,
+     and one variable is the only way that alignment survives someone changing
+     the width of the rail later. */
+  --rail-breedte: 84px;
+
+  /* 72px, not 44px. The bar runs y=12..72 in the drawing (61 image px = 78 CSS)
+     and has to hold a 48px emblem beside a two-line lockup. 72 is the grid step
+     that fits it. */
+  --titelbalk-hoogte: 72px;
+
+  /* 16px is a SaaS pill on this material. Probing the top-left corner of the
+     status card gives first-lit x of 743, 742, 741, 740 over rows 73..76 -- a
+     corner three or four pixels deep, which is the 8px step from the guide and
+     not the 16 the panels were using. Set here rather than per panel so the
+     whole app turns at once. */
+  --radius-panel: 8px;
+
+  /* One easing and one duration for everything that moves, so a hover on the
+     rail and a hover on a tier tile feel like the same hand. */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-uit: cubic-bezier(0.22, 1, 0.36, 1);
+  --duur: 160ms;
+
+  /* The panel border, and it is warm. Every border pixel in the drawing carries
+     more red than blue: the sides of the status card read (37,29,19) and its
+     top (58,44,28) against a ground of (4,9,13) -- weathered brass, where
+     --color-line is #2a3342 and leans exactly the other way. That single wrong
+     temperature is most of why the app read as a dashboard and the drawing
+     reads as an object. The top edge is lighter because the whole design is lit
+     from above. */
+  --rand-goud: color-mix(in oklab, var(--color-gold-600) 30%, var(--color-void));
+  --rand-goud-boven: color-mix(in oklab, var(--color-gold-600) 50%, var(--color-void));
+
+  /* A divider in this design is a vein of light over metal, not a table rule:
+     the vertical separators in the bottom bar peak at #3f3123 in the middle and
+     fade to nothing at both ends. That is gold-500 at 32%. */
+  --ader: color-mix(in oklab, var(--color-gold-500) 32%, transparent);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE PANEL
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.panel {
+  /* Warm rim, brighter along the top. Note this rule also repairs something
+     that was already broken: `.panel` is unlayered and sets the `border`
+     shorthand, so every `border-gold-400/40` and `border-jade-500/30` written
+     on a Panel in the views has been losing to it silently. The .paneel-*
+     classes below are unlayered too, which is what finally makes those states
+     visible. */
+  border: 1px solid var(--rand-goud);
+  border-top-color: var(--rand-goud-boven);
+
+  /* Near-opaque, lit from the top. The drawing measures #0c0f11 at the top of a
+     panel and #070c10 at the bottom over a page of #03080b -- a solid surface,
+     not a sheet of glass. Dropping the blur costs nothing visually and saves a
+     backdrop-filter pass per panel, of which there are a dozen on this screen. */
+  background: color-mix(in oklab, var(--color-surface) 78%, var(--color-void));
+  backdrop-filter: none;
+
+  /* No shadow. Directly under the bottom edge of the status card the drawing
+     reads (5,8,9) against a page of (3,8,11): there is no halo, because on a
+     ground this dark a shadow cannot be seen anyway. Depth comes from the rim
+     and from a fill lighter than the ground. */
+  box-shadow: none;
+}
+
+/* Lit from above is one line, not two. At y=73 the border reads (58,44,28) and
+   at y=74, one pixel inside it, the drawing is back to plain fill. The gold
+   hairline this pseudo-element used to draw is now the top border itself. */
+.panel::after,
+.panel-klik::after {
+  content: none;
+}
+
+/* The stone gets a fixed drawing size instead of `cover`. With `cover` the same
+   texture came out twice as coarse on a 470px-wide row as on a 290px panel, so
+   the veins changed thickness from one panel to the next; in the drawing a vein
+   is the same weight everywhere. Opacity 0.07, measured: a vein peaks at
+   #111413 against a base of #040a0e. */
+.panel::before,
+.panel-klik::before {
+  background-size: 520px 544px;
+  background-position: 50% 0;
+  background-repeat: repeat;
+  opacity: 0.07;
+}
+
+/* A panel that floats over the page still needs separating from it -- that is
+   the one place the drawing's "no shadow" does not apply, because the drawing
+   has no menus open. */
+.panel-zwevend {
+  box-shadow: var(--shadow-3);
+}
+
+/* Semantic rims. Unlayered, so they actually beat `.panel`'s own border. */
+.paneel-goud {
+  border-color: color-mix(in oklab, var(--color-gold-500) 45%, transparent);
+  border-top-color: color-mix(in oklab, var(--color-gold-500) 45%, transparent);
+}
+.paneel-jade {
+  border-color: color-mix(in oklab, var(--color-jade-500) 40%, transparent);
+  border-top-color: color-mix(in oklab, var(--color-jade-500) 40%, transparent);
+}
+.paneel-loss {
+  border-color: color-mix(in oklab, var(--color-loss-500) 40%, transparent);
+  border-top-color: color-mix(in oklab, var(--color-loss-500) 40%, transparent);
+}
+
+/* ── Section heads ────────────────────────────────────────────────────────
+   Gold, everywhere, and this is the one global colour change worth making.
+   Every heading in the drawing is warm: YOUR STATS peaks at #f5e29f, MID TIER
+   LIST at #f7eca7, CHAMPION at #c5af7e, RECENT CLASSIC GAMES at #a89471 and
+   STATUS at #ad9d6e. ink-500 is (93,102,117) and cannot reach any of those in
+   red. Size and tracking are left alone: "STATUS" measures a 6px cap in the
+   drawing, which converts to a 10.6px face, and .sectiekop is already 10.88.
+   Four screens use this class and all four are in the drawing, so it changes
+   here rather than in four scoped copies. */
+.sectiekop {
+  color: var(--color-gold-300);
+}
+
+/* A divider that stops short of both ends. The verticals in the bottom bar run
+   y 597..628 in a bar 55 tall and fade symmetrically; a line drawn edge to edge
+   turns a bar into a table, which is the thing the bar exists not to be. */
+.scheiding {
+  height: 1px;
+  border: 0;
+  margin: 0;
+  background: linear-gradient(90deg, transparent, var(--ader) 18%, var(--ader) 82%, transparent);
+}
+.scheiding-verticaal {
+  width: 1px;
+  align-self: stretch;
+  border: 0;
+  background: linear-gradient(180deg, transparent, var(--ader) 50%, transparent);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE TITLE BAR
+   ---------------------------------------------------------------------------
+   The drawing's bar holds seven things: emblem, wordmark, sharing pill, gear,
+   Riot ID, and three window buttons. The old bar held nine, and the two extra
+   ones were the two that never stop changing -- a live games counter and a
+   second green lamp beside the Riot ID. A bar that reports is a bar you keep
+   glancing at; this one is meant to be read once.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* No bottom border. Scanning x=900 from y=44 to y=71 finds nothing above
+   (13,16,18): the background runs uninterrupted from the top of the window to
+   the top edge of the first panel at y=73. */
+.titelbalk {
+  height: var(--titelbalk-hoogte);
+}
+
+/* 20px, semibold, gold all the way through.
+   Size: the caps measure 11.5 image px = 14.7 CSS, and 14.7 / 0.727 is 20.2 --
+   the guide's H2 step. Width agrees: "ALLMID" measures 81 CSS and Inter renders
+   it at 73 plus the 0.06em already in the code, which is 81.
+   Colour: sampled letter by letter the drawing gives (253,238,145) on the A and
+   (245,217,126) on the D. MID is if anything the darker half, so the white/gold
+   split was making the reader see two words where the design has one object. */
+.woordmerk {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--color-gold-300);
+}
+
+/* 0.16em, not 0.22em. "LEAGUE CLASSIC" measures 104 CSS wide at a 7px cap, so
+   10px with about a sixth of an em between the letters; at 0.22em the line came
+   out 118 and overhung the wordmark above it, and the two lines stopped reading
+   as one lockup. gold-500 because that is literally what is on the pixels:
+   (186,145,80) against the token's (184,156,74). The old `text-ink-600` was
+   worse than wrong, it was nothing -- that token is not in @theme, so the class
+   was never generated and the line inherited ink-100 and came out near white. */
+.woordmerk-sub {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--color-gold-500);
+}
+
+/* The sharing pill carries its tint at rest instead of only under the cursor.
+   It is the one control in the bar that is always doing something, and the
+   drawing gives it a standing green wash -- (3,13,14) against a surrounding
+   (5,10,13), so a few percent of jade and no more. A switch that only appears
+   when you hover over it cannot be read at a glance, and being readable at a
+   glance is the entire reason it sits in the chrome. Measured 60 x 21 CSS. */
+.deelpil {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--color-jade-500) 22%, transparent);
+  background: color-mix(in oklab, var(--color-jade-500) 8%, transparent);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--color-ink-100);
+  transition:
+    background-color var(--duur) var(--ease),
+    border-color var(--duur) var(--ease);
+}
+.deelpil:hover {
+  background: color-mix(in oklab, var(--color-jade-500) 15%, transparent);
+}
+
+/* Off is grey and a failed run is red, because the pill has to be able to say
+   the bad news in the same place it says the good news. Both keep the shape, so
+   nothing in the bar moves sideways when an upload fails. */
+.deelpil-uit {
+  border-color: var(--color-line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-ink-500);
+}
+.deelpil-uit:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.deelpil-fout {
+  border-color: color-mix(in oklab, var(--color-loss-500) 40%, transparent);
+  background: color-mix(in oklab, var(--color-loss-500) 10%, transparent);
+  color: var(--color-loss-400);
+}
+.deelpil-fout:hover {
+  background: color-mix(in oklab, var(--color-loss-500) 16%, transparent);
+}
+
+/* A ring, not a disc. The drawing's lamp is 8 x 9 image px (10 CSS) with a dark
+   centre at x 1251..1254, so it is a 2px outline. An outline reads as a status
+   light; a filled dot reads as a bullet. */
+.deel-stip {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE LEFT RAIL
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.rail {
+  /* The rail has no fill of its own. At y=250 the rail ground reads (2,8,12)
+     through (3,9,13) from x=660 to x=720, and the content column beside it
+     reads (1,7,11) through (3,8,15) -- the same ground, pixel for pixel. The
+     stone slab that used to be here made the rail a separate object, and that
+     is why its divider had to be so loud. Take the slab away and one warm
+     hairline is enough. */
+  background: none;
+
+  /* And that hairline is brass. At y=250 the divider reads (26,22,20) at x=721
+     and (50,39,31) at x=722, which is gold-600 at rather less than half over
+     the ground -- not the cool #2a3342 that was there. */
+  border-right: 1px solid color-mix(in oklab, var(--color-gold-600) 38%, var(--color-void));
+}
+
+/* The pool of light the tower throws up the rail. In the drawing the warmth
+   starts well above the artwork itself, so it is a separate layer; without it
+   the tower reads as a sticker on the bottom edge instead of something standing
+   in the room. */
+.rail::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 300px;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(78% 100% at 50% 100%, rgba(231, 199, 110, 0.08), transparent 72%);
+}
+
+/* The tower stands in the rail rather than hanging out of the bottom of it: in
+   the drawing its foot clears the bottom edge by about 37 CSS px. Sized to the
+   84px rail; the z-index keeps it above the pool of light that lights it. */
+.rail-toren {
+  z-index: 1;
+  width: 88px;
+  bottom: 36px;
+  opacity: 1;
+  mask-image: linear-gradient(180deg, transparent, #000 20%);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 20%);
+}
+
+/* ── A navigation item ─────────────────────────────────────────────────────
+   The label tops in the drawing sit at y=113, 163, 215, 266 and 318, so the
+   pitch is 51.25 image px = 65.7 CSS, and the active item's frame runs y=78.5
+   to y=129.5, which is the same 65. Item and pitch are one number: the items
+   stand flush against each other, and the gap-1 that used to separate them has
+   to go. */
+.rail-item {
+  height: 64px;
+}
+
+/* Not the current tab. The drawing is far brighter here than the app was: the
+   peak of the Profile label reads (200,205,200) and its icon (173,170,175).
+   Calibrating on the active gold label -- peak (213,193,127) for a true
+   gold-300 of (240,220,160), so peaks read about 88% -- puts the real label
+   colour near (227,233,227). ink-500 was less than half that, which made every
+   tab that was not selected look disabled rather than merely unselected. */
+.rail-item-uit {
+  color: color-mix(in oklab, var(--color-ink-100) 72%, var(--color-ink-300));
+}
+.rail-item-uit:hover {
+  color: var(--color-ink-100);
+  background: rgba(231, 199, 110, 0.035);
+}
+
+/* The current tab, which is three things that only read as one object together:
+   a warm wash leaning on the gold bar, a thin frame, and a lit right edge. At
+   y=100 the wash measures (37,24,10) at x=660 and has faded to (22,21,17) by
+   x=707 -- brightest at the bar, gone by the far side, which is why this is a
+   radial anchored to the left edge and not a flat tint. */
+.rail-item-aan {
+  background: radial-gradient(
+    125% 130% at 0% 50%,
+    color-mix(in oklab, var(--color-gold-500) 17%, transparent),
+    transparent 72%
+  );
+  border: 1px solid color-mix(in oklab, var(--color-gold-500) 22%, transparent);
+  border-left: 0;
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+}
+
+/* The rail's own divider lights up over the height of the active tab: at x=721
+   it reads about (108,81,45) between y=81 and y=127 against (26,22,19) at the
+   same x anywhere else. It sits at the inner edge rather than on top of the
+   divider, because the rail clips its children and anything hung outside would
+   simply be cut off. */
+.rail-item-aan::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  right: 0;
+  bottom: 1px;
+  width: 1px;
+  background: color-mix(in oklab, var(--color-gold-400) 62%, transparent);
+  box-shadow: 0 0 9px 0 rgba(231, 199, 110, 0.35);
+  pointer-events: none;
+}
+
+/* The gold bar runs the full height of the item -- x=658 measures (250,236,124)
+   unbroken from y=80 to y=129 -- and is two image pixels wide with a hard
+   falloff. The 26px stub it replaces read as a stray tick rather than as the
+   edge of a selected surface. The measured colour (252,238,124) is hotter than
+   any token; gold-300 is the closest in luminance and keeps the palette honest,
+   so the extra heat comes from the glow instead. */
+.rail-aan {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  height: auto;
+  width: 3px;
+  transform: none;
+  border-radius: 0 3px 3px 0;
+  background: var(--color-gold-300);
+  box-shadow: 0 0 14px 2px rgba(231, 199, 110, 0.5);
+}
+
+/* The two small lozenges where the active tab meets the divider. They are the
+   brightest thing on that edge: x=719 reads (107,84,42) at y=79 and (103,82,42)
+   at y=128, against (24,24,19) everywhere between. Held flush inside the right
+   edge rather than straddling it, for the same clipping reason as above. */
+.rail-ruit {
+  position: absolute;
+  right: 0;
+  width: 4px;
+  height: 4px;
+  transform: rotate(45deg);
+  background: var(--color-gold-300);
+  box-shadow: 0 0 7px 1px rgba(231, 199, 110, 0.55);
+  pointer-events: none;
+}
+.rail-ruit-boven {
+  top: -2px;
+}
+.rail-ruit-onder {
+  bottom: -2px;
+}
+
+/* The active icon does not merely change colour, it burns: its peak reads
+   (255,250,197), brighter than gold-300, with a halo around it. */
+.rail-icoon-aan {
+  filter: drop-shadow(0 0 7px rgba(231, 199, 110, 0.45));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE STATUS CARD
+   ---------------------------------------------------------------------------
+   Almost nothing here needed moving once the scale was pinned. "Not in a lobby"
+   measures 101 CSS wide at a 17 CSS cap, which is Inter semibold at 18px -- the
+   text-lg it already had. The sentence under it measures 244 CSS, which is the
+   same string at 12px -- the text-xs it already had. And the text starts 20.5
+   CSS px inside the panel edge, which is the p-5 it already had. What was
+   wrong was the vertical rhythm, the colour of the sentence, and the size of
+   the three components on the right.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The rank pill, the winrate badge and the form dots are drawn as one row and
+   all sit a few pixels larger than the app builds them. Scoped to this card on
+   purpose: the same three components appear on screens the drawing does not
+   cover, and lifting this app-wide later is a matter of dropping the prefix. */
+
+/* Measured 103 x 27 CSS. The pill had been building at roughly nineteen pixels
+   tall, which is why the rank read as a footnote rather than as the second
+   thing on the card. Height comes from min-height and padding is horizontal
+   only, so the pill keeps its shape whatever the tier label turns out to be. */
+.status-rang .rang-pil {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+
+/* Measured 72 x 22 CSS with about 13 CSS px of inset before the first digit, so
+   the padding roughly doubles and the two numbers move apart. Only geometry is
+   touched: the green, amber and red states of this badge say whether a winrate
+   is good, and colour that carries a verdict is not something a layout pass
+   gets to repaint. */
+.status-rang .winrate-badge {
+  gap: 8px;
+  padding: 3px 12px;
+}
+.status-rang .winrate-badge > span:last-child {
+  font-size: 10px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MID TIER LIST
+   ---------------------------------------------------------------------------
+   Six champions on one row inside the 360px column. After the panel's 16px
+   padding and five 6px gutters that leaves 49.7px per card, and that is why the
+   card is not a square: a face and a winrate both have to be legible, and 50x50
+   has room for one of them. The drawing puts the card at 39 x 70 image px,
+   which is 50 x 90 -- written as 5:9 rather than a fixed height so the row
+   keeps its proportion if the column ever moves.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@utility tier-tegel {
+  position: relative;
+  aspect-ratio: 5 / 9;
+  border-radius: var(--radius-sm);
+  /* Warm, not the cool --color-line: these edges measure (51,42,31), which is
+     gold-600 at about half strength. A blue-grey hairline turns six portraits
+     into six form fields. */
+  border: 1px solid color-mix(in oklab, var(--color-gold-600) 50%, transparent);
+  background: var(--color-surface-2);
+  transition:
+    border-color var(--duur) var(--ease),
+    box-shadow var(--duur) var(--ease);
+}
+
+/* The art is clipped by a layer of its own rather than by the card, so the tier
+   badge can hang over the corner without being cut in half. 32px off the bottom
+   is where the winrate band starts; the rest is the portrait, which is what the
+   drawing measures (43 of its 70 pixels). */
+@utility tier-art {
+  position: absolute;
+  inset: 0 0 32px 0;
+  overflow: hidden;
+  /* One less than the card's 8px, because the 1px border sits outside it. */
+  border-radius: 7px 7px 0 0;
+  background: var(--color-surface-2);
+}
+
+/* The winrate gets ground of its own instead of lying over the face. The number
+   has to hold up against six different portraits, and only its own band
+   guarantees that -- the drawing gives it 25 of the card's 70 pixels. */
+@utility tier-wr {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 0 0 7px 7px;
+  background: color-mix(in oklab, var(--color-surface) 70%, var(--color-void));
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--color-ink-100);
+}
+
+/* The letter hangs 4px over the top-left corner. That is what makes it read as
+   a seal on the card rather than a label inside it, and it keeps the portrait
+   whole -- there is nothing behind it to cover. Fill and border colour come
+   from the tier classes, so nothing is set here that would fight them. */
+@utility tier-badge {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-xs);
+  border-width: 1px;
+  border-style: solid;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* The mark under the chosen card. It points down at the champion panel, which
+   is the thing the click actually filled in -- without it the selection is a
+   rim that could just as well be hover. */
+@utility tier-punt {
+  position: absolute;
+  bottom: -3px;
+  left: 50%;
+  width: 8px;
+  height: 5px;
+  margin-left: -4px;
+  background: var(--color-gold-400);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+/* The way out of the six: the whole list lives on the Meta tab. A ghost button
+   rather than a filled one, because a gold fill in this design means "the one
+   action on this screen" and reading further is not that. */
+@utility tier-meer {
+  display: flex;
+  width: 100%;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in oklab, var(--color-gold-600) 45%, transparent);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--color-gold-400);
+  transition:
+    border-color var(--duur) var(--ease),
+    background-color var(--duur) var(--ease);
+}
+
+/* States and nesting below the utilities, because @utility takes no selectors. */
+button.tier-tegel,
+.tier-meer {
+  cursor: pointer;
+}
+.tier-tegel:hover {
+  border-color: color-mix(in oklab, var(--color-gold-500) 75%, transparent);
+}
+
+/* Two pixels of gold and a glow, drawn as a ring rather than a thicker border
+   so the card does not resize the moment you pick it. */
+.tier-tegel-aan {
+  border-color: var(--color-gold-400);
+  box-shadow:
+    0 0 0 1px var(--color-gold-400),
+    0 0 12px rgba(231, 199, 110, 0.28);
+}
+/* The chosen card's band warms up with it, so the winrate you are looking at is
+   visibly the one that belongs to the panel underneath. */
+.tier-tegel-aan .tier-wr {
+  background: color-mix(in oklab, var(--color-gold-600) 22%, var(--color-void));
+  color: var(--color-gold-300);
+}
+
+.tier-meer:hover {
+  border-color: var(--color-gold-500);
+  background: rgba(231, 199, 110, 0.06);
+}
+.tier-meer svg {
+  transition: transform var(--duur) var(--ease-uit);
+}
+.tier-meer:hover svg {
+  transform: translateX(2px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE CHAMPION PANEL
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 76 x 76 measured (x 1243..1300, y 274..331 = 58 image px). The corner arc
+   spans five image rows, so the radius is 8 and not the 12 ChampionIcon hands
+   out by default, and the hairline is warm rather than white. The size itself
+   comes from the `size` prop, because ChampionIcon writes width and height as
+   an inline style. */
+.champion-portret {
+  border-radius: var(--radius-sm);
+  border-color: color-mix(in oklab, var(--color-gold-500) 30%, transparent);
+}
+
+/* The drawing draws these as outlines, not as filled pills: the strongest
+   border pixel is #3f2e1c on a #070b0e ground, and the inside of the badge is
+   within three points of the panel behind it. Deriving both from currentColor
+   keeps a B-tier or a losing winrate honest -- the shape stays, the hue keeps
+   following whatever class the caller passed. */
+.paneel-champion .badge {
+  padding: 3px 6px;
+  font-size: 12px;
+  line-height: 16px;
+  border-color: color-mix(in oklab, currentColor 20%, transparent);
+  background-color: color-mix(in oklab, currentColor 6%, transparent);
+}
+
+/* ── The build row ────────────────────────────────────────────────────────
+   Marker bar, seven items, and the arrow pinned to the right padding edge.
+   Measured: bar x 1244..1246 and y 342..373, first icon at x 1258.7, icon pitch
+   27.7 image px which is 30 + 6, arrow circle x 1471..1494. */
+.champion-items {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+/* The bar's core pixel reads #f4ed66 -- brighter than any token on its own, so
+   it is gold-400 plus the bloom that blew it out in the drawing. */
+.champion-items-baken {
+  flex: none;
+  width: 3px;
+  height: 40px;
+  margin-right: 10px;
+  border-radius: 999px;
+  background: var(--color-gold-400);
+  box-shadow: 0 0 10px 1px color-mix(in oklab, var(--color-gold-400) 55%, transparent);
+}
+
+/* The icon edge in the drawing is neutral and nearly black (#171719), where the
+   app used border-line at full strength -- visibly bluer and lighter. */
+.champion-items img {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-xs);
+  border: 1px solid color-mix(in oklab, var(--color-line) 55%, transparent);
+}
+
+/* margin-left: auto rather than a fixed gap, because the arrow is anchored to
+   the padding edge and the row before it changes length. */
+.champion-items-meer {
+  flex: none;
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--color-gold-500) 30%, transparent);
+  background: transparent;
+  color: var(--color-gold-400);
+  cursor: pointer;
+  transition:
+    border-color var(--duur) var(--ease),
+    background-color var(--duur) var(--ease);
+}
+.champion-items-meer:hover:not(:disabled) {
+  border-color: var(--color-gold-500);
+  background: color-mix(in oklab, var(--color-gold-400) 8%, transparent);
+}
+.champion-items-meer:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.champion-items-meer svg {
+  transition: transform var(--duur) var(--ease);
+}
+/* Turning the chevron down says the row is already open, so the button never
+   points somewhere it cannot take you. */
+.champion-items-meer[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+/* ── The empty state ──────────────────────────────────────────────────────
+   EmptyState pads itself for a full-width page. In a 360px column that padding
+   alone is 112px, which makes the empty panel far taller than the 186px the
+   filled one measures and drops everything beneath it every time you pick. */
+.champion-leeg > div {
+  padding-block: 24px;
+}
+
+/* The ornament from the drawing's decorative set: a gold hairline fading
+   outward with a small open diamond at the centre. Drawn rather than sliced,
+   because it has to sit at whatever width the panel gives it and a bitmap of a
+   one-pixel line does not survive being stretched. */
+.champion-scheiding {
+  display: block;
+  position: relative;
+  width: 176px;
+  height: 12px;
+  margin-top: 8px;
+  background:
+    linear-gradient(90deg, transparent, var(--color-gold-600)) left center / calc(50% - 10px) 1px no-repeat,
+    linear-gradient(90deg, var(--color-gold-600), transparent) right center / calc(50% - 10px) 1px no-repeat;
+}
+.champion-scheiding::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -4px 0 0 -4px;
+  border: 1px solid var(--color-gold-500);
+  transform: rotate(45deg);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   YOUR STATS (CLASSIC)
+   ---------------------------------------------------------------------------
+   The drawing frames winrate, KDA and games as one bordered row instead of
+   three loose columns. The frame is what turns three figures into one answer;
+   without it they read as three unrelated numbers that happen to sit near each
+   other. Its bottom edge doubles as the rule above the form row, which is why
+   that row now carries no border of its own -- two lines fourteen pixels apart
+   would say the same thing twice.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.stats-kader {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  align-items: center;
+  min-height: 88px;
+  border: 1px solid color-mix(in oklab, var(--color-gold-600) 22%, transparent);
+  border-radius: var(--radius-md);
+}
+
+/* In the drawing the ring sits flush against the inside of the frame and all of
+   its breathing space is on the right, so the two numbers stay centred in what
+   is left rather than being shouldered off to one side. */
+.stats-ring {
+  padding-right: 16px;
+}
+
+/* A hairline that fades at both ends rather than a full rule: a line touching
+   the frame top and bottom turns the box into a table, and a table is the thing
+   the frame was there to avoid. Measured 36px in a 66px opening. */
+.stats-cel {
+  position: relative;
+  text-align: center;
+}
+.stats-cel::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 1px;
+  height: 54%;
+  transform: translateY(-50%);
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in oklab, var(--color-gold-600) 28%, transparent),
+    transparent
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE MATCH ROW
+   ---------------------------------------------------------------------------
+   A row under "Recent Classic games" is a line in a list, not a card, and the
+   drawing draws it as one: the coloured stripe runs y 189..231 for the first
+   row and y 241..281 for the second, so the row is about 45 image px tall on a
+   50px pitch -- 58 CSS on a 66 pitch, against the 72 on 80 the app was using.
+   The saving comes out of the portrait, which measures 27 image px (35 CSS)
+   where the app drew 46.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The result lives on the edge, not across the whole strip. A flat tint over
+   the full row reads as a warning rather than as a score, and it lays a colour
+   cast under the six item icons, where the icons' own colours are the data. So
+   the wash starts at the stripe and is gone again by the champion name -- which
+   is what the drawing shows: (6,23,28) beside the stripe, (4,10,12) eight
+   pixels later. */
+.wedstrijdrij-winst {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-jade-400) 11%, transparent),
+    transparent 38%
+  );
+}
+.wedstrijdrij-verlies {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-loss-400) 11%, transparent),
+    transparent 38%
+  );
+}
+
+/* The shared icon components carry radii chosen for the larger art they draw
+   elsewhere, and --radius-md is 12px: on a 22px item square that is a blob and
+   not an item. The row states the radii its own scale needs, so no other caller
+   of ChampionIcon, SpellPair or ItemRow has to move. */
+.rij-portret {
+  border-radius: 6px;
+}
+.rij-items img,
+.rij-items div,
+.rij-spells img,
+.rij-spells div {
+  border-radius: 4px;
+}
+
+/* Six icons at 22px with 3px between them is the 25 CSS pitch measured off the
+   drawing (19.8 image px, centre to centre). ItemRow's own gap-1 is 4px because
+   it is tuned for the 26px icons it renders in the game detail; at this size
+   those extra pixels push the row past the width of the column. */
+.rij-items > div {
+  gap: 3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE QUICK NAV UNDER THE MATCH LIST
+   ---------------------------------------------------------------------------
+   Four ways out, at the end of the thing you have just finished reading.
+
+   The rail already reaches three of them. That is not a duplicate to optimise
+   away: a rail is permanent chrome, and permanent chrome is what people stop
+   seeing after a week. This bar is not permanent -- it sits at the bottom of
+   the match list, which is where you arrive when you are done with the match
+   list and are looking for what is next. Same destination, different moment,
+   and the moment is the point.
+
+   Measured: the bar runs y=585..639, which is 55 image px = 70.5 CSS. "Profile"
+   measures 41 CSS wide, which is Inter semibold at 14px; "Overview & Stats"
+   measures 83, which is 11px. 16 + 20 + 2 + 15 + 16 comes to exactly 70.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@utility snelnav {
+  /* Four equal quarters. The drawing divides the bar by width and not by
+     content: the whitespace before each divider is uneven precisely because the
+     labels differ in length while the cells do not. */
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@utility snelnav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--duur) var(--ease);
+}
+
+@utility snelnav-icoon {
+  /* gold-500 is documented in the token block as the muted gold for borders and
+     icons, and that is the job here: warm enough to mark the bar as the one
+     clickable strip on the page, dark enough that four in a row do not
+     out-shout the winrate numbers above. */
+  color: var(--color-gold-500);
+  flex: none;
+  transition: color var(--duur) var(--ease);
+}
+
+@utility snelnav-titel {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--color-ink-100);
+  transition: color var(--duur) var(--ease);
+}
+
+@utility snelnav-onder {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+  color: var(--color-ink-500);
+}
+
+/* The dividers stop short of the top and bottom edges and fade at both ends --
+   the same vein as .scheiding, because it is the same line. A rule drawn edge
+   to edge would cut the bar into four bars. */
+.snelnav-item + .snelnav-item::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 0;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--ader) 50%, transparent);
+}
+
+/* The same gold wash layer 3 uses everywhere else, so this bar behaves like
+   every other clickable surface instead of inventing a state. */
+.snelnav-item:hover {
+  background: rgba(231, 199, 110, 0.045);
+}
+.snelnav-item:hover .snelnav-icoon {
+  color: var(--color-gold-400);
+}
+.snelnav-item:hover .snelnav-titel {
+  color: var(--color-gold-300);
+}
+
+/* The panel clips its children, so the global focus ring -- which sits 2px
+   outside the element -- would be sliced at the bar's edges. Pulling it inward
+   keeps the keyboard route visible without softening it. */
+.snelnav-item:focus-visible {
+  outline-offset: -3px;
+  border-radius: var(--radius-sm);
+}

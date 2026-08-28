@@ -2,6 +2,9 @@
 .am-home {
   --am-bg: #080b10; --am-panel: #10141c; --am-line: rgba(171, 188, 215, .15);
   --am-gold: #e7c76e; --am-text: #edf0f4; --am-muted: #a0aaba;
+  --am-atmosphere-bg: radial-gradient(ellipse at 77% 45%, #57482627, transparent 48%), linear-gradient(160deg, #121720, #080b10 65%);
+  --am-star-field: radial-gradient(#c4bd9b26 .65px, transparent .8px);
+  --am-star-spacing: 12px 12px;
   background: var(--am-bg); color: var(--am-text); font-size: 16px;
 }
 .am-home .wrap { width: min(100% - 96px, 1240px); max-width: 1240px; margin-inline: auto; padding-inline: 0; }
@@ -39,9 +42,9 @@
 
 /* Hero: real product screenshot framed by artwork, never passed off as live. */
 .am-hero { position: relative; isolation: isolate; padding: 74px 0 0; }
-.am-hero-atmosphere { position: absolute; z-index: -1; inset: 0; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse at 77% 45%, #57482627, transparent 48%), linear-gradient(160deg, #121720, #080b10 65%); }
+.am-hero-atmosphere { position: absolute; z-index: -1; inset: 0; overflow: hidden; pointer-events: none; background: var(--am-atmosphere-bg); }
 .am-hero-atmosphere::before { content: ""; position: absolute; inset: 0 0 0 38%; background: url("img/hero-bg.png") 50% 45% / cover; opacity: .16; mask-image: linear-gradient(90deg, transparent, #000 40%, #000); }
-.am-hero-atmosphere::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 85%, var(--am-bg)), radial-gradient(#c4bd9b26 .65px, transparent .8px); background-size: auto, 12px 12px; opacity: .4; }
+.am-hero-atmosphere::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 85%, var(--am-bg)), var(--am-star-field); background-size: auto, var(--am-star-spacing); opacity: .4; }
 .am-hero-grid { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.2fr); gap: 32px; align-items: center; min-height: 550px; }
 .am-hero-copy { position: relative; z-index: 2; padding-bottom: 32px; }
 .am-hero h1 { font-size: clamp(3.1rem, 5vw, 5.1rem); font-weight: 800; line-height: .98; letter-spacing: -.055em; font-stretch: 100%; }

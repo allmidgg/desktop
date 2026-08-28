@@ -30,20 +30,30 @@ export function ChampionIcon({
   name,
   size = 40,
   dim = false,
+  fill = false,
   className = "",
 }: {
   iconPath?: string;
   name?: string;
   size?: number;
   dim?: boolean;
+  /** Stretch to the parent instead of carrying a size, radius and hairline. */
+  fill?: boolean;
   className?: string;
 }): JSX.Element {
-  const style = { width: size, height: size };
+  // A portrait that has to fill a card cannot also own its shape. The inline
+  // width would beat whatever the card asked for, and the icon's own 12px radius
+  // inside the card's 8px one reads as a rounded rectangle in a rounded
+  // rectangle. So `fill` hands all three back to the parent rather than fighting
+  // it -- the fallback and the client asset path stay exactly as they were.
+  const style = fill ? undefined : { width: size, height: size };
   if (!iconPath) {
     return (
       <div
         style={style}
-        className={`flex shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-[10px] text-ink-700 ${className}`}
+        className={`flex items-center justify-center text-[10px] text-ink-700 ${
+          fill ? "h-full w-full bg-white/[0.03]" : "shrink-0 rounded-xl border border-white/10 bg-white/[0.03]"
+        } ${className}`}
       >
         ?
       </div>
@@ -55,7 +65,9 @@ export function ChampionIcon({
       alt={name ?? ""}
       title={name}
       style={style}
-      className={`shrink-0 rounded-xl border border-white/10 object-cover ${dim ? "opacity-40 grayscale" : ""} ${className}`}
+      className={`object-cover ${fill ? "h-full w-full" : "shrink-0 rounded-xl border border-white/10"} ${
+        dim ? "opacity-40 grayscale" : ""
+      } ${className}`}
     />
   );
 }
@@ -149,14 +161,14 @@ const TIER_COLORS: Record<string, string> = {
 export function RankPill({ rank, compact = false }: { rank: RankedSummary | null; compact?: boolean }): JSX.Element {
   if (!rank) {
     return (
-      <span className="rounded-md border border-white/8 bg-white/[0.03] px-2 py-0.5 text-[11px] text-ink-500">
+      <span className="rang-pil rounded-md border border-white/8 bg-white/[0.03] px-2 py-0.5 text-[11px] text-ink-500">
         Unranked
       </span>
     );
   }
   const tone = TIER_COLORS[rank.tier.toLowerCase()] ?? "text-ink-300 border-white/10 bg-white/[0.04]";
   const label = compact ? `${rank.tier} ${rank.division}`.trim() : rank.label;
-  return <span className={`num rounded-md border px-2 py-0.5 text-[11px] font-medium ${tone}`}>{label}</span>;
+  return <span className={`rang-pil num rounded-md border px-2 py-0.5 text-[11px] font-medium ${tone}`}>{label}</span>;
 }
 
 export function Winrate({ winrate, games }: { winrate: number; games: number }): JSX.Element {
@@ -172,7 +184,7 @@ export function Winrate({ winrate, games }: { winrate: number; games: number }):
       : "border-line bg-white/[0.03]";
   return (
     <span
-      className={`inline-flex items-baseline gap-1 rounded-lg border px-2 py-0.5 ${veld}`}
+      className={`winrate-badge inline-flex items-baseline gap-1 rounded-lg border px-2 py-0.5 ${veld}`}
       title={`${pct}% won over ${games} games`}
     >
       <span className={`num text-[13px] leading-none font-semibold ${tone}`}>{pct}%</span>
@@ -184,12 +196,19 @@ export function Winrate({ winrate, games }: { winrate: number; games: number }):
 /** Recent results as dots, newest first. */
 export function FormDots({ results }: { results: boolean[] }): JSX.Element {
   return (
-    <div className="flex gap-[3px]">
+    // Bigger and brighter, in both places the mock-up draws them: the dots sit
+    // on an 11px pitch at about 7 across, where the app had 6 on 9. The colours
+    // moved up a step too -- the mock-up green reads (12,204,129) and the red
+    // (237,58,65), while jade-500 tops out at a green channel of 163 and
+    // loss-500 at a red of 184, so neither could ever get there. These are the
+    // palette's own Green and Red, and a result you won or lost deserves to be
+    // legible at seven pixels across.
+    <div className="flex gap-1">
       {results.slice(0, 10).map((won, i) => (
         <span
           key={i}
           title={won ? "Win" : "Loss"}
-          className={`h-1.5 w-1.5 rounded-full ${won ? "bg-jade-500" : "bg-loss-500/70"}`}
+          className={`h-[7px] w-[7px] rounded-full ${won ? "bg-jade-400" : "bg-loss-400"}`}
         />
       ))}
     </div>

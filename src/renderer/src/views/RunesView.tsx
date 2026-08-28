@@ -153,7 +153,7 @@ export function RunesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element 
             {status ? (
               <Panel
                 className={`p-4 text-sm ${
-                  status.ok ? "border-jade-500/30 text-jade-300" : "border-loss-500/30 text-loss-400"
+                  status.ok ? "paneel-jade text-jade-300" : "paneel-loss text-loss-400"
                 }`}
               >
                 {status.message}
