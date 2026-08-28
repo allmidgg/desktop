@@ -10,7 +10,7 @@
  * from this file -- and the client does not hand them over either.
  */
 import type { LiveEvent } from "../lcu/liveClient";
-import type { LiveGamePlayer, Position } from "../../shared/types";
+import type { LiveGamePlayer, Position, SpelGebeurtenis } from "../../shared/types";
 
 /**
  * How long an objective stays down.
@@ -164,6 +164,77 @@ export function objectiefTimers(events: LiveEvent[], gameTime: number): Objectie
     .map((o) => ({ ...o, overSeconden: o.terugOp - gameTime }))
     .filter((o) => o.overSeconden > -30)
     .sort((a, b) => a.overSeconden - b.overSeconden);
+}
+
+/**
+ * The event names we understand, and what we call them.
+ *
+ * Anything not in here is skipped rather than passed through under its Riot
+ * name. A row on a timeline that reads "ChampionKillSpecial" is not information,
+ * and inventing a label for an event we have never seen would be worse.
+ */
+const SOORT_VAN: Record<string, SpelGebeurtenis["soort"]> = {
+  ChampionKill: "kill",
+  FirstBlood: "firstblood",
+  DragonKill: "dragon",
+  BaronKill: "baron",
+  TurretKilled: "turret",
+  InhibKilled: "inhibitor",
+};
+
+/**
+ * The whole event feed as a history, oldest first.
+ *
+ * Separate from objectiefTimers on purpose, because they answer opposite
+ * questions. That one is a countdown: it keeps only the newest dragon and the
+ * newest baron and throws away anything already back for half a minute, which is
+ * exactly right for a panel telling you what to contest and exactly wrong for a
+ * timeline, where the dragon at 14:02 is the whole point.
+ *
+ * Same policy line as the rest of this file: every one of these events put a
+ * banner on all ten screens when it happened. Nothing here was hidden from
+ * anybody, and nothing hidden is added.
+ *
+ * `zoekSpeler` turns the names Riot uses into a seat in this game, so the record
+ * that leaves here holds no names at all.
+ */
+export function gebeurtenissenVan(
+  events: LiveEvent[],
+  zoekSpeler: (naam: string | undefined) => number | null,
+): SpelGebeurtenis[] {
+  const uit: SpelGebeurtenis[] = [];
+
+  for (const e of events) {
+    const soort = SOORT_VAN[e.EventName];
+    if (!soort) continue;
+
+    // First blood names its recipient rather than a killer, and reports no
+    // victim -- the ChampionKill that caused it is in the feed as well, so the
+    // victim is not lost, it just does not belong on this row.
+    const doorNaam = soort === "firstblood" ? e.Recipient : e.KillerName;
+    const detail =
+      soort === "dragon" ? (e.DragonType ?? null)
+      : soort === "turret" ? (e.TurretKilled ?? null)
+      : soort === "inhibitor" ? (e.InhibKilled ?? null)
+      : null;
+
+    uit.push({
+      soort,
+      at: Math.max(0, Math.round(e.EventTime ?? 0)),
+      door: zoekSpeler(doorNaam),
+      aan: zoekSpeler(e.VictimName),
+      assists: (e.Assisters ?? [])
+        .map((naam) => zoekSpeler(naam))
+        .filter((i): i is number => i !== null),
+      detail,
+      // The field is a string in the feed, and "False" is a string too.
+      gestolen: (e.Stolen ?? "").toLowerCase() === "true",
+    });
+  }
+
+  // The feed arrives in order, but sorting costs nothing and a timeline drawn
+  // out of order is silently wrong rather than visibly broken.
+  return uit.sort((a, b) => a.at - b.at);
 }
 
 /**

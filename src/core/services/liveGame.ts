@@ -12,8 +12,10 @@
  */
 import type { LiveGameData, LivePlayer } from "../lcu/liveClient";
 import { SkillOrderRecorder } from "../lcu/liveClient";
-import { berekenInzichten, spelerSleutel, trinketLeeg } from "./liveInzichten";
-import type { BuildStep, LiveGamePlayer, LiveGameSnapshot, Position } from "../../shared/types";
+import { berekenInzichten, gebeurtenissenVan, spelerSleutel, trinketLeeg } from "./liveInzichten";
+import type {
+  BuildStep, LiveGamePlayer, LiveGameSnapshot, OpnameRecord, OpnameSpeler, Position,
+} from "../../shared/types";
 
 /**
  * Names come back in more shapes than you would like: "Nasus", "Jade_Nasus",
@@ -47,29 +49,25 @@ export const teamVan = (team: string): LiveGamePlayer["team"] =>
   team === "ORDER" || team === "CHAOS" ? team : "UNKNOWN";
 
 /**
- * What is kept from a finished game.
+ * What is kept from a finished game: see OpnameRecord in shared/types.
  *
  * No Riot IDs, no summoner names, no puuids. The build order of a champion in a
  * lane is the whole point; who was holding the mouse is not, and the same rule
  * already applies everywhere else here.
+ *
+ * ── Why this is now one line per game and not ten ────────────────────────────
+ *
+ * It used to be a record per player, and the events had nowhere to live: a kill
+ * belongs to the game, not to a seat, and writing the same list ten times to
+ * make it fit was not a shape, it was a workaround. Grouping was already being
+ * done on recordedAt by anything that read the file, so the game was the record
+ * all along.
+ *
+ * The reader still understands the old per-player lines. They carry no side and
+ * no events, because nothing recorded them; that is a gap, not a value to fill
+ * in later.
  */
-export interface BuildOrderRecord {
-  recordedAt: number;
-  gameMode: string;
-  mapNumber: number;
-  gameLengthSeconds: number;
-  championId: number | null;
-  championName: string;
-  position: Position | null;
-  level: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  cs: number;
-  build: BuildStep[];
-  /** Only ever present for the player who was at the keyboard. */
-  skillOrder?: string[];
-}
+export type BuildOrderRecord = OpnameRecord;
 
 export interface ChampionZoeker {
   /** Jade champion id for a display name or alias, or null. */
@@ -184,30 +182,37 @@ export class LiveGameWatcher {
    * where the first-sighting rule would otherwise record a full inventory as if
    * it were bought in one instant.
    */
-  oogst(minimaalSeconden = 120): BuildOrderRecord[] {
+  oogst(minimaalSeconden = 120): OpnameRecord | null {
     const laatste = this.laatsteSnapshot;
-    if (!laatste || !laatste.isClassic) return [];
-    if (laatste.gameTimeSeconds < minimaalSeconden) return [];
+    if (!laatste || !laatste.isClassic) return null;
+    if (laatste.gameTimeSeconds < minimaalSeconden) return null;
 
-    const nu = Date.now();
-    return laatste.players
-      .filter((p) => p.build.length > 0)
-      .map((p) => ({
-        recordedAt: nu,
-        gameMode: laatste.mode,
-        mapNumber: laatste.mapNumber,
-        gameLengthSeconds: laatste.gameTimeSeconds,
-        championId: p.championId,
-        championName: p.championName,
-        position: p.position,
-        level: p.level,
-        kills: p.kills,
-        deaths: p.deaths,
-        assists: p.assists,
-        cs: p.cs,
-        build: p.build,
-        ...(p.isYou ? { skillOrder: laatste.skillOrder } : {}),
-      }));
+    // Everyone is kept, including a seat that bought nothing. A timeline with a
+    // hole where the fed jungler should be is worse than one that says he never
+    // opened the shop, and the events refer to seats by index -- drop a seat and
+    // every index after it points at the wrong player.
+    const spelers: OpnameSpeler[] = laatste.players.map((p) => ({
+      championId: p.championId,
+      championName: p.championName,
+      team: p.team,
+      position: p.position,
+      level: p.level,
+      kills: p.kills,
+      deaths: p.deaths,
+      assists: p.assists,
+      cs: p.cs,
+      build: p.build,
+      ...(p.isYou ? { skillOrder: laatste.skillOrder } : {}),
+    }));
+
+    return {
+      recordedAt: Date.now(),
+      gameMode: laatste.mode,
+      mapNumber: laatste.mapNumber,
+      gameLengthSeconds: laatste.gameTimeSeconds,
+      spelers,
+      gebeurtenissen: laatste.gebeurtenissen,
+    };
   }
 
   verwerk(data: LiveGameData, jouwNaam: string | null, mapId: number): LiveGameSnapshot {
@@ -222,7 +227,23 @@ export class LiveGameWatcher {
     const isClassic = mapNumber === mapId || mode.toUpperCase() === "JADE";
 
     const jij = jouwNaam ? normaliseerNaam(jouwNaam) : null;
-    const spelers = (data.allPlayers ?? []).map((p) => this.speler(p, jij, gameTime));
+    const rauw = data.allPlayers ?? [];
+    const spelers = rauw.map((p) => this.speler(p, jij, gameTime));
+
+    // The event feed speaks in names; the record we keep must not. Both the Riot
+    // ID and the older summoner name are indexed because the feed is not
+    // consistent about which one it uses, and a kill attributed to nobody is a
+    // kill that vanishes off the timeline.
+    const stoel = new Map<string, number>();
+    rauw.forEach((p, i) => {
+      for (const naam of [p.riotId, p.summonerName]) {
+        if (!naam) continue;
+        const sleutel = normaliseerNaam(naam);
+        if (sleutel && !stoel.has(sleutel)) stoel.set(sleutel, i);
+      }
+    });
+    const zoekStoel = (naam: string | undefined): number | null =>
+      naam ? (stoel.get(normaliseerNaam(naam)) ?? null) : null;
 
     let note: string | null = null;
     if (!isClassic) {
@@ -234,7 +255,8 @@ export class LiveGameWatcher {
 
     // Derived numbers need every player read first, so they land here rather
     // than inside the per-player mapping.
-    const inzichten = berekenInzichten(spelers, data.events?.Events ?? [], gameTime, this.prijsVan);
+    const events = data.events?.Events ?? [];
+    const inzichten = berekenInzichten(spelers, events, gameTime, this.prijsVan);
     for (const p of spelers) {
       const sleutel = spelerSleutel(p);
       p.itemWaarde = inzichten.itemWaarde.get(sleutel) ?? 0;
@@ -248,6 +270,7 @@ export class LiveGameWatcher {
       gameTimeSeconds: gameTime,
       players: spelers,
       skillOrder: this.recorder.skillOrder,
+      gebeurtenissen: gebeurtenissenVan(events, zoekStoel),
       note,
       inzichten: {
         order: inzichten.order,

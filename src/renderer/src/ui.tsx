@@ -470,6 +470,69 @@ export function EmptyState({
   );
 }
 
+/**
+ * Why a finished game has no detail to show.
+ *
+ * Three different absences used to share one sentence, and two of the three were
+ * being lied to. "Only games the crawler has picked up can be opened. It fills in
+ * over time" is true for a stranger's game from last month. Said under a remake
+ * it is false forever -- slimGame drops everything under
+ * MINIMALE_GAMEDUUR_SECONDEN, so that game is never coming, and promising it
+ * will arrive sends the reader back to look again tomorrow. Said under the game
+ * you finished thirty seconds ago it is false the other way: nothing needs
+ * crawling, the client has simply not published the match yet, and one more look
+ * would have it.
+ */
+export type GeenDetailReden = "te-kort" | "nog-niet" | "niet-gecrawld";
+
+export function GeenDetail({
+  reden,
+  minimumSeconden,
+  onOpnieuw,
+}: {
+  reden: GeenDetailReden;
+  /** The floor the store applies, quoted rather than restated. */
+  minimumSeconden: number;
+  /** Only ever used for "nog-niet", where looking again is the actual fix. */
+  onOpnieuw?: () => void;
+}): JSX.Element {
+  const teksten: Record<GeenDetailReden, { titel: string; hint: string }> = {
+    "te-kort": {
+      titel: "This game was too short to be kept",
+      hint:
+        `Anything under ${Math.round(minimumSeconden / 60)} minutes never reaches the database: a` +
+        ` remake would otherwise count as a loss against every champion in it. There is nothing to` +
+        ` open here, now or later.`,
+    },
+    "nog-niet": {
+      titel: "The client has not handed this game over yet",
+      hint:
+        "It is written to the database as soon as your match history carries it, usually within a" +
+        " minute of the end screen. Nothing was lost; it is simply not there yet.",
+    },
+    "niet-gecrawld": {
+      titel: "This game is not in your database",
+      hint:
+        "It was played before AllMid began keeping your own games, and the crawler has not come" +
+        " across it. This one does fill in over time.",
+    },
+  };
+  const { titel, hint } = teksten[reden];
+  return (
+    <EmptyState
+      title={titel}
+      hint={hint}
+      actie={
+        reden === "nog-niet" && onOpnieuw ? (
+          <button type="button" className="knop knop-secundair" onClick={onOpnieuw}>
+            Look again
+          </button>
+        ) : undefined
+      }
+    />
+  );
+}
+
 export const POSITION_LABELS: Record<string, string> = {
   TOP: "Top",
   JUNGLE: "Jungle",

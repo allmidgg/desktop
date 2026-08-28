@@ -33,7 +33,11 @@ import { JADE_MAP_ID } from "../core/jade/ids";
 import { LiveClient } from "../core/lcu/liveClient";
 import { CommunityStatsCache, type CommunityLoad } from "../core/services/communityStats";
 import { LiveGameWatcher, championZoeker } from "../core/services/liveGame";
-import { MatchStore, defaultStorePath, slimGame, type Position } from "../core/services/matchStore";
+import {
+  MatchStore, defaultStorePath, slimGame,
+  type Position, type StoredMatch, type StoredPlayer,
+} from "../core/services/matchStore";
+import { TijdlijnStore } from "../core/services/tijdlijn";
 import { MatchCrawler } from "../core/services/crawler";
 import { JadeStats, likelyPosition, MIN_MATCHUP_GAMES, type ChampionStat } from "../core/services/stats";
 import { leesBeeldmodus } from "../core/lcu/beeldmodus";
@@ -44,7 +48,7 @@ import { MatchUploader, defaultUploadStatePath } from "../core/services/uploader
 import type {
   AppSnapshot, ApplyResult, ChampSelectSnapshot, ChampionSummary, GameflowPhase, LaneAnalysis,
   ChampionDetail, ChampionPlan, GameDetail, ItemEntry, MasteryPlanSummary, MasteryTreeInfo,
-  MatchupEntry, RecentGameSummary,
+  MatchupEntry, PerformanceBaseline, RecentGameSummary, SpelerIjklijn,
   RuneInfo, RunePlanSummary, ScoutEntry, TierEntry, UploadStatus,
 } from "../shared/types";
 
@@ -151,6 +155,8 @@ export class JadeService extends EventEmitter {
   } | null = null;
 
   private readonly backupDir: string;
+  /** The games this machine watched, so a finished one can be shown over time. */
+  private readonly tijdlijnen: TijdlijnStore;
   private readonly uploadStatePath: string;
   private readonly community: CommunityStatsCache;
   /**
@@ -182,6 +188,7 @@ export class JadeService extends EventEmitter {
     this.store = new MatchStore(defaultStorePath(dataRoot));
     this.settings = new SettingsStore(defaultSettingsPath(dataRoot));
     this.backupDir = join(dataRoot, "data", "backups");
+    this.tijdlijnen = new TijdlijnStore(join(dataRoot, "data", "buildorders.jsonl"));
     this.uploadStatePath = defaultUploadStatePath(dataRoot);
     this.community = new CommunityStatsCache(dataRoot);
   }
@@ -329,6 +336,9 @@ export class JadeService extends EventEmitter {
         jadeId: item.jadeId,
         name: item.name,
         iconPath: item.iconPath,
+        // The catalogue has had this all along and kept it to itself, which is
+        // why the renderer could draw a build but never say what it cost.
+        price: item.price,
         buildsFrom: item.buildsFrom,
       })),
       spells: [...jade.spells.values()].map((spell) => ({
@@ -493,6 +503,7 @@ export class JadeService extends EventEmitter {
         jadeId: item.jadeId,
         name: item.name,
         iconPath: item.iconPath,
+        price: item.price,
         buildsFrom: item.buildsFrom,
       })),
       spells: [...catalogus.spells.values()].map((spell) => ({
@@ -554,13 +565,18 @@ export class JadeService extends EventEmitter {
    * so anything not written here is gone with it.
    */
   private bewaarBuildOrders(): void {
-    const records = this.liveWatcher?.oogst() ?? [];
-    if (records.length === 0) return;
+    const opname = this.liveWatcher?.oogst();
+    if (!opname) return;
     try {
       const pad = join(this.backupDir, "..", "buildorders.jsonl");
-      const regels = records.map((r) => JSON.stringify(r) + "\n");
-      appendFileSync(pad, regels.join(""), "utf8");
-      console.log(`[allmid] ${records.length} build orders bewaard in ${pad}`);
+      appendFileSync(pad, JSON.stringify(opname) + "\n", "utf8");
+      // The cache in front of that file is now a version behind, and the game
+      // that just ended is exactly the one somebody is about to open.
+      this.tijdlijnen.vergeet();
+      console.log(
+        `[allmid] game van ${opname.gameLengthSeconds}s bewaard in ${pad}` +
+          ` (${opname.spelers.length} spelers, ${opname.gebeurtenissen.length} gebeurtenissen)`,
+      );
     } catch (err) {
       reportBackgroundError(err as Error);
     }
@@ -1167,15 +1183,32 @@ export class JadeService extends EventEmitter {
    * elsewhere are built from, and it still answers with League closed.
    */
   gameDetail(gameId: number): GameDetail | null {
-    const match = this.store.all().find((m) => m.gameId === gameId);
+    // values() rather than all(): this looks up one game and never needed a copy
+    // of the whole database to find it. With 130,086 games in there that was a
+    // fresh array of as many references, every time a row is opened.
+    let match: StoredMatch | null = null;
+    for (const kandidaat of this.store.values()) {
+      if (kandidaat.gameId === gameId) {
+        match = kandidaat;
+        break;
+      }
+    }
     if (!match) return null;
     const jouwPuuid = this.snapshot.summoner?.puuid ?? null;
+    const jij = jouwPuuid === null
+      ? null
+      : (match.players.find((p) => p.puuid === jouwPuuid) ?? null);
     return {
       gameId: match.gameId,
       createdAt: match.createdAt,
       durationSeconds: match.duration,
       queueId: match.queueId,
       patch: match.patch,
+      surrendered: match.surrendered,
+      baseline: jij ? this.baselineFor(jij, match.duration) : null,
+      // Null for nearly every game, and permanently so: the crawler collects
+      // other people's matches and nobody was watching any of them.
+      tijdlijn: this.tijdlijnen.voor(match),
       players: match.players.map((p) => ({
         championId: p.championId,
         team: p.teamId,
@@ -1188,8 +1221,96 @@ export class JadeService extends EventEmitter {
         gold: p.gold,
         items: p.items,
         spells: p.spells,
+        // Passed through exactly as stored, undefined included. Filling a gap
+        // with a zero here would be indistinguishable from a real zero further
+        // down, and the screen decides what to do with a missing field.
+        damage: p.damage,
+        damageTaken: p.damageTaken,
+        vision: p.vision,
+        wards: p.wards,
+        level: p.level,
+        // What this champion normally does in this lane, for all ten rather
+        // than only for you. baselineFor() below answers "how did your game
+        // go"; the badge answers "who played best", and that needs a norm on
+        // every seat or it cannot use one on any of them.
+        ijklijn: this.ijklijnVoor(p),
         isYou: jouwPuuid !== null && p.puuid === jouwPuuid,
       })),
+    };
+  }
+
+  /**
+   * The four figures the badge measures one seat against.
+   *
+   * The lane first, because that is the comparison that means something, and the
+   * champion with its lanes pooled second, because one stored game in eight comes
+   * back with no positions at all and a badge still has to be handed out in those.
+   * Null only when neither exists, which leesNaspel reads as "this whole game
+   * falls back on the middle of the lobby".
+   *
+   * Touches none of the five optional StoredPlayer fields, which is why it works
+   * on every match in the database rather than only on the ones stored from today
+   * onwards.
+   */
+  private ijklijnVoor(speler: StoredPlayer): SpelerIjklijn | null {
+    const lane =
+      speler.position === "UNKNOWN" ? null : this.stats.baseline(speler.championId, speler.position);
+    const ijk = lane ?? this.stats.championBaseline(speler.championId);
+    if (!ijk || !(ijk.minutes > 0)) return null;
+    return {
+      games: ijk.games,
+      csPerMin: ijk.csPerMin,
+      goldPerMin: ijk.goldPerMin,
+      // The tallies hold totals, so average kills plus assists divided by the
+      // average game length is exactly total kills plus assists over total
+      // minutes -- the same way round as csPerMin and goldPerMin, and not an
+      // average of per-game rates, which would weigh a 19-minute stomp the same
+      // as a 48-minute slog.
+      kaPerMin: (ijk.kills + ijk.assists) / ijk.minutes,
+      kda: ijk.kda,
+      bron: lane ? "lane" : "champion",
+    };
+  }
+
+  /**
+   * Your line in one game beside the champion's normal line in that lane.
+   *
+   * Both sides come out of recorded games: yours from this match, the averages
+   * from the same tallies the tier list stands on. Nothing is estimated, so when
+   * the averages are not there the answer is null and the screen has one block
+   * fewer rather than a number nobody can defend.
+   *
+   * Touches none of the five optional StoredPlayer fields, which is why it works
+   * on every match in the database rather than only on the ones stored from
+   * today onwards.
+   */
+  private baselineFor(jij: StoredPlayer, duration: number): PerformanceBaseline | null {
+    const gemiddelde = this.stats.baseline(jij.championId, jij.position);
+    if (!gemiddelde) return null;
+    // slimGame refuses anything under five minutes, so this only still guards a
+    // corrupted record that would otherwise divide by zero.
+    const minuten = duration / 60;
+    if (minuten <= 0) return null;
+
+    return {
+      championId: jij.championId,
+      position: jij.position,
+      games: gemiddelde.games,
+      averageMinutes: gemiddelde.minutes,
+      yourMinutes: minuten,
+      csPerMin: { you: jij.cs / minuten, average: gemiddelde.csPerMin },
+      goldPerMin: { you: jij.gold / minuten, average: gemiddelde.goldPerMin },
+      kda: {
+        // The same rule on both sides of the comparison, including what happens
+        // at zero deaths. Two different definitions in one row would be a lie
+        // the reader has no way of spotting.
+        you: jij.deaths === 0 ? jij.kills + jij.assists : (jij.kills + jij.assists) / jij.deaths,
+        average: gemiddelde.kda,
+      },
+      kills: { you: jij.kills, average: gemiddelde.kills },
+      deaths: { you: jij.deaths, average: gemiddelde.deaths },
+      assists: { you: jij.assists, average: gemiddelde.assists },
+      source: this.communityLoad ? "community" : "local",
     };
   }
 

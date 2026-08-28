@@ -118,6 +118,16 @@ export interface ItemSummary {
   name: string;
   iconPath: string;
   /**
+   * Total gold, the same number the shop puts on the icon.
+   *
+   * Total and not combine cost, which is the whole reason anything adding these
+   * up has to subtract the components it swallowed -- see aankoopVerloop in
+   * shared/build. The main process already had this from the catalogue; it
+   * simply never handed it over, so the renderer could draw a build but never
+   * say what it cost.
+   */
+  price: number;
+  /**
    * The components this is built out of, as Jade ids.
    *
    * Needed to read a purchase list as a build: a Long Sword followed by a
@@ -199,6 +209,64 @@ export interface MasteryTreeInfo {
 }
 
 /**
+ * The shortest game the store will keep, in seconds.
+ *
+ * A value in a file of types, which is unusual here, and it earns the exception:
+ * the screens have to be able to say why a game they cannot open is missing, and
+ * that sentence is only true if it quotes the very number slimGame drops games
+ * under. Written down twice it drifts, and then a screen states the wrong reason
+ * with complete confidence.
+ *
+ * It lives on this side rather than in matchStore because the renderer needs the
+ * value and matchStore pulls in node:fs. The type-only import in the other
+ * direction is erased at compile time, so nothing circular survives to runtime.
+ */
+export const MINIMALE_GAMEDUUR_SECONDEN = 300;
+
+/** One of your numbers beside the same number for everyone else on that pick. */
+export interface BaselineNumber {
+  you: number;
+  average: number;
+}
+
+/**
+ * This game measured against the champion's normal game in that lane.
+ *
+ * A number on its own settles nothing: 6.2 CS per minute is a strong game on a
+ * support and a poor one on a mid laner, and the only thing that decides which
+ * is the same figure over every other recorded game of that pick. So this is
+ * always two values and never a grade.
+ *
+ * Only ever built once the average clears its minimum, so anything handed over
+ * here can be drawn as it stands. `games` travels with the numbers because a
+ * comparison is worth exactly as much as its sample, and `source` because "the
+ * shared database" and "the games this machine happened to crawl" are not the
+ * same claim.
+ *
+ * Note what is not in here: none of the five optional StoredPlayer fields. Every
+ * figure below comes from cs, gold, kills, deaths, assists and the match
+ * duration, all of which are mandatory -- which is why this block works on games
+ * stored long before damage was ever kept.
+ */
+export interface PerformanceBaseline {
+  championId: number;
+  position: Position;
+  /** Recorded games of this champion in this lane. */
+  games: number;
+  /** Average length of those games in minutes; what the rates are per. */
+  averageMinutes: number;
+  /** Length of your game in minutes, so the rates can be checked by hand. */
+  yourMinutes: number;
+  csPerMin: BaselineNumber;
+  goldPerMin: BaselineNumber;
+  kda: BaselineNumber;
+  kills: BaselineNumber;
+  deaths: BaselineNumber;
+  assists: BaselineNumber;
+  source: "community" | "local";
+}
+
+/**
  * One finished game, everyone in it.
  *
  * Comes out of the local store rather than the client, so it keeps working when
@@ -210,7 +278,145 @@ export interface GameDetail {
   durationSeconds: number;
   queueId: number;
   patch: string;
+  /**
+   * True when the game ended in a surrender.
+   *
+   * Optional because the store only started keeping it recently, and undefined
+   * is not the same as false: it means we do not know, so nothing is drawn.
+   */
+  surrendered?: boolean;
   players: GameDetailPlayer[];
+  /**
+   * What happened over time, for the games this app was watching.
+   *
+   * Null for every game the crawler found rather than played, which is almost
+   * all of them. Match history carries no timeline to reconstruct one from, so
+   * the absence is permanent and not a loading state.
+   */
+  tijdlijn: GameTijdlijn | null;
+  /**
+   * Your own line in this game against what the champion normally does in that
+   * lane. Null when you are not in the game, when your lane came out UNKNOWN, or
+   * when too few games sit behind the average to say anything with it.
+   */
+  baseline: PerformanceBaseline | null;
+}
+
+/**
+ * One thing that happened, and the second it happened on.
+ *
+ * Straight out of the running game's own event feed, which is the only place in
+ * this app where a timestamp on an event exists at all. Match history hands back
+ * end-of-game totals; if this is not written down while the game is running, it
+ * never existed.
+ *
+ * No names, deliberately, the same rule the rest of the recording follows. Riot's
+ * feed says "KillerName": we resolve that to a seat in this recording and keep
+ * the seat number. Anything that was not one of the ten -- a minion, a turret --
+ * resolves to null rather than to a name.
+ */
+export interface SpelGebeurtenis {
+  soort: "kill" | "firstblood" | "dragon" | "baron" | "turret" | "inhibitor";
+  /** Game time in seconds. */
+  at: number;
+  /** Seat in OpnameRecord.spelers, or null when it was not one of the ten. */
+  door: number | null;
+  aan: number | null;
+  assists: number[];
+  /** What it was, when the game says so: "Air", "Turret_T1_C_07_A". Never a name. */
+  detail: string | null;
+  gestolen: boolean;
+}
+
+/** One seat in a recording: what a finished match keeps, plus the road there. */
+export interface OpnameSpeler {
+  championId: number | null;
+  championName: string;
+  team: "ORDER" | "CHAOS" | "UNKNOWN";
+  position: Position | null;
+  level: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  cs: number;
+  /** Every item seen appearing, in the order it did. */
+  build: BuildStep[];
+  /**
+   * Only ever present for the seat that was at the keyboard.
+   *
+   * Which makes it double as the marker for whose game this was: the client
+   * reveals nobody else's abilities, so exactly one seat can carry it.
+   */
+  skillOrder?: string[];
+}
+
+/**
+ * One whole game as it was watched, one line in buildorders.jsonl.
+ *
+ * Written the moment the game ends and the server on 2999 disappears. There is
+ * no second chance and no backfill: a game nobody watched has no recording and
+ * never will get one.
+ */
+export interface OpnameRecord {
+  /** Wall clock at harvest, which doubles as the id of the recording. */
+  recordedAt: number;
+  gameMode: string;
+  mapNumber: number;
+  gameLengthSeconds: number;
+  spelers: OpnameSpeler[];
+  gebeurtenissen: SpelGebeurtenis[];
+}
+
+/**
+ * Why a recording is believed to belong to a stored match.
+ *
+ * The recording carries no game id -- the Live Client Data API does not have one
+ * -- so the two are matched on what they both describe. The whole reasoning is
+ * kept rather than reduced to a yes, because this is a join and a join that
+ * cannot be inspected is a guess with better manners.
+ */
+export interface TijdlijnKoppeling {
+  gameId: number;
+  /** Seats whose champion, kills, deaths, assists and CS are all identical. */
+  gelijkeScores: number;
+  spelers: number;
+  /** Seconds between the game ending and the recording being written. */
+  naEindeSeconden: number;
+  /** Live clock minus the duration match history reports. */
+  duurVerschilSeconden: number;
+  /** True when sides came from match history because the recording predates that field. */
+  teamsUitMatch: boolean;
+}
+
+export interface GameTijdlijn {
+  opname: OpnameRecord;
+  koppeling: TijdlijnKoppeling;
+}
+
+/**
+ * What one champion normally does in one lane, cut down to the four figures the
+ * MVP rule measures a player against.
+ *
+ * Built in the main process out of the same tallies the tier list stands on, and
+ * carried per player because shared/naspel.ts cannot reach the store: it lives
+ * in shared precisely so the renderer can import it without dragging the League
+ * client into the bundle. Plain numbers, so it survives structured clone.
+ */
+export interface SpelerIjklijn {
+  /** Recorded games behind these averages. Never drop it: it is what makes them readable. */
+  games: number;
+  csPerMin: number;
+  goldPerMin: number;
+  /** Kills plus assists per minute, the norm the participation factor is held against. */
+  kaPerMin: number;
+  /** (kills + assists) / deaths over the totals, the same rule as the tier list. */
+  kda: number;
+  /**
+   * Whether this is the champion in this lane, or the champion with every lane
+   * pooled because the game came back without positions. The screen says which,
+   * because pooled lanes are a coarser measurement and the reader should know.
+   */
+  bron: "lane" | "champion";
 }
 
 export interface GameDetailPlayer {
@@ -225,6 +431,28 @@ export interface GameDetailPlayer {
   gold: number;
   items: number[];
   spells: [number, number];
+  /**
+   * The five figures the client always sent and the store only recently began
+   * keeping. All optional, all absent on every match saved before that, and
+   * there is no backfill -- so a screen that reads them has to be able to draw
+   * itself without them rather than substituting a zero, which would put a
+   * player at the bottom of a bar he was never measured for.
+   */
+  damage?: number;
+  damageTaken?: number;
+  vision?: number;
+  wards?: number;
+  level?: number;
+  /**
+   * What this champion normally does in this lane, for the MVP rule.
+   *
+   * Optional and nullable for two different reasons that both mean the same
+   * thing: undefined when whatever built this record does not fill it, null when
+   * the store holds too few games of the combination to say anything. Either way
+   * the scoring falls back, for the whole game at once, on the middle of the
+   * lobby.
+   */
+  ijklijn?: SpelerIjklijn | null;
   /** True for the player whose profile this was opened from. */
   isYou: boolean;
 }
@@ -374,6 +602,14 @@ export interface LiveGameSnapshot {
    * levels but not the order they were taken in.
    */
   skillOrder: string[];
+  /**
+   * Everything the game has announced so far, oldest first.
+   *
+   * Kills, first blood, dragons, barons, turrets, inhibitors -- all of it with a
+   * timestamp, all of it already on ten screens. This is the timeline, and it
+   * exists only while the game is running.
+   */
+  gebeurtenissen: SpelGebeurtenis[];
   /** Set when something is worth saying about what we are looking at. */
   note: string | null;
   /** Team totals, timers and shares. Everything derived, computed once. */

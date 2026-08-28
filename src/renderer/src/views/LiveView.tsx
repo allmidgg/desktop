@@ -6,16 +6,18 @@
  */
 import { bouwPad } from "../../../shared/build";
 import type {
-  AppSnapshot, BuildStep, ChampionDetail, ChampionSummary, GameDetail, GameDetailPlayer,
+  AppSnapshot, BuildStep, ChampionDetail, ChampionSummary,
   ItemSummary, LiveGamePlayer, LiveGameSnapshot, LiveInzichtenUit, RecentGameSummary,
   TeamTotaalUit, TierEntry,
 } from "../../../shared/types";
 import { ChampSelectView } from "./ChampSelectView";
+import { NaspelPaneel } from "./NaspelPaneel";
+import { LiveTijdlijnpaneel } from "./Tijdlijn";
 import { MerkGeslepen } from "../merk";
 import { Fragment, useEffect, useState } from "react";
 import {
   asset, ChampionIcon, EmptyState, FormDots, ItemRow, Panel, RankPill, SectionTitle, SkillGrid,
-  SpellPair, Spinner, SplashBackdrop, Winrate, WinrateRing,
+  SpellPair, SplashBackdrop, Winrate, WinrateRing,
 } from "../ui";
 
 const PHASE_LABELS: Record<string, string> = {
@@ -685,12 +687,57 @@ const klok = (s: number): string =>
   `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /**
+ * The game clock between two polls.
+ *
+ * service.ts asks the client every two seconds while a game runs. A countdown
+ * rendered straight out of that snapshot stands still for two seconds and then
+ * jumps two, which reads as a frozen app -- the same trap ChampSelectSnapshot
+ * already names in shared/types.ts and solves with timerAt, except the live
+ * panel never got the same treatment.
+ *
+ * Counting the real seconds since the last poll is arithmetic on a number we
+ * were handed rather than a guess: the game clock runs in real time, and every
+ * poll re-anchors this one, so drift can never accumulate past a single tick.
+ *
+ * Returns both halves because they answer different questions. `nu` is the game
+ * clock, for anything measured against a game time; `sindsPoll` is how stale the
+ * snapshot is, for the countdowns the client hands over pre-computed.
+ */
+function useSpeelklok(gameTimeSeconds: number): { nu: number; sindsPoll: number } {
+  // Both halves in one piece of state so they can never disagree: the game time
+  // the client last reported, and the wall clock at the moment it arrived.
+  const [anker, setAnker] = useState(() => ({ spel: gameTimeSeconds, echt: Date.now() }));
+  const [sindsPoll, setSindsPoll] = useState(0);
+
+  if (anker.spel !== gameTimeSeconds) {
+    // Adjusted during render rather than in an effect, on purpose. An effect
+    // would leave one painted frame showing the new game time on top of the old
+    // anchor's seconds -- a clock that jumps forward and then back again, twice
+    // a second, for the whole game.
+    setAnker({ spel: gameTimeSeconds, echt: Date.now() });
+    setSindsPoll(0);
+  }
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setSindsPoll(Math.max(0, Math.floor((Date.now() - anker.echt) / 1000)));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [anker]);
+
+  return { nu: anker.spel + sindsPoll, sindsPoll };
+}
+
+/**
  * The game as it stands right now, read from the client on port 2999.
  *
  * Everything here is live rather than remembered, so there is nothing to keep in
  * sync: what the client says is what is shown.
  */
 function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: AppSnapshot }): JSX.Element {
+  // Everything on this screen that counts down reads off these two rather than
+  // off the snapshot, so the clocks keep moving between polls.
+  const { nu, sindsPoll } = useSpeelklok(live.gameTimeSeconds);
   const items = new Map(snapshot.items.map((i) => [i.jadeId, i]));
   const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
   const jij = live.players.find((p) => p.isYou) ?? null;
@@ -703,7 +750,7 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
       <SectionTitle
         hint={
           <span className="num">
-            {klok(live.gameTimeSeconds)}
+            {klok(nu)}
             {live.isClassic ? "" : ` · ${live.mode}`}
           </span>
         }
@@ -715,7 +762,18 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
         <Panel className="paneel-goud p-3 text-xs text-ink-400">{live.note}</Panel>
       ) : null}
 
-      {live.inzichten ? <Inzichtenbalk inzichten={live.inzichten} /> : null}
+      {live.inzichten ? <Inzichtenbalk inzichten={live.inzichten} nu={nu} /> : null}
+
+      {/* The one thing a finished Classic match can never give back. Drawn here
+          while it is still being recorded, so what you watch build up during the
+          game is exactly what you get to read back afterwards. */}
+      {/* Dezelfde poort als oogst() gebruikt (liveGame.ts:187). Zonder deze
+          voorwaarde belooft het paneel "Being recorded now ... written to
+          buildorders.jsonl" op precies het scherm waar de note erboven zegt
+          "nothing here is recorded". */}
+      {live.isClassic ? (
+        <LiveTijdlijnpaneel live={live} items={items} champions={champions} />
+      ) : null}
 
       <OverlayKnoppen aan={snapshot.settings.overlay} beeldmodus={snapshot.beeldmodus} />
 
@@ -744,6 +802,7 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
                   items={items}
                   champions={champions}
                   index={j}
+                  sindsPoll={sindsPoll}
                 />
               ))
             )}
@@ -754,7 +813,14 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
       {rest.length ? (
         <Panel className="divide-y divide-ink-900/60">
           {rest.map((p, j) => (
-            <LivePlayerRow key={`rest-${j}`} p={p} items={items} champions={champions} index={j} />
+            <LivePlayerRow
+              key={`rest-${j}`}
+              p={p}
+              items={items}
+              champions={champions}
+              index={j}
+              sindsPoll={sindsPoll}
+            />
           ))}
         </Panel>
       ) : null}
@@ -884,7 +950,14 @@ function ItemStap({
  * counts towards a real lead and not towards this one -- so it is labelled for
  * what it is rather than dressed up as gold.
  */
-function Inzichtenbalk({ inzichten }: { inzichten: LiveInzichtenUit }): JSX.Element {
+function Inzichtenbalk({
+  inzichten,
+  nu,
+}: {
+  inzichten: LiveInzichtenUit;
+  /** The game clock, ticking between polls. See useSpeelklok. */
+  nu: number;
+}): JSX.Element {
   const { order, chaos, itemVerschil, objectieven } = inzichten;
   const blauwVoor = itemVerschil >= 0;
   const NAAM: Record<string, string> = { dragon: "Dragon", baron: "Baron", inhibitor: "Inhibitor" };
@@ -903,25 +976,48 @@ function Inzichtenbalk({ inzichten }: { inzichten: LiveInzichtenUit }): JSX.Elem
       </div>
 
       {objectieven.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5 border-t border-line pt-3">
-          {objectieven.map((o, i) => {
-            const terug = o.overSeconden <= 0;
-            return (
-              <span
-                key={`${o.soort}-${o.detail ?? i}`}
-                title={`Fell at ${klok(o.gevallenOp)}, back at ${klok(o.terugOp)}`}
-                className={`num flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] ${
-                  terug
-                    ? "border-jade-500/40 bg-jade-500/10 text-jade-300"
-                    : "border-line-lit bg-white/[0.03] text-ink-300"
-                }`}
-              >
-                <span className="text-ink-500">{NAAM[o.soort] ?? o.soort}</span>
-                {o.detail && o.soort === "dragon" ? <span className="text-ink-600">{o.detail}</span> : null}
-                <span>{terug ? "up" : klok(o.overSeconden)}</span>
-              </span>
-            );
-          })}
+        <div className="border-t border-line pt-3">
+          <div className="flex flex-wrap gap-1.5">
+            {objectieven.map((o, i) => {
+              // overSeconden from the snapshot is deliberately ignored: it was
+              // worked out at the moment of the poll and is up to two seconds
+              // stale by the time it is painted. terugOp is a game time and the
+              // game time is now known every second, so the countdown is
+              // subtraction rather than a stored answer.
+              const over = o.terugOp - nu;
+              const terug = over <= 0;
+              const bijna = !terug && over <= 20;
+              return (
+                <span
+                  key={`${o.soort}-${o.detail ?? i}`}
+                  title={`Fell at ${klok(o.gevallenOp)}, back at ${klok(o.terugOp)}`}
+                  className={`num flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] ${
+                    terug
+                      ? "border-jade-500/40 bg-jade-500/10 text-jade-300"
+                      : bijna
+                        ? "border-gold-500/60 bg-gold-400/[0.07] text-gold-300"
+                        : "border-line-lit bg-white/[0.03] text-ink-300"
+                  }`}
+                >
+                  <span className="text-ink-500">{NAAM[o.soort] ?? o.soort}</span>
+                  {o.detail && o.soort === "dragon" ? (
+                    <span className="text-ink-600">{o.detail}</span>
+                  ) : null}
+                  <span>{terug ? "up" : klok(over)}</span>
+                </span>
+              );
+            })}
+          </div>
+          {/* The kill time is the game's own event; the return time is that plus
+              a length we hold for Classic and have never actually timed. The
+              constants say so about themselves in liveInzichten.ts, and a screen
+              that prints "Dragon 3:12" as though it were a fact is the one place
+              that admission stops being worth anything. */}
+          <p className="mt-2 text-[10px] leading-relaxed text-ink-600">
+            Kill times come from the game. The countdown adds the length we assume for Classic
+            &mdash; dragon 6:00, baron 7:00, inhibitor 5:00 &mdash; and those three have not been
+            timed with a stopwatch.
+          </p>
         </div>
       ) : null}
     </Panel>
@@ -1018,13 +1114,19 @@ function LivePlayerRow({
   items,
   champions,
   index,
+  sindsPoll,
 }: {
   p: LiveGamePlayer;
   items: Map<number, ItemSummary>;
   champions: Map<number, ChampionSummary>;
   index: number;
+  /** Seconds since the last poll, so the respawn keeps counting down. */
+  sindsPoll: number;
 }): JSX.Element {
   const champion = p.championId === null ? undefined : champions.get(p.championId);
+  // respawnIn was true at the moment of the poll and is up to two seconds old by
+  // now. Walking it down never goes below zero, and the next poll settles it.
+  const respawn = Math.max(0, p.respawnIn - sindsPoll);
   return (
     <div
       className={`stagger flex items-center gap-3 p-2.5 ${p.isYou ? "bg-gold-500/[0.09] shadow-[inset_2px_0_0_var(--color-gold-400)]" : ""}`}
@@ -1044,165 +1146,13 @@ function LivePlayerRow({
         </div>
         <div className="text-ink-600">
           {p.cs} cs · lv {p.level}
-          {p.isDead && p.respawnIn > 0 ? <span className="text-red-400"> · {p.respawnIn}s</span> : null}
+          {p.isDead && respawn > 0 ? <span className="text-loss-400"> · {respawn}s</span> : null}
         </div>
         <div className="text-ink-700" title="Share of the team's kills · wards placed · gold in items">
           {Math.round(p.killDeelname * 100)}% kp · {p.wards}w · {(p.itemWaarde / 1000).toFixed(1)}k
         </div>
       </div>
       <ItemRow items={p.items} lookup={items} size={22} />
-    </div>
-  );
-}
-
-/**
- * One finished game, everyone in it.
- *
- * Only what was really recorded. There is no timeline in this data -- no gold
- * over time, no first blood, no objectives -- so the honest thing to draw is how
- * the ten players compare to each other, which the numbers do support.
- */
-function GameDetailPaneel({
-  gameId,
-  snapshot,
-}: {
-  gameId: number;
-  snapshot: AppSnapshot;
-}): JSX.Element {
-  const [detail, setDetail] = useState<GameDetail | null>(null);
-  const [bezig, setBezig] = useState(true);
-
-  useEffect(() => {
-    let levend = true;
-    setBezig(true);
-    void window.jade
-      .gameDetail(gameId)
-      .then((d) => {
-        if (levend) {
-          setDetail(d);
-          setBezig(false);
-        }
-      })
-      .catch(() => levend && setBezig(false));
-    return () => {
-      levend = false;
-    };
-  }, [gameId]);
-
-  if (bezig) return <div className="px-4 py-6"><Spinner label="Opening the game..." /></div>;
-  if (!detail) {
-    return (
-      <div className="px-4 py-5">
-        <EmptyState
-          title="This game is not in your database"
-          hint="Only games the crawler has picked up can be opened. It fills in over time."
-        />
-      </div>
-    );
-  }
-
-  const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
-  const items = new Map(snapshot.items.map((i) => [i.jadeId, i]));
-  const minuten = detail.durationSeconds / 60;
-  const teams = [100, 200].map((id) => detail.players.filter((p) => p.team === id));
-  const maxGold = Math.max(1, ...detail.players.map((p) => p.gold));
-  const maxCs = Math.max(1, ...detail.players.map((p) => p.cs));
-  const totaal = (spelers: GameDetailPlayer[], veld: "kills" | "gold") =>
-    spelers.reduce((a, p) => a + p[veld], 0);
-
-  return (
-    <div className="space-y-4 border-t border-line px-4 py-4">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-[11px] text-ink-500">
-        <span className="num">{klok(detail.durationSeconds)} long</span>
-        <span className="num">patch {detail.patch}</span>
-        <span className="num">
-          {totaal(teams[0]!, "kills")} &ndash; {totaal(teams[1]!, "kills")} kills
-        </span>
-        <span className="num">
-          {Math.round(totaal(teams[0]!, "gold") / 1000)}k &ndash; {Math.round(totaal(teams[1]!, "gold") / 1000)}k gold
-        </span>
-      </div>
-
-      {teams.map((team, i) => (
-        <div key={i}>
-          <p className={`mb-1.5 text-[10px] tracking-[0.16em] uppercase ${i === 0 ? "text-sky-400/70" : "text-loss-400/70"}`}>
-            {i === 0 ? "Blue side" : "Red side"}
-            <span className="ml-2 text-ink-700">{team[0]?.win ? "won" : "lost"}</span>
-          </p>
-          <div className="space-y-1">
-            {team.map((p, j) => (
-              <DetailSpeler
-                key={j}
-                p={p}
-                champions={champions}
-                items={items}
-                minuten={minuten}
-                maxGold={maxGold}
-                maxCs={maxCs}
-                blauw={i === 0}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
-
-      <p className="text-[11px] text-ink-600">
-        Bars compare the ten players in this game, nothing more. Classic match history carries no
-        timeline, so there is no gold curve to draw and no first blood to report &mdash; only what each
-        player finished with.
-      </p>
-    </div>
-  );
-}
-
-function DetailSpeler({
-  p,
-  champions,
-  items,
-  minuten,
-  maxGold,
-  maxCs,
-  blauw,
-}: {
-  p: GameDetailPlayer;
-  champions: Map<number, ChampionSummary>;
-  items: Map<number, ItemSummary>;
-  minuten: number;
-  maxGold: number;
-  maxCs: number;
-  blauw: boolean;
-}): JSX.Element {
-  const champion = champions.get(p.championId);
-  const kda = p.deaths === 0 ? p.kills + p.assists : (p.kills + p.assists) / p.deaths;
-  const kleur = blauw ? "bg-sky-500/70" : "bg-loss-500/70";
-  return (
-    <div className={`flex items-center gap-3 rounded-lg px-2 py-1.5 ${p.isYou ? "bg-gold-500/[0.09]" : "bg-white/[0.02]"}`}>
-      <ChampionIcon iconPath={champion?.iconPath} name={champion?.name} size={28} />
-      <span className="w-24 shrink-0 truncate text-[11px]">{champion?.name ?? p.championId}</span>
-      <span className="num w-16 shrink-0 text-[11px] text-ink-300">
-        {p.kills}/{p.deaths}/{p.assists}
-      </span>
-      <span className="num w-10 shrink-0 text-[10px] text-ink-600">{kda.toFixed(1)}</span>
-
-      <span className="flex w-28 shrink-0 items-center gap-1.5" title={`${p.cs} CS`}>
-        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-line/50">
-          <span className={`block h-full ${kleur}`} style={{ width: `${(p.cs / maxCs) * 100}%` }} />
-        </span>
-        <span className="num w-12 text-right text-[10px] text-ink-500">
-          {minuten > 0 ? (p.cs / minuten).toFixed(1) : "0"}/m
-        </span>
-      </span>
-
-      <span className="flex w-28 shrink-0 items-center gap-1.5" title={`${p.gold} gold`}>
-        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-line/50">
-          <span className="block h-full bg-gold-400/70" style={{ width: `${(p.gold / maxGold) * 100}%` }} />
-        </span>
-        <span className="num w-10 text-right text-[10px] text-ink-500">{(p.gold / 1000).toFixed(1)}k</span>
-      </span>
-
-      <span className="ml-auto">
-        <ItemRow items={p.items} lookup={items} size={20} />
-      </span>
     </div>
   );
 }
@@ -1321,7 +1271,7 @@ function GameRow({
         <path d="m9 6 6 6-6 6" />
       </svg>
     </button>
-    {open ? <GameDetailPaneel gameId={game.gameId} snapshot={snapshot} /> : null}
+    {open ? <NaspelPaneel game={game} snapshot={snapshot} /> : null}
     </Panel>
   );
 }

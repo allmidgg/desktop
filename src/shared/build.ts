@@ -75,3 +75,101 @@ export function bouwPad(
 
   return inventaris.sort((a, b) => begin(a) - begin(b));
 }
+
+/**
+ * One purchase, with what it actually cost and what was in hand afterwards.
+ */
+export interface Aankoop {
+  stap: BuildStep;
+  /**
+   * Gold this purchase added on top of what was already owned.
+   *
+   * The catalogue's price is the total price -- the number the shop puts on the
+   * icon -- so an Infinity Edge quotes the B.F. Sword inside it. Adding the raw
+   * prices of a purchase list therefore counts the same gold three or four times
+   * over. What is charged here is the difference: the item's total minus the
+   * totals of the components it swallowed, which telescopes to exactly the gold
+   * that left the player's pocket at that moment.
+   */
+  bijbetaling: number;
+  /** Gold committed to items after this purchase. */
+  totaal: number;
+  /** The components this purchase consumed, so a click can say where they went. */
+  verbruikt: number[];
+  /** What was in the inventory the instant after, finished items and loose parts alike. */
+  bezit: number[];
+}
+
+/**
+ * Walks a purchase list and works out what each step cost and what was held.
+ *
+ * Deliberately not built on top of bouwPad, which answers a different question:
+ * bouwPad flattens a chain into one group, and a flattened chain has lost the
+ * boundaries the arithmetic needs -- a Long Sword that became a B.F. Sword that
+ * became an Infinity Edge appears three times in one group's history, and there
+ * is no longer anything saying which of them paid for which. The consumption
+ * rule is the same rule, applied one step at a time.
+ *
+ * An item the catalogue does not know prices at zero rather than at a guess.
+ * That self-corrects: an unknown component charges nothing when it is bought and
+ * subtracts nothing when it is consumed, so the running total is right again as
+ * soon as a known item is finished.
+ */
+export function aankoopVerloop(
+  stappen: BuildStep[],
+  prijsVan: (itemId: number) => number,
+  onderdelenVan: (itemId: number) => number[],
+): Aankoop[] {
+  const inventaris: number[] = [];
+  const uit: Aankoop[] = [];
+  let totaal = 0;
+
+  for (const stap of stappen) {
+    // Direct components only, the same as bouwPad: anything deeper is already
+    // represented by the sub-assembly lying in the inventory.
+    const nodig = [...onderdelenVan(stap.itemId)];
+    const verbruikt: number[] = [];
+    for (let i = 0; i < inventaris.length && nodig.length > 0; ) {
+      const gehouden = inventaris[i];
+      const j = gehouden === undefined ? -1 : nodig.indexOf(gehouden);
+      if (j === -1 || gehouden === undefined) {
+        i++;
+        continue;
+      }
+      nodig.splice(j, 1);
+      verbruikt.push(gehouden);
+      inventaris.splice(i, 1);
+    }
+
+    const terug = verbruikt.reduce((som, id) => som + prijsVan(id), 0);
+    // Never negative. A component priced above the thing it builds into means
+    // the catalogue disagrees with itself, and a negative charge would draw a
+    // player's spending going down, which never happens.
+    const bijbetaling = Math.max(0, prijsVan(stap.itemId) - terug);
+    totaal += bijbetaling;
+    inventaris.push(stap.itemId);
+    uit.push({ stap, bijbetaling, totaal, verbruikt, bezit: [...inventaris] });
+  }
+
+  return uit;
+}
+
+/** Gold committed by a given second. Zero before the first purchase. */
+export function goudOp(aankopen: Aankoop[], seconde: number): number {
+  let totaal = 0;
+  for (const a of aankopen) {
+    if (a.stap.at > seconde) break;
+    totaal = a.totaal;
+  }
+  return totaal;
+}
+
+/** What was in the inventory at a given second, finished items and loose parts alike. */
+export function bezitOp(aankopen: Aankoop[], seconde: number): number[] {
+  let bezit: number[] = [];
+  for (const a of aankopen) {
+    if (a.stap.at > seconde) break;
+    bezit = a.bezit;
+  }
+  return bezit;
+}

@@ -101,6 +101,46 @@ interface Tally {
   kills: number;
   deaths: number;
   assists: number;
+  /**
+   * Totals, with the seconds they were earned over, rather than finished rates.
+   *
+   * A rate has to be divided at the very end. Averaging each game's own CS per
+   * minute would give a 19-minute stomp the same weight as a 48-minute slog;
+   * dividing total CS by total seconds weighs every minute once, which is what
+   * "CS per minute for this champion" actually means.
+   *
+   * These three were in the published aggregate all along -- CHAMPION_FIELDS has
+   * named them since the first version -- and were read straight past. Without
+   * them the app can say who wins on a champion but not what a normal game of
+   * one looks like, and a number like 6.2 CS per minute means nothing until
+   * there is something to hold it against.
+   */
+  cs: number;
+  gold: number;
+  seconden: number;
+}
+
+/**
+ * What a champion normally does in a lane, across every recorded game of it.
+ *
+ * Kept apart from ChampionStat because these are rates over totals rather than
+ * per-game averages, and because the only thing they exist for is standing
+ * beside a single game of your own.
+ */
+export interface ChampionBaseline {
+  championId: number;
+  position: Position;
+  /** Games behind the averages. Never drop it: it is what makes them readable. */
+  games: number;
+  /** Average length of those games in minutes -- what the rates are per. */
+  minutes: number;
+  csPerMin: number;
+  goldPerMin: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  /** (kills + assists) / deaths over the totals, the same rule as the tier list. */
+  kda: number;
 }
 
 
@@ -126,10 +166,37 @@ export interface AggregateStats {
   spells: Record<string, number[]>;
 }
 
+/** The lanes a player is ever tallied in; UNKNOWN is never counted. */
+const BASELINE_LANES: readonly Position[] = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "SUPPORT"];
+
 const CHAMPION_FIELDS = ["games", "wins", "kills", "deaths", "assists", "cs", "gold", "seconden"];
 const PAIR_FIELDS = ["games", "wins"];
 
-const emptyTally = (): Tally => ({ games: 0, wins: 0, kills: 0, deaths: 0, assists: 0 });
+const emptyTally = (): Tally => ({
+  games: 0,
+  wins: 0,
+  kills: 0,
+  deaths: 0,
+  assists: 0,
+  cs: 0,
+  gold: 0,
+  seconden: 0,
+});
+
+/**
+ * How many recorded games a champion needs in a lane before its averages are
+ * worth putting next to one game of yours.
+ *
+ * A per-minute average is a ratio of two totals, and over a handful of games it
+ * moves further than any difference someone would read off it. Deze vloer
+ * weigert in de praktijk echter niets: van de 315 champion-lane-paren in het
+ * 128.628-game aggregaat zit er geen enkele onder de 30, en 139 zitten onder de
+ * 1.000 -- Corki support staat op 35, Olaf support op 40, Sivir support op 44.
+ * Juist de off-role picks komen er dus doorheen. Hij bestaat om een leeg of net
+ * aangelegd aggregaat op te vangen; wat de lezer beschermt is de steekproef die
+ * IjkBlok naast de gemiddelden afdrukt, niet dit getal.
+ */
+export const MIN_BASELINE_GAMES = 30;
 
 export class JadeStats {
   /** "positie|champion" -> tally */
@@ -216,6 +283,13 @@ export class JadeStats {
         kills: getal(v, 2, sleutel),
         deaths: getal(v, 3, sleutel),
         assists: getal(v, 4, sleutel),
+        // Indices 5 to 7 were being read straight past. CHAMPION_FIELDS has
+        // always named them and the guard at the top of this method has always
+        // insisted on them, so a file that reaches this line is guaranteed to
+        // carry them and getal() may stay strict.
+        cs: getal(v, 5, sleutel),
+        gold: getal(v, 6, sleutel),
+        seconden: getal(v, 7, sleutel),
       });
     }
     for (const [naam, doel, verschuif] of [
@@ -229,9 +303,16 @@ export class JadeStats {
         doel.set(staartSleutel(sleutel, verschuif), {
           games: getal(v, 0, sleutel),
           wins: getal(v, 1, sleutel),
+          // Matchups, items and spell pairs are published as games and wins
+          // only; everything below is zero because it was never counted, not
+          // because it happened to be zero. Nothing reads these -- baseline()
+          // works off the champions map alone -- and that is deliberate.
           kills: 0,
           deaths: 0,
           assists: 0,
+          cs: 0,
+          gold: 0,
+          seconden: 0,
         });
       }
     }
@@ -256,6 +337,12 @@ export class JadeStats {
       tally.kills += player.kills;
       tally.deaths += player.deaths;
       tally.assists += player.assists;
+      tally.cs += player.cs;
+      tally.gold += player.gold;
+      // The match duration counted once per player slot, so it divides the
+      // totals above exactly. Counting it once per match instead would inflate
+      // every rate here by a factor of ten.
+      tally.seconden += match.duration;
       this.champions.set(key, tally);
 
       this.positionTotals.set(player.position, (this.positionTotals.get(player.position) ?? 0) + 1);
@@ -307,6 +394,78 @@ export class JadeStats {
       avgKills: tally.games ? tally.kills / tally.games : 0,
       avgDeaths: tally.games ? tally.deaths / tally.games : 0,
       avgAssists: tally.games ? tally.assists / tally.games : 0,
+    };
+  }
+
+  /**
+   * What this champion normally does in this lane, or null when too little is
+   * behind it to be worth printing.
+   *
+   * Null rather than zeroes on purpose. A caller handed a number will draw it,
+   * and "0.0 CS per minute is normal here" is worse than an empty space -- the
+   * whole point of a baseline is that the reader can lean on it.
+   */
+  baseline(championId: number, position: Position): ChampionBaseline | null {
+    return this.uitTally(championId, position, this.champions.get(`${position}|${championId}`));
+  }
+
+  /**
+   * The same averages with every lane of one champion pooled.
+   *
+   * This exists because of a measured hole, not as a courtesy. Riot hands back a
+   * position of UNKNOWN for 20,340 of the 130,086 stored games, and never for a
+   * stray player: it is all ten at once, one game in eight, so a rule that scores
+   * a player against his own lane would have nothing to score those games with.
+   * Pooling the lanes keeps the yardstick honest for the champion even when the
+   * lane is lost, and it is a real yardstick rather than a shrug -- a champion
+   * sits in one lane for about seven of every ten of its games, so the pooled
+   * figures land close to the lane figures for almost every pick.
+   *
+   * The lane is reported as UNKNOWN, which is exactly what it is here.
+   */
+  championBaseline(championId: number): ChampionBaseline | null {
+    const totaal = emptyTally();
+    for (const lane of BASELINE_LANES) {
+      const tally = this.champions.get(`${lane}|${championId}`);
+      if (!tally) continue;
+      totaal.games += tally.games;
+      totaal.wins += tally.wins;
+      totaal.kills += tally.kills;
+      totaal.deaths += tally.deaths;
+      totaal.assists += tally.assists;
+      totaal.cs += tally.cs;
+      totaal.gold += tally.gold;
+      totaal.seconden += tally.seconden;
+    }
+    return this.uitTally(championId, "UNKNOWN", totaal);
+  }
+
+  /** The arithmetic both baselines share, so the two can never drift apart. */
+  private uitTally(championId: number, position: Position, tally: Tally | undefined): ChampionBaseline | null {
+    if (!tally || tally.games < MIN_BASELINE_GAMES) return null;
+    // Seconds are the denominator of every rate below. A tally that somehow
+    // arrived without them would turn each one into Infinity and print it
+    // without complaint, so the honest answer there is no baseline at all.
+    if (tally.seconden <= 0) return null;
+
+    const minuten = tally.seconden / 60;
+    return {
+      championId,
+      position,
+      games: tally.games,
+      minutes: minuten / tally.games,
+      csPerMin: tally.cs / minuten,
+      goldPerMin: tally.gold / minuten,
+      kills: tally.kills / tally.games,
+      deaths: tally.deaths / tally.games,
+      assists: tally.assists / tally.games,
+      // The same rule toTierEntry uses in service.ts: a ratio of the totals. If
+      // the two screens computed KDA differently the app would be arguing with
+      // itself in front of the user.
+      kda:
+        tally.deaths === 0
+          ? tally.kills + tally.assists
+          : (tally.kills + tally.assists) / tally.deaths,
     };
   }
 

@@ -58,6 +58,20 @@
   --color-ink-500: #5d6675; /* labels */
   --color-ink-700: #3a4150; /* nauwelijks aanwezig */
 
+  /* De tussentrappen, en niet omdat de schaal er vier tekortkwam.
+     Tailwind maakt alleen een klasse voor een token dat hier staat, dus
+     `text-ink-600` op een tekst die zwakker moest zijn dan ink-500 leverde
+     helemaal geen klasse op -- de tekst erfde dan de kleur van zijn ouder en
+     kwam bijna wit uit de bus. JouwStats waarschuwt daar in zijn eigen
+     commentaar al voor; het naspel-scherm en de live-rijen liepen er alsnog
+     tien en vierentwintig keer in. De waarden liggen precies tussen hun buren,
+     zodat elke bestaande klasse eindelijk doet wat er stond. */
+  --color-ink-200: #b8c0cd;
+  --color-ink-400: #737d8e;
+  --color-ink-600: #4a5261;
+  --color-ink-800: #262c38;
+  --color-ink-900: #161b23;
+
   --font-sans: "Inter", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
 
   /* ── Vormtaal ────────────────────────────────────────────────────────────
@@ -1568,4 +1582,910 @@ button.tier-tegel,
 @media (prefers-reduced-motion: reduce) {
   .tabwissel { animation: none; }
   .rail-aan { transition: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE POST-GAME SCREEN
+   ---------------------------------------------------------------------------
+   Ten players on nine columns, opened from a match row. It is a table and it is
+   allowed to look like one -- this is the one place in the app where comparing
+   a stranger against yourself is the entire point, and a table is what the eye
+   does that in.
+
+   Two of the nine columns are conditional, so the template comes from
+   --naspel-kolommen, which the view sets once on the container. The header row
+   and the ten player rows read the same variable, which is what makes it
+   impossible for them to disagree about which columns are up.
+
+   Below 780 the whole grid scrolls sideways rather than compressing. A squeezed
+   item icon stops being the item -- the artwork reads by silhouette -- and a
+   damage bar narrower than its own label compares nothing.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.naspel {
+  border-top: 1px solid var(--rand-goud);
+}
+
+/* An abandoned game is not a played one, and its numbers are lower for a reason
+   that has nothing to do with the players. Stated in loss red, small, once. */
+.naspel-opgegeven {
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  border: 1px solid color-mix(in oklab, var(--color-loss-500) 40%, transparent);
+  color: var(--color-loss-400);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+/* One total, split rather than scaled: the question a team total answers is not
+   "how much" but "how much more than them", and a split bar is that question
+   drawn. Blue takes the app's information blue and red the loss red, because
+   here those are the two sides -- not two verdicts. */
+.naspel-vergelijking {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-loss-500) 55%, var(--color-void));
+}
+.naspel-vergelijking-links {
+  display: block;
+  height: 100%;
+  background: color-mix(in oklab, var(--color-info-400) 62%, var(--color-void));
+}
+
+.naspel-schuif {
+  overflow-x: auto;
+}
+.naspel-raster {
+  min-width: 780px;
+}
+
+.naspel-rij,
+.naspel-kolomkop {
+  display: grid;
+  grid-template-columns: var(--naspel-kolommen);
+  align-items: center;
+  gap: 8px;
+}
+
+.naspel-kolomkop {
+  padding: 0 6px 4px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-700);
+}
+
+.naspel-rij {
+  min-height: 44px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Your own row, in the app's one accent. Nothing else on this screen is gold,
+   so finding yourself among ten costs no reading at all. */
+.naspel-rij-jij {
+  background: rgba(231, 199, 110, 0.09);
+}
+
+/* The level rides on the portrait rather than taking a column, because it is a
+   footnote to the champion and not a figure anyone scans down. */
+.naspel-portret {
+  position: relative;
+  flex: none;
+  line-height: 0;
+}
+.naspel-level {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  min-width: 15px;
+  padding: 0 2px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--rand-goud);
+  background: var(--color-void);
+  color: var(--color-ink-300);
+  font-size: 9px;
+  line-height: 13px;
+  text-align: center;
+}
+
+.naspel-spells img,
+.naspel-spells div,
+.naspel-items img,
+.naspel-items div {
+  border-radius: 4px;
+}
+
+/* Six items at 22 on a 25 pitch, the same measurement the match row uses.
+   ItemRow's own 4px gap is tuned for larger art and pushes this column past its
+   width. */
+.naspel-items > div {
+  gap: 3px;
+}
+
+/* ── The score ────────────────────────────────────────────────────────────
+   One derived judgement on a screen of measurements, so it is drawn as a seal
+   rather than as another number in the row: fixed size, its own plate, and the
+   full breakdown on its title. MVP is filled gold and ACE is outlined, which is
+   the same logic the tier letters use -- exactly one thing per game is allowed
+   to be solid gold, and it is the best game in it. */
+.naspel-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--color-line);
+  background: color-mix(in oklab, var(--color-void) 85%, transparent);
+  cursor: help;
+}
+.naspel-score-getal {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 15px;
+  color: var(--color-ink-100);
+}
+.naspel-score-merk {
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 10px;
+  letter-spacing: 0.1em;
+}
+.naspel-score-mvp {
+  border-color: var(--color-gold-400);
+  background: var(--color-gold-400);
+}
+.naspel-score-mvp .naspel-score-getal,
+.naspel-score-mvp .naspel-score-merk {
+  color: var(--color-void);
+}
+.naspel-score-ace {
+  border-color: color-mix(in oklab, var(--color-gold-500) 70%, transparent);
+}
+.naspel-score-ace .naspel-score-getal,
+.naspel-score-ace .naspel-score-merk {
+  color: var(--color-gold-300);
+}
+
+/* ── The two damage bars ──────────────────────────────────────────────────
+   Dealt in gold above, taken in cool grey below, each against the highest in
+   the game. Stacked rather than side by side because the pair is the reading: a
+   tall gold bar over a short grey one is a carry, the reverse is a tank, and two
+   columns apart nobody puts them back together. */
+.naspel-schade {
+  display: block;
+}
+.naspel-schade > * + * {
+  margin-top: 3px;
+}
+.naspel-balk {
+  position: relative;
+  flex: 1;
+  height: 5px;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-line) 50%, transparent);
+}
+.naspel-balk-schade {
+  display: block;
+  height: 100%;
+  background: color-mix(in oklab, var(--color-gold-400) 70%, transparent);
+}
+.naspel-balk-opgevangen {
+  display: block;
+  height: 100%;
+  background: color-mix(in oklab, var(--color-ink-300) 45%, transparent);
+}
+
+/* ── Lane by lane ─────────────────────────────────────────────────────────
+   Four cells: blue, the lane, red, and the gap between them. The gaps sit in
+   their own column on the right rather than in the middle, so five rows form a
+   readable column of leads instead of five separate sentences. */
+.naspel-lane {
+  display: grid;
+  grid-template-columns: 1fr 96px 1fr 200px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.naspel-lane-cijfers {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ── The rule behind the score ────────────────────────────────────────────
+   Closed by default and one click away, which is the whole deal: a derived
+   number is allowed on this screen precisely because its recipe is reachable
+   from it. */
+.naspel-regel-knop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 11px;
+  color: var(--color-gold-500);
+  cursor: pointer;
+  transition: color var(--duur) var(--ease);
+}
+.naspel-regel-knop:hover {
+  color: var(--color-gold-300);
+}
+
+.naspel-regel {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--rand-goud);
+  background: color-mix(in oklab, var(--color-void) 60%, transparent);
+}
+.naspel-regel-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* A factor this game could not supply is greyed rather than hidden. Hiding it
+   would leave a rule that looks complete and is not, and the part that is
+   missing is exactly what a reader needs before trusting the number. */
+.naspel-regel-uit {
+  opacity: 0.45;
+}
+
+/* What the score could not be measured on, said where the score is.
+   Deliberately not styled as a warning: nothing went wrong, a field was simply
+   never written down. Brass at its lowest strength, so it is legible above the
+   table without competing with it -- and above all, present without a click. */
+.naspel-beperkt {
+  margin-top: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-xs);
+  border: 1px solid color-mix(in oklab, var(--color-gold-600) 50%, transparent);
+  background: color-mix(in oklab, var(--color-gold-400) 4%, transparent);
+  font-size: 10px;
+  line-height: 1.55;
+  color: var(--color-ink-500);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   YOUR GAME AGAINST THE AVERAGE
+   ---------------------------------------------------------------------------
+   Everything else on the post-game measures the ten players against each other.
+   This block is the only one that measures against the rest of the database, and
+   it is drawn as a row of measuring sticks rather than as progress bars.
+
+   The difference matters. A progress bar has a full: it says how far along you
+   are towards something. There is no "full" here -- the average is the only
+   fixed point, it sits at the halfway mark, and your value is drawn against it
+   so the eye reads a distance rather than a percentage. A full track is
+   therefore exactly twice the average, which is a number and not a limit.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.ijk {
+  padding: 12px 14px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--rand-goud);
+  border-top-color: var(--rand-goud-boven);
+  background: color-mix(in oklab, var(--color-surface-2) 55%, transparent);
+}
+
+.ijk-kop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ijk-titel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink-100);
+}
+.ijk-titel-bij {
+  font-weight: 400;
+  color: var(--color-ink-500);
+}
+.ijk-sample {
+  margin-top: 1px;
+  font-size: 10px;
+  color: var(--color-ink-600);
+}
+
+/* A count of the rows below, and every one of those rows is on screen. It is
+   allowed to look like a verdict precisely because it is not one: nothing is
+   hidden behind it that the reader cannot recount by eye. */
+.ijk-telling {
+  margin-left: auto;
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-line);
+  background: color-mix(in oklab, var(--color-surface-3) 70%, transparent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-ink-300);
+  cursor: help;
+  white-space: nowrap;
+}
+.ijk-telling-goed {
+  border-color: color-mix(in oklab, var(--color-jade-500) 45%, transparent);
+  background: color-mix(in oklab, var(--color-jade-500) 10%, transparent);
+  color: var(--color-jade-300);
+}
+
+.ijk-rijen {
+  display: grid;
+  gap: 4px;
+}
+
+.ijk-rij {
+  display: grid;
+  grid-template-columns: 68px 52px minmax(60px, 1fr) 52px 46px;
+  align-items: center;
+  gap: 10px;
+}
+
+.ijk-label {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+.ijk-jij {
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ijk-gemiddeld {
+  font-size: 11px;
+  color: var(--color-ink-500);
+  cursor: help;
+}
+.ijk-verschil {
+  text-align: right;
+  font-size: 10px;
+}
+
+/* Jade for the better side and loss for the worse, which are this app's two
+   semantic colours and mean exactly what they mean everywhere else. Grey is the
+   third real state and not a fallback: under five percent on a single game there
+   is no difference worth colouring. */
+.ijk-goed {
+  color: var(--color-jade-400);
+}
+.ijk-slecht {
+  color: var(--color-loss-400);
+}
+.ijk-neutraal {
+  color: var(--color-ink-300);
+}
+
+.ijk-baan {
+  position: relative;
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-line) 55%, transparent);
+}
+
+.ijk-vulling {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 999px;
+  background: currentColor;
+  transition: width var(--duur) var(--ease);
+}
+
+/* The average, and deliberately taller than the track it crosses. The whole row
+   exists to be read against this line, so it has to survive a fill sitting
+   directly under it -- hence ink-300 rather than a border tone, and hence the
+   two pixels of overhang top and bottom. The track does not clip. */
+.ijk-tik {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-0.5px);
+  background: var(--color-ink-300);
+  border-radius: 1px;
+}
+
+/* Drawn only when the value runs past the end of the stick, so a clamped bar can
+   never pass for a bar that merely happens to be full. Twice the average and
+   four times the average are both a full track; only this marker says which. */
+.ijk-voorbij::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -4px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transform: translateY(-50%);
+}
+
+/* The rule that produced every average above. Printed rather than hidden behind
+   a toggle: this block is a comparison against 128,628 games the reader has
+   never seen, and the one thing that makes that trustworthy is being able to
+   check how it was counted. */
+.ijk-regel {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in oklab, var(--color-line) 60%, transparent);
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--color-ink-600);
+}
+.ijk-regel .num {
+  color: var(--color-ink-300);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ijk-vulling {
+    transition: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE TIMELINE
+   ---------------------------------------------------------------------------
+   Classic match history has no timeline, so this panel draws the only one that
+   exists: what the app itself watched happen while the game was running. That
+   makes it a different kind of surface from the rest of the app, which reads a
+   database. It is the one place where the numbers were observed rather than
+   fetched, and the design says so by keeping the frame quiet and letting the
+   two team lines and the item art carry everything.
+
+   Blue and red here are sides, not outcomes, which is why they are the info and
+   loss tones the live scoreboard already uses and not jade-versus-loss. Gold is
+   spent on exactly two things: the scrubber, and the one player you selected.
+   That is the whole point of an accent -- if it also coloured the sides there
+   would be nothing left to say "this, right now".
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tijdlijn {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.tijdlijn-kop {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.tijdlijn-titel {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+  white-space: nowrap;
+}
+
+/* The slider is the keyboard route to the scrubber. It is deliberately thin and
+   nearly colourless: it duplicates a control that is already the whole width of
+   the chart, so it must not read as a second, competing thing to drag. */
+.tijdlijn-schuif {
+  flex: 1;
+  height: 2px;
+  appearance: none;
+  background: var(--color-line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.tijdlijn-schuif::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-gold-400);
+  box-shadow: var(--glow-gold);
+}
+.tijdlijn-schuif:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 4px;
+}
+
+.tijdlijn-grafiek svg {
+  display: block;
+  cursor: crosshair;
+  overflow: visible;
+}
+
+.tijdlijn-raster {
+  stroke: var(--color-line);
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+.tijdlijn-aslabel {
+  fill: var(--color-ink-700);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tijdlijn-lijn {
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+}
+.tijdlijn-orde {
+  stroke: var(--color-info-400);
+}
+.tijdlijn-chaos {
+  stroke: var(--color-loss-400);
+}
+
+/* The selected player rides on top in the accent, thicker than the team lines
+   so it stays findable when it runs along one of them. */
+.tijdlijn-gekozen {
+  stroke: var(--color-gold-400);
+  stroke-width: 2.25;
+  filter: drop-shadow(0 0 6px rgba(231, 199, 110, 0.35));
+}
+
+/* The lead is a fill and not a line: it is a quantity above and below a zero,
+   and an outline would invite reading it as a third curve. */
+.tijdlijn-voorsprong-orde {
+  fill: color-mix(in oklab, var(--color-info-400) 26%, transparent);
+}
+.tijdlijn-voorsprong-chaos {
+  fill: color-mix(in oklab, var(--color-loss-400) 26%, transparent);
+}
+
+.tijdlijn-kill-orde {
+  stroke: var(--color-info-400);
+  stroke-width: 1.5;
+  opacity: 0.7;
+}
+.tijdlijn-kill-chaos {
+  stroke: var(--color-loss-400);
+  stroke-width: 1.5;
+  opacity: 0.7;
+}
+.tijdlijn-kill-onbekend {
+  stroke: var(--color-ink-700);
+  stroke-width: 1.5;
+}
+
+/* An objective is a moment, so it gets a full-height hairline and a head. Both
+   sit at gold-600, the token documented for divisions: present enough to find,
+   dim enough that eight of them do not become the chart. */
+.tijdlijn-baken {
+  cursor: pointer;
+}
+.tijdlijn-baken line {
+  stroke: var(--color-gold-600);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.tijdlijn-baken circle {
+  fill: var(--color-gold-500);
+}
+.tijdlijn-baken:hover line {
+  stroke: var(--color-gold-400);
+}
+.tijdlijn-baken:hover circle {
+  fill: var(--color-gold-300);
+}
+
+.tijdlijn-scrubber {
+  stroke: var(--color-gold-400);
+  stroke-width: 1;
+  opacity: 0.8;
+}
+.tijdlijn-punt-orde {
+  fill: var(--color-info-400);
+  stroke: var(--color-void);
+  stroke-width: 1.5;
+}
+.tijdlijn-punt-chaos {
+  fill: var(--color-loss-400);
+  stroke: var(--color-void);
+  stroke-width: 1.5;
+}
+
+/* The read-out sits directly under the chart because it belongs to the scrubber
+   above it, not to the tracks below. */
+.tijdlijn-afleeslat {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-line);
+  font-size: 12px;
+}
+.tijdlijn-klok {
+  color: var(--color-gold-300);
+  font-weight: 600;
+}
+.tijdlijn-blauw {
+  color: var(--color-info-400);
+}
+.tijdlijn-rood {
+  color: var(--color-loss-400);
+}
+.tijdlijn-scheiding {
+  color: var(--color-ink-700);
+  font-size: 11px;
+}
+
+.tijdlijn-uitleg {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--color-ink-500);
+}
+.tijdlijn-nadruk {
+  color: var(--color-ink-300);
+}
+
+.tijdlijn-sporen {
+  display: grid;
+  gap: 12px;
+}
+
+.tijdlijn-kant {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-ink-600);
+  margin-bottom: 4px;
+}
+.tijdlijn-kant-blauw {
+  color: color-mix(in oklab, var(--color-info-400) 70%, transparent);
+}
+.tijdlijn-kant-rood {
+  color: color-mix(in oklab, var(--color-loss-400) 70%, transparent);
+}
+
+/* One player is one strip: identity on the left, the clock across the rest. The
+   two share the row so the eye can go straight from a champion to the second
+   that champion actually got its item, which is the comparison the whole panel
+   exists to make possible. */
+.tijdlijn-spoor {
+  border-radius: var(--radius-sm);
+  transition: background-color var(--duur) var(--ease);
+}
+.tijdlijn-spoor + .tijdlijn-spoor {
+  margin-top: 2px;
+}
+.tijdlijn-spoor:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+/* Beide selectors, want .tijdlijn-spoor:hover is (0,2,0) en zou het goud er
+   anders afvegen precies zolang de cursor die het spoor selecteerde er nog op
+   staat -- dus altijd op het moment van klikken. */
+.tijdlijn-spoor-aan,
+.tijdlijn-spoor-aan:hover {
+  background: rgba(231, 199, 110, 0.07);
+}
+.tijdlijn-spoor-jij {
+  box-shadow: inset 2px 0 0 var(--color-gold-400);
+}
+
+.tijdlijn-spoor-kop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 8px;
+  text-align: left;
+  cursor: pointer;
+}
+.tijdlijn-spoor-kop img {
+  border-radius: 6px;
+}
+.tijdlijn-spoor-naam {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 116px;
+  flex: none;
+  font-size: 11px;
+  color: var(--color-ink-100);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tijdlijn-spoor-lane {
+  color: var(--color-ink-600);
+  display: inline-flex;
+}
+.tijdlijn-spoor-kda {
+  font-size: 11px;
+  color: var(--color-ink-500);
+  width: 64px;
+  flex: none;
+}
+.tijdlijn-spoor-goud {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--color-gold-300);
+}
+
+/* The track is the clock. Icons are positioned by percentage of game length, so
+   two purchases half a second apart really do overlap -- that crowding is the
+   early game and it is information, not a layout bug to space away. */
+.tijdlijn-baan {
+  position: relative;
+  height: 26px;
+  /* Geen zijmarge: de strook deelt zijn x-as met de grafiek erboven, en die
+     rekent vanaf de rand van dezelfde kolom. Acht pixel inspringing hier is
+     acht pixel waarop een icoon een andere seconde aanwijst dan de lijn. */
+  margin: 0 0 4px;
+  border-radius: var(--radius-xs);
+  background: linear-gradient(90deg, transparent, var(--ader) 12%, var(--ader) 88%, transparent)
+    center / 100% 1px no-repeat;
+}
+
+.tijdlijn-koop {
+  position: absolute;
+  top: 3px;
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    transform var(--duur) var(--ease),
+    border-color var(--duur) var(--ease);
+}
+.tijdlijn-koop img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.tijdlijn-koop:hover {
+  transform: scale(1.5);
+  border-color: var(--color-gold-400);
+  z-index: 2;
+}
+/* Bought after the second the scrubber is on. Dimmed rather than hidden: the
+   shape of the rest of the build is context for where you are in it. */
+.tijdlijn-koop-later {
+  opacity: 0.28;
+}
+/* Nog niet opgegaan in iets groters op dat moment -- meer kan de opname niet
+   bewijzen. Verkopen en verbruiken ziet ze niet, dus dit is geen inventaris: op
+   de enige opname op schijf eindigt Garen met elf gemarkeerde items in zes
+   vakjes, twee paar schoenen erbij, en Morgana met veertien waaronder drie
+   vision wards en een health potion van 1:26. */
+.tijdlijn-koop-in-bezit {
+  border-color: var(--color-gold-500);
+}
+
+.tijdlijn-uitklap {
+  padding: 6px 10px 10px 42px;
+  display: grid;
+  gap: 8px;
+}
+
+.tijdlijn-pad {
+  display: grid;
+  gap: 4px;
+}
+.tijdlijn-pad li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.02);
+}
+.tijdlijn-pad-tijd {
+  width: 44px;
+  flex: none;
+  font-size: 10px;
+  color: var(--color-ink-700);
+}
+.tijdlijn-pad-deel img {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: block;
+}
+.tijdlijn-pad-pijl {
+  color: var(--color-ink-700);
+}
+.tijdlijn-pad-af {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-ink-300);
+}
+.tijdlijn-pad-af img {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in oklab, var(--color-gold-500) 40%, transparent);
+  display: block;
+}
+
+.tijdlijn-gebeurtenissen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tijdlijn-gebeurtenissen button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-line);
+  color: var(--color-ink-300);
+  cursor: pointer;
+  transition: border-color var(--duur) var(--ease);
+}
+.tijdlijn-gebeurtenissen button:hover {
+  border-color: var(--color-gold-500);
+}
+.tijdlijn-gebeurtenissen .num {
+  color: var(--color-ink-600);
+}
+.tijdlijn-detail {
+  color: var(--color-ink-600);
+}
+.tijdlijn-gestolen {
+  color: var(--color-gold-300);
+}
+
+/* Where the data came from, folded away but never absent. This panel is the one
+   place in the app whose numbers were observed rather than fetched, and it is
+   attached to its match by a join rather than by an id -- so the reasoning stays
+   one click from the chart it justifies. */
+.tijdlijn-herkomst {
+  border-top: 1px solid var(--color-line);
+  padding-top: 10px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--color-ink-600);
+}
+.tijdlijn-herkomst summary {
+  cursor: pointer;
+  color: var(--color-ink-500);
+}
+.tijdlijn-herkomst summary:hover {
+  color: var(--color-gold-300);
+}
+.tijdlijn-herkomst ul {
+  margin-top: 8px;
+  display: grid;
+  gap: 4px;
+  padding-left: 14px;
+  list-style: disc;
+}
+.tijdlijn-herkomst .num {
+  color: var(--color-ink-300);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tijdlijn-koop:hover {
+    transform: none;
+  }
 }

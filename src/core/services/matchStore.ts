@@ -25,6 +25,7 @@ import { dirname, join } from "node:path";
 import type { Game } from "../lcu/types";
 import { isJadeGame } from "../jade/ids";
 import { withFileLock } from "./fileLock";
+import { MINIMALE_GAMEDUUR_SECONDEN } from "../../shared/types";
 
 /**
  * Hoeveel bytes we per keer van schijf halen, en hoe groot een uitgaand blok
@@ -126,7 +127,13 @@ export function toPosition(lane: string | undefined, role: string | undefined): 
 export function slimGame(game: Game): StoredMatch | null {
   if (!isJadeGame(game)) return null;
   // Remakes en vroege surrenders vertekenen elke statistiek.
-  if (game.gameDuration < 300) return null;
+  //
+  // The threshold lives in shared/types, and not because it looks better there:
+  // the screens have to explain why a game they cannot open is missing, and that
+  // sentence is only true while they quote this number instead of restating it.
+  // Written down twice it drifts, and then a screen gives the wrong reason with
+  // complete confidence.
+  if (game.gameDuration < MINIMALE_GAMEDUUR_SECONDEN) return null;
 
   const identityByParticipant = new Map(
     game.participantIdentities.map((identity) => [identity.participantId, identity.player]),
@@ -688,6 +695,17 @@ export class MatchStore {
    * iets dat nergens staat, en de game is stilletjes weg. Mislukt de append nu, dan
    * is het geheugen precies zoals het was en gaat de fout naar de aanroeper, die
    * het rustig opnieuw kan proberen.
+   */
+  /*
+   * A note on counting, because comments elsewhere quote a number.
+   *
+   * matches.jsonl is append-only and holds one game per line, but the two counts
+   * are not the same: as of today 130,095 lines carry 130,086 distinct gameIds.
+   * Nine ids appear twice, from before this method took the file's own contents
+   * as the truth rather than its in-memory index. The Map below keys on gameId,
+   * so a duplicate line costs disk and nothing else -- but `wc -l` overstates
+   * the database by nine, and any comment quoting a measurement should quote the
+   * number the app would reproduce.
    */
   async add(incoming: StoredMatch[]): Promise<number> {
     return this.chain(async () => {
