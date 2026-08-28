@@ -74,10 +74,29 @@ export interface StoredPlayer {
   gold: number;
   items: number[];
   spells: [number, number];
+  /**
+   * Schade aan champions. Optioneel omdat elke match die hiervoor is opgeslagen
+   * hem niet heeft -- de client stuurde hem wel mee, wij lieten hem vallen.
+   *
+   * Dit is het veld waar een naspel-scherm om draait. Zonder schade is er geen
+   * MVP te berekenen, want kills alleen zeggen wie de laatste klap gaf en niet
+   * wie het gevecht won.
+   */
+  damage?: number;
+  /** Schade die je zelf opving. Samen met damage scheidt dit een tank van een carry. */
+  damageTaken?: number;
+  /** Vision score, als de client hem gaf. */
+  vision?: number;
+  /** Geplaatste wards. */
+  wards?: number;
+  /** Champion level aan het eind. */
+  level?: number;
 }
 
 export interface StoredMatch {
   gameId: number;
+  /** Of de game met een surrender eindigde. Ontbreekt op oudere records. */
+  surrendered?: boolean;
   createdAt: number;
   duration: number;
   queueId: number;
@@ -131,6 +150,14 @@ export function slimGame(game: Game): StoredMatch | null {
       gold: s.goldEarned ?? 0,
       items: [s.item0, s.item1, s.item2, s.item3, s.item4, s.item5, s.item6],
       spells: [participant.spell1Id, participant.spell2Id],
+      // De client stuurde deze al mee en ze werden weggegooid. Ze kosten samen
+      // een handvol bytes per speler en ze zijn het verschil tussen een
+      // scorebord en een naspel dat iets zegt.
+      damage: s.totalDamageDealtToChampions,
+      damageTaken: s.totalDamageTaken,
+      vision: s.visionScore,
+      wards: s.wardsPlaced,
+      level: s.champLevel,
     });
   }
   if (players.length < 10) return null;
@@ -139,6 +166,9 @@ export function slimGame(game: Game): StoredMatch | null {
     gameId: game.gameId,
     createdAt: game.gameCreation,
     duration: game.gameDuration,
+    // Een opgegeven game telt anders dan een uitgespeelde: hij eindigt eerder
+    // en de cijfers erin zijn navenant lager.
+    surrendered: game.participants[0]?.stats?.gameEndedInSurrender,
     queueId: game.queueId,
     patch: game.gameVersion.split(".").slice(0, 2).join("."),
     players,

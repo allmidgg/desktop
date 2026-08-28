@@ -33,7 +33,7 @@ import { JADE_MAP_ID } from "../core/jade/ids";
 import { LiveClient } from "../core/lcu/liveClient";
 import { CommunityStatsCache, type CommunityLoad } from "../core/services/communityStats";
 import { LiveGameWatcher, championZoeker } from "../core/services/liveGame";
-import { MatchStore, defaultStorePath, type Position } from "../core/services/matchStore";
+import { MatchStore, defaultStorePath, slimGame, type Position } from "../core/services/matchStore";
 import { MatchCrawler } from "../core/services/crawler";
 import { JadeStats, likelyPosition, MIN_MATCHUP_GAMES, type ChampionStat } from "../core/services/stats";
 import { leesBeeldmodus } from "../core/lcu/beeldmodus";
@@ -1041,6 +1041,25 @@ export class JadeService extends EventEmitter {
       fetchJadeGames(client, puuid, 15),
     ]);
     this.update({ profile, recentGames: games.map((game) => toRecentGame(game, puuid)) });
+
+    // Je eigen games horen altijd in de database te staan.
+    //
+    // De lijst hierboven komt rechtstreeks uit de client, maar het detailscherm
+    // zoekt op in de opgeslagen matches -- en daar kwamen je eigen games alleen
+    // in als de crawler je toevallig was tegengekomen. Vandaar "This game is not
+    // in your database" onder een wedstrijd die je zelf net gespeeld had.
+    //
+    // slimGame gooit weg wat niet telt (geen Classic, korter dan vijf minuten),
+    // en add() slaat over wat er al staat, dus dit mag bij elke verversing
+    // draaien zonder iets te verdubbelen.
+    const eigen = games.map(slimGame).filter((m): m is NonNullable<typeof m> => m !== null);
+    if (eigen.length > 0) {
+      const nieuw = await this.store.add(eigen);
+      if (nieuw > 0) {
+        this.rebuildStats();
+        this.publishDatabaseStatus();
+      }
+    }
   }
 
   masteryTrees(): MasteryTreeInfo[] {

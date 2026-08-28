@@ -35,6 +35,8 @@ export interface ParticipantStats {
   totalMinionsKilled: number;
   neutralMinionsKilled: number;
   totalDamageDealtToChampions: number;
+  /** Optioneel: oudere clients en sommige wachtrijen laten hem weg. */
+  totalDamageTaken?: number;
   visionScore?: number;
   wardsPlaced?: number;
   item0: number;
