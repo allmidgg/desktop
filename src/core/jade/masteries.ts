@@ -73,10 +73,49 @@ export class MasteryCatalog {
     private readonly byId: Map<number, Mastery>,
   ) {}
 
+  /**
+   * Hetzelfde bestand, van de publieke spiegel in plaats van de client.
+   *
+   * Community Dragon publiceert de assets van de client onder dezelfde paden.
+   * Zonder deze weg bleef het Masteries-tabblad hangen op "Loading mastery
+   * trees..." zolang League niet draaide -- dezelfde fout als bij de tier list,
+   * de championcatalogus en de portretten: werkt met client, onbruikbaar
+   * zonder.
+   */
+  static async fromCommunityDragon(): Promise<MasteryCatalog> {
+    const res = await fetch(
+      "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/jade-mastery-display.json",
+    );
+    if (!res.ok) throw new Error(`mastery mirror ${res.status}`);
+    return MasteryCatalog.bouw((await res.json()) as { trees: RawTree[] });
+  }
+
+  /**
+   * Van de client als die er is, anders van de spiegel.
+   *
+   * De client blijft eerst: dat zijn de assets van de installatie zelf, en die
+   * kloppen altijd met de versie die de speler draait.
+   */
+  static async loadOrMirror(client: LcuClient | null): Promise<MasteryCatalog> {
+    if (client) {
+      try {
+        return await MasteryCatalog.load(client);
+      } catch {
+        // Client viel weg tijdens het laden. Val door naar de spiegel.
+      }
+    }
+    return MasteryCatalog.fromCommunityDragon();
+  }
+
   static async load(client: LcuClient): Promise<MasteryCatalog> {
     const raw = await client.get<{ trees: RawTree[] }>(
       "/lol-game-data/assets/v1/jade-mastery-display.json",
     );
+    return MasteryCatalog.bouw(raw);
+  }
+
+  /** Het inlezen zelf, los van waar de gegevens vandaan kwamen. */
+  private static bouw(raw: { trees: RawTree[] }): MasteryCatalog {
     const byId = new Map<number, Mastery>();
     const trees: MasteryTree[] = raw.trees.map((tree) => ({
       name: tree.name,

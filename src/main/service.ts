@@ -280,6 +280,7 @@ export class JadeService extends EventEmitter {
       // 60062, 60053 -- instead of champions. The cache on disk, or Community
       // Dragon, answers just as well and needs nobody to be logged in.
       void this.laadCatalogusVastAlvast().catch(reportBackgroundError);
+      void this.laadMasteriesVastAlvast().catch(reportBackgroundError);
       void this.ververisBeeldmodus().catch(reportBackgroundError);
 
       this.client = await LcuClient.connect();
@@ -510,6 +511,23 @@ export class JadeService extends EventEmitter {
   /** Is er nu een Classic-game bezig? De updater gebruikt dit om weg te blijven. */
   get inGame(): boolean {
     return Boolean(this.snapshot.liveGame?.isClassic) || Boolean(this.snapshot.champSelect);
+  }
+
+  /**
+   * De masterybomen alvast, van de publieke spiegel.
+   *
+   * Zonder dit bleef het Masteries-tabblad hangen op een spinner zolang League
+   * niet draaide. De bomen zijn statische spelgegevens en hebben geen client
+   * nodig; verbindt die later alsnog, dan winnen zijn eigen assets.
+   */
+  private async laadMasteriesVastAlvast(): Promise<void> {
+    if (this.masteries) return;
+    const catalogus = await MasteryCatalog.fromCommunityDragon().catch(() => null);
+    if (!catalogus || this.masteries) return;
+    this.masteries = catalogus;
+    // De bomen zitten niet in de snapshot maar worden per aanroep opgehaald,
+    // dus een lege update laat de UI opnieuw vragen.
+    this.update({});
   }
 
   /** Re-read League's window mode. Failing to find it is not an error. */
