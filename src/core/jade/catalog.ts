@@ -11,7 +11,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { LcuClient } from "../lcu/connector";
 import {
-  isJadeChampionId, isJadeItemId, toBaseChampionId, toBaseItemId, toBaseSpellId,
+  isJadeChampionId, isJadeItemId, toBaseChampionId, toBaseItemId, toBaseSpellId, toJadeSpellId,
 } from "./ids";
 
 interface RawChampion { id: number; name: string; alias: string; squarePortraitPath?: string; roles?: string[] }
@@ -210,12 +210,16 @@ export class JadeCatalog {
       });
     }
 
-    // Spells hebben geen eigen Jade-variant in de assets: de game stuurt 74 terug
-    // waar de asset 4 heet. We indexeren daarom op het vertaalde ID.
+    // Spells hebben meestal geen eigen Jade-variant in de assets: de game stuurt
+    // 74 terug waar de asset 4 heet, dus indexeren we op het vertaalde ID.
+    //
+    // Meestal, niet altijd. De spells die alleen in Classic bestaan dragen hun
+    // Jade-ID al; toJadeSpellId laat die met rust in plaats van er nog een 7
+    // voor te zetten.
     const spells = new Map<number, JadeSpell>();
     for (const raw of rawSpells) {
       spells.set(raw.id, {
-        jadeId: Number(`7${raw.id}`),
+        jadeId: toJadeSpellId(raw.id),
         baseId: raw.id,
         name: raw.name,
         iconPath: assetPath(raw.iconPath),

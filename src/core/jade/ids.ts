@@ -54,7 +54,26 @@ export function toBaseSpellId(jadeId: number): number {
   return Number(digits.slice(1));
 }
 
-export const toJadeSpellId = (baseId: number): number => Number(`7${baseId}`);
+/**
+ * Ligt dit ID al in het Jade-bereik?
+ *
+ * Basis-spells zijn allemaal onder de 60 (Flash 4, Smite 11, Barrier 21) of ver
+ * daarboven (2201, 2202). Tussen 70 en 799 zit dus niets anders dan een
+ * Jade-ID, en dat maakt dit bereik een veilige toets.
+ */
+export const isJadeSpellId = (id: number): boolean => id >= 70 && id <= 799;
+
+/**
+ * Basis-ID naar Jade-ID: er gaat een 7 voor.
+ *
+ * Behalve als er al een voor staat. De spells die alleen in Classic bestaan --
+ * Fortify 705, Rally 709, Surge 716, Promote 720, Revive 777 -- hebben geen
+ * modern equivalent en dragen hun Jade-ID rechtstreeks in de assets. Die nog
+ * eens prefixen maakte van Promote 7720, waarna de matchdata met 720 niets meer
+ * kon vinden en er "Flash + 720" zonder icoon op het scherm stond.
+ */
+export const toJadeSpellId = (baseId: number): number =>
+  isJadeSpellId(baseId) ? baseId : Number(`7${baseId}`);
 
 /** Is dit een League Classic-game? Controleert mode en map, want beide kunnen los voorkomen. */
 export const isJadeGame = (game: { gameMode?: string; mapId?: number; queueId?: number }): boolean =>
