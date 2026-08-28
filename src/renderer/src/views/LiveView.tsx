@@ -129,48 +129,314 @@ function GeenGame({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
 
 function LiveInhoud({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
   const [geopend, setGeopend] = useState<number | null>(null);
+  const [gekozen, setGekozen] = useState<number | null>(null);
 
   return (
-    <div className="animate-rise space-y-6">
-      {snapshot.liveGame ? <LiveGamePanel live={snapshot.liveGame} snapshot={snapshot} /> : null}
-      <Panel className="flex items-center justify-between p-6">
-        <div>
-          <p className="text-xs tracking-[0.14em] text-ink-500 uppercase">Status</p>
-          <p className="mt-1 text-lg font-medium">{PHASE_LABELS[snapshot.phase] ?? snapshot.phase}</p>
-          <p className="mt-1 text-xs text-ink-500">
-            The scout opens by itself as soon as champion select begins.
-          </p>
+    <div className="animate-rise">
+      {snapshot.liveGame ? (
+        <div className="mb-5">
+          <LiveGamePanel live={snapshot.liveGame} snapshot={snapshot} />
         </div>
-        {snapshot.profile ? (
-          <div className="text-right">
-            <RankPill rank={snapshot.profile.rank} />
-            <div className="mt-2 flex items-center justify-end gap-2">
-              <Winrate winrate={snapshot.profile.jade.winrate} games={snapshot.profile.jade.games} />
-              <FormDots results={snapshot.profile.jade.recentResults} />
+      ) : null}
+
+      {/* Twee kolommen: wat je deed links, wat je moet weten rechts. De
+          matchlijst is het lange verhaal en krijgt de ruimte; de rechterkolom
+          is de context ernaast en blijft smal. */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0 space-y-5">
+          <StatusBalk snapshot={snapshot} />
+
+          <div>
+            <SectionTitle hint={`${snapshot.recentGames.length} games`}>
+              Recent Classic games
+            </SectionTitle>
+            {snapshot.recentGames.length === 0 ? (
+              <Panel className="p-6">
+                <EmptyState
+                  title="No Classic games yet"
+                  hint="Games appear here after you play one. AllMid reads them from your own client."
+                />
+              </Panel>
+            ) : (
+              <div className="space-y-2">
+                {snapshot.recentGames.map((game) => (
+                  <GameRow
+                    key={game.gameId}
+                    game={game}
+                    snapshot={snapshot}
+                    open={geopend === game.gameId}
+                    onToggle={() => setGeopend(geopend === game.gameId ? null : game.gameId)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          <TierKolom snapshot={snapshot} gekozen={gekozen} onKies={setGekozen} />
+          <ChampionKolom snapshot={snapshot} championId={gekozen} />
+          <JouwStats snapshot={snapshot} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** De statusbalk: waar je nu bent, en je rang ernaast. */
+function StatusBalk({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
+  return (
+    <Panel className="flex items-center justify-between gap-4 p-5">
+      <div>
+        <p className="sectiekop">Status</p>
+        <p className="mt-1.5 text-lg font-semibold text-ink-100">
+          {PHASE_LABELS[snapshot.phase] ?? snapshot.phase}
+        </p>
+        <p className="mt-1 text-xs text-ink-500">
+          The scout opens by itself as soon as champion select begins.
+        </p>
+      </div>
+      {snapshot.profile ? (
+        <div className="flex flex-col items-end gap-2">
+          <RankPill rank={snapshot.profile.rank} />
+          <div className="flex items-center gap-2">
+            <Winrate winrate={snapshot.profile.jade.winrate} games={snapshot.profile.jade.games} />
+            <FormDots results={snapshot.profile.jade.recentResults} />
+          </div>
+        </div>
+      ) : null}
+    </Panel>
+  );
+}
+
+/**
+ * De letters bij een winrate.
+ *
+ * Dit is een oordeel van ons, geen meting: de data kent geen tiers. De regel
+ * staat hier zodat hij na te lezen is -- winrate bepaalt de letter, en niets
+ * anders. Wie het niet met de grenzen eens is kan ze hier zien staan in plaats
+ * van te moeten raden waar ze vandaan komen.
+ */
+function tierLetter(winrate: number): { letter: string; klasse: string } {
+  if (winrate >= 55) return { letter: "S", klasse: "text-gold-300 border-gold-500" };
+  if (winrate >= 52) return { letter: "A", klasse: "text-jade-300 border-jade-500/50" };
+  if (winrate >= 49) return { letter: "B", klasse: "text-ink-100 border-line-lit" };
+  if (winrate >= 46) return { letter: "C", klasse: "text-ink-300 border-line" };
+  return { letter: "D", klasse: "text-loss-400 border-loss-500/40" };
+}
+
+/** De tier list voor jouw lane, met de portretten erbij. */
+function TierKolom({
+  snapshot,
+  gekozen,
+  onKies,
+}: {
+  snapshot: AppSnapshot;
+  gekozen: number | null;
+  onKies: (id: number) => void;
+}): JSX.Element {
+  const [rijen, setRijen] = useState<TierEntry[] | null>(null);
+  const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
+
+  useEffect(() => {
+    void window.jade.getTierList("MIDDLE", 25).then(setRijen);
+  }, [snapshot.database.matches, snapshot.database.community?.games]);
+
+  return (
+    <Panel className="p-4">
+      <div className="mb-3 flex items-baseline justify-between">
+        <p className="sectiekop">Mid tier list</p>
+        <span className="text-[10px] text-ink-500">at least 25 games</span>
+      </div>
+
+      {!rijen ? (
+        <div className="grid grid-cols-6 gap-1.5">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="aspect-square rounded-sm bg-surface-2" />
+          ))}
+        </div>
+      ) : rijen.length === 0 ? (
+        <EmptyState title="Not enough games yet" hint="The database grows while you play." />
+      ) : (
+        <>
+          <div className="grid grid-cols-6 gap-1.5">
+            {rijen.slice(0, 6).map((rij) => {
+              const champ = champions.get(rij.championId);
+              const tier = tierLetter(rij.winrate);
+              const aan = gekozen === rij.championId;
+              return (
+                <button
+                  key={rij.championId}
+                  onClick={() => onKies(rij.championId)}
+                  title={`${champ?.name ?? ""} — ${rij.winrate.toFixed(1)}% over ${rij.games} games`}
+                  className={`group relative overflow-hidden rounded-sm border transition-colors ${
+                    aan ? "border-gold-500" : "border-line hover:border-gold-500/60"
+                  }`}
+                >
+                  <ChampionIcon iconPath={champ?.iconPath} name={champ?.name} size={48} />
+                  <span
+                    className={`absolute top-0 left-0 rounded-br-sm border-r border-b bg-void/85 px-1 text-[9px] font-bold ${tier.klasse}`}
+                  >
+                    {tier.letter}
+                  </span>
+                  <span className="num absolute inset-x-0 bottom-0 bg-void/85 py-0.5 text-center text-[9px] font-semibold text-ink-100">
+                    {rij.winrate.toFixed(1)}%
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-2.5 text-center text-[10px] text-ink-600">
+            S 55%+ · A 52%+ · B 49%+ · C 46%+ · D below
+          </p>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+/** Wat er bekend is over de champion die je aanklikte. */
+function ChampionKolom({
+  snapshot,
+  championId,
+}: {
+  snapshot: AppSnapshot;
+  championId: number | null;
+}): JSX.Element {
+  const [detail, setDetail] = useState<ChampionDetail | null>(null);
+  const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
+  const items = new Map(snapshot.items.map((i) => [i.jadeId, i]));
+
+  useEffect(() => {
+    if (championId === null) {
+      setDetail(null);
+      return;
+    }
+    setDetail(null);
+    void window.jade.getChampionDetail(championId, "MIDDLE").then(setDetail);
+  }, [championId]);
+
+  const champ = championId === null ? null : champions.get(championId);
+
+  return (
+    <Panel className="p-4">
+      <p className="sectiekop mb-3">Champion</p>
+      {!champ ? (
+        <EmptyState title="Pick a champion" hint="Builds and matchups appear here." />
+      ) : (
+        <div>
+          <div className="flex items-center gap-3">
+            <ChampionIcon iconPath={champ.iconPath} name={champ.name} size={52} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink-100">{champ.name}</p>
+              {detail?.stat ? (
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className={`badge ${detail.stat.winrate >= 50 ? "badge-goed" : "badge-slecht"}`}>
+                    {detail.stat.winrate.toFixed(1)}% WR
+                  </span>
+                  <span className="badge badge-neutraal">{detail.stat.games} games</span>
+                </div>
+              ) : (
+                <p className="mt-1 text-[11px] text-ink-500">Loading…</p>
+              )}
             </div>
           </div>
-        ) : null}
-      </Panel>
 
-      <div>
-        <SectionTitle hint={`${snapshot.recentGames.length} games`}>Recent Classic games</SectionTitle>
-        {snapshot.recentGames.length === 0 ? (
-          <Panel className="p-6">
-            <EmptyState title="No Classic games found yet" />
-          </Panel>
-        ) : (
-          <div className="space-y-2">
-            {snapshot.recentGames.map((game) => (
-              <GameRow
-                key={game.gameId}
-                game={game}
-                snapshot={snapshot}
-                open={geopend === game.gameId}
-                onToggle={() => setGeopend(geopend === game.gameId ? null : game.gameId)}
-              />
-            ))}
+          {detail && detail.items.length > 0 ? (
+            <div className="mt-3.5">
+              <p className="mb-1.5 text-[10px] tracking-[0.12em] text-ink-600 uppercase">
+                Most built
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {detail.items.slice(0, 6).map((entry) => {
+                  const item = items.get(entry.itemId);
+                  return (
+                    <img
+                      key={entry.itemId}
+                      src={asset(item?.iconPath ?? "")}
+                      alt={item?.name ?? ""}
+                      title={`${item?.name ?? ""} — ${entry.winrate.toFixed(1)}% over ${entry.games} games`}
+                      width={30}
+                      height={30}
+                      className="rounded-sm border border-line"
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+/**
+ * Jouw eigen cijfers, met één getal dat groter is dan de rest.
+ *
+ * De brief vraagt om precies dat: één hoofdstatistiek in plaats van vijf
+ * getallen die allemaal even hard roepen. Winrate is die ene, want dat is wat
+ * mensen van zichzelf willen weten.
+ */
+function JouwStats({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
+  const jade = snapshot.profile?.jade;
+  return (
+    <Panel className="p-4">
+      <div className="mb-3 flex items-baseline justify-between">
+        <p className="sectiekop">Your stats (Classic)</p>
+      </div>
+      {!jade || jade.games === 0 ? (
+        <EmptyState title="No games recorded" hint="Your own numbers appear once you have played." />
+      ) : (
+        <>
+          <div className="flex items-center gap-4">
+            <WinrateRing winrate={jade.winrate} />
+            <div className="grid flex-1 grid-cols-2 gap-3 text-center">
+              <div>
+                <p className="num text-xl font-bold text-ink-100">{jade.kda.toFixed(2)}</p>
+                <p className="text-[10px] tracking-[0.1em] text-ink-600 uppercase">KDA</p>
+              </div>
+              <div>
+                <p className="num text-xl font-bold text-ink-100">{jade.games}</p>
+                <p className="text-[10px] tracking-[0.1em] text-ink-600 uppercase">Games</p>
+              </div>
+            </div>
           </div>
-        )}
+          {jade.recentResults.length > 0 ? (
+            <div className="mt-3.5 flex items-center justify-between border-t border-line pt-3">
+              <span className="text-[10px] tracking-[0.1em] text-ink-600 uppercase">Recent form</span>
+              <FormDots results={jade.recentResults} />
+            </div>
+          ) : null}
+        </>
+      )}
+    </Panel>
+  );
+}
+
+/** Winrate als ring: één blik, geen tabel. */
+function WinrateRing({ winrate }: { winrate: number }): JSX.Element {
+  const straal = 26;
+  const omtrek = 2 * Math.PI * straal;
+  const vol = (Math.max(0, Math.min(100, winrate)) / 100) * omtrek;
+  return (
+    <div className="relative grid h-[68px] w-[68px] shrink-0 place-items-center">
+      <svg width="68" height="68" className="-rotate-90">
+        <circle cx="34" cy="34" r={straal} fill="none" stroke="var(--color-line)" strokeWidth="4" />
+        <circle
+          cx="34"
+          cy="34"
+          r={straal}
+          fill="none"
+          stroke="var(--color-gold-400)"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeDasharray={`${vol} ${omtrek}`}
+        />
+      </svg>
+      <div className="absolute text-center">
+        <p className="num text-sm font-bold text-ink-100">{Math.round(winrate)}%</p>
+        <p className="text-[8px] tracking-[0.1em] text-ink-600 uppercase">Winrate</p>
       </div>
     </div>
   );

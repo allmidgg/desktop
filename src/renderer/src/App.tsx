@@ -136,11 +136,16 @@ function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
   const database = snapshot?.database;
   return (
     <header className="drag relative z-10 flex h-11 shrink-0 items-center justify-between border-b border-line pr-1 pl-5">
-      <div className="flex items-center gap-3">
-        <span className="text-[15px] font-semibold tracking-tight">
-          All<span className="text-gold-400">Mid</span>
+      {/* Het woordmerk als lockup: naam boven, modus eronder. Groter dan het
+          was, want dit is het eerste wat iemand ziet -- maar zonder eigen vlak,
+          zodat de balk stil blijft. */}
+      <div className="flex flex-col justify-center leading-none">
+        <span className="text-[17px] font-bold tracking-[0.06em] text-ink-100">
+          ALL<span className="text-gold-400">MID</span>
         </span>
-        <span className="text-[11px] tracking-[0.16em] text-ink-700 uppercase">League Classic</span>
+        <span className="mt-1 text-[9px] tracking-[0.22em] text-ink-600 uppercase">
+          League Classic
+        </span>
       </div>
 
       <div className="flex items-center gap-4">
