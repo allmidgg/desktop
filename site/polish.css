@@ -1,0 +1,38 @@
+
+/* Shared refinements for the platform and existing League data pages.
+   Kept separate from the data generator so design changes stay auditable. */
+:root { --muted: #a9b2c3; --dim: #8590a4; }
+a, button, input, summary { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid var(--gold-lit); outline-offset: 5px; }
+[id] { scroll-margin-top: 125px; }
+.balk-spellen .wrap { gap: 1.25rem; }
+.spellen { min-width: 0; }
+.spel { white-space: nowrap; font-size: .74rem; }
+.balk-nav .secties a { font-size: .81rem; }
+.balk-nav .wrap { gap: .8rem; }
+.balk-nav .kopzoek { min-width: 140px; }
+.btn { min-height: 44px; }
+.btn-primary { border-radius: 7px; }
+.champkaart, .mn-lead, .mn-lijst, .kenmerk-beeld, .spot {
+  border-color: rgba(184, 198, 222, .14);
+}
+.champkaart:focus-visible, .mn-lead:focus-within { border-color: var(--gold); }
+@media (max-width: 900px) {
+  .balk-nav .wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .balk-nav .secties { grid-column: 1 / -1; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+  .balk-nav .secties a { flex: none; }
+  .balk-nav .kopzoek { margin: 0; order: initial; }
+  .balk-nav .btn { min-height: 38px; }
+}
+@media (max-width: 600px) {
+  #top-bar { position: relative; }
+  [id] { scroll-margin-top: 24px; }
+  .balk-spellen .wrap { gap: .65rem; }
+  .balk-spellen .brand { flex: none; }
+  .balk-spellen .mark { width: 25px; }
+  .balk-bron { display: none; }
+  .spellen { overflow-x: auto; scrollbar-width: none; }
+  .spel { flex: none; }
+  .secties a { padding-inline: .6rem; }
+  .balk-nav .kopzoek { min-width: 0; }
+}

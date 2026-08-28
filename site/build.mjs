@@ -23,6 +23,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { renderHome } from "./home.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (p) => JSON.parse(readFileSync(join(HERE, p), "utf8"));
@@ -2042,7 +2043,7 @@ function kenmerkBlok(k, i) {
  */
 const SPELLEN = [
   { slug: "lol", naam: "League of Legends", live: true },
-  { slug: "universe", naam: "More games in research", live: false },
+  { slug: "universe", naam: "More games on the wishlist", live: false },
 ];
 
 /**
@@ -2062,14 +2063,20 @@ function toolbalk(hier = "home", op = "") {
       `<span class="spel${g.live ? " aan" : ""}">${esc(g.naam)}</span>`,
   ).join("");
 
-  const secties = [
+  const secties = (hier === "home" ? [
+    { id: "home", naam: "Discover", href: `${op}index.html` },
+    { id: "games", naam: "Games", href: "#games" },
+    { id: "experience", naam: "How it works", href: "#experience" },
+    { id: "classic", naam: "League stats", href: `${op}classic.html`, merk: "data" },
+    { id: "faq", naam: "FAQ", href: "#faq" },
+  ] : [
     { id: "home", naam: "Home", href: `${op}index.html` },
     { id: "champions", naam: "Champions", href: `${op}champions.html` },
     { id: "tiers", naam: "Tier list", href: `${op}tiers.html` },
     { id: "classic", naam: "Classic", href: `${op}classic.html`, merk: "data" },
     { id: "app", naam: "The app", href: `${op}app.html` },
     { id: "overlay", naam: "Overlay", href: `${op}overlay.html` },
-  ]
+  ])
     .map(
       (x) =>
         `<a href="${x.href}"${x.id === hier ? ' aria-current="page"' : ""}>${esc(x.naam)}` +
@@ -4873,7 +4880,7 @@ img.dm-portret { width: 44px; height: 44px; border-radius: 9px; border: 1px soli
   .pulse-dot, .radar-sweep { animation: none; }
 }
 `;
-writeFileSync(join(HERE, "style.css"), css, "utf8");
+writeFileSync(join(HERE, "style.css"), css + readFileSync(join(HERE, "polish.css"), "utf8"), "utf8");
 
 const CSS_PAD = "style.css";
 
@@ -5550,7 +5557,15 @@ ${ZOEK_SCRIPT}
 </html>
 `;
 
-const homeHtml = leaguePagina();
+const homeHtml = renderHome({
+  header: toolbalk("home"),
+  search: zoekIndex() + ZOEK_SCRIPT,
+  stats: { games: T.games, champions: Object.keys(roster).length, date: DATE(T.generatedAt) },
+  demos: { builds: demoBuilds(), select: demoSelect(), overlay: demoOverlay() },
+  leaders: Object.values(champions.champions)
+    .sort((a, b) => b.winrate - a.winrate).slice(0, 3)
+    .map((c) => ({ name: c.name, slug: slugVan(c.name), art: splashOf(c.baseId), games: c.totalGames, winrate: c.winrate })),
+});
 const championsHtml = championsPagina();
 writeFileSync(join(HERE, "classic.html"), classicHtml, "utf8");
 writeFileSync(join(HERE, "index.html"), homeHtml, "utf8");

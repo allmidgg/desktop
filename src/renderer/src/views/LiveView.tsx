@@ -38,19 +38,93 @@ const QUEUE_LABELS: Record<number, string> = {
 };
 
 export function LiveView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
-  if (snapshot.connection !== "connected") {
-    return (
-      <Panel className="p-8">
-        <Spinner label={snapshot.error ?? "Connecting to the League client..."} />
-        <p className="mt-3 text-xs text-ink-500">
-          Start the League client — AllMid picks up the connection on its own.
-        </p>
-      </Panel>
-    );
-  }
-
+  if (snapshot.connection !== "connected") return <GeenGame snapshot={snapshot} />;
   if (snapshot.champSelect) return <ChampSelectView snapshot={snapshot} />;
   return <LiveInhoud snapshot={snapshot} />;
+}
+
+/**
+ * De games die AllMid volgt.
+ *
+ * Een lijst en geen vaste tekst, omdat er een tweede bij komt. Wat er niet in
+ * staat zijn games die we nog niet doen -- een rij grijze logo's is een belofte,
+ * en die maken we hier niet.
+ */
+const GEVOLGDE_GAMES = [{ naam: "League of Legends", modus: "Classic", actief: true }];
+
+/**
+ * Wat je ziet als er niets draait.
+ *
+ * Vroeger stond hier een spinner met "Connecting to the League client...", en
+ * dat leest als een app die vastloopt. Er is niets aan de hand: er is gewoon
+ * geen game bezig, en dat is de normale toestand van een companion. Dus zegt hij
+ * dat, vertelt wat er gebeurt zodra je begint, en laat zien welke games hij in
+ * de gaten houdt.
+ */
+function GeenGame({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
+  const clientAan = snapshot.connection === "connected";
+
+  return (
+    <div className="animate-rise flex min-h-[60vh] items-center justify-center">
+      <div className="w-full max-w-lg text-center">
+        {/* Het merk, rustig: de M met de duikende middenstok. */}
+        <svg
+          viewBox="0 0 120 118"
+          width="54"
+          height="54"
+          fill="none"
+          className="mx-auto mb-5 opacity-70"
+          aria-hidden="true"
+        >
+          <path
+            d="M14 102 L33 20 L60 60 L87 20 L106 102"
+            stroke="#7a683a"
+            strokeWidth="9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path d="M60 60 L60 104" stroke="#b89a4d" strokeWidth="10" strokeLinecap="round" />
+          <circle cx="60" cy="104" r="6" fill="#e7c76e" />
+        </svg>
+
+        <h2 className="mb-2 text-lg font-semibold text-ink-100">No game running</h2>
+        <p className="mx-auto mb-7 max-w-sm text-sm leading-relaxed text-ink-500">
+          AllMid sits here until one starts. Open champion select and it comes to the front on its
+          own, with your masteries, your matchups and what wins on your pick.
+        </p>
+
+        <div className="mb-6 space-y-1.5">
+          {GEVOLGDE_GAMES.map((g) => (
+            <div
+              key={g.naam}
+              className="flex items-center justify-between rounded-lg border border-line bg-white/[0.02] px-3.5 py-2.5 text-left"
+            >
+              <span className="flex items-center gap-2.5">
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    clientAan ? "animate-pulse-ring bg-jade-500" : "bg-ink-700"
+                  }`}
+                />
+                <span className="text-[13px] font-medium text-ink-200">{g.naam}</span>
+                <span className="text-[11px] tracking-[0.1em] text-ink-600 uppercase">{g.modus}</span>
+              </span>
+              <span className="num text-[11px] text-ink-600">
+                {clientAan ? "watching" : "client closed"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* De client-stand als bijzaak, want daar hoef je niets mee zolang je
+            niet speelt. Alleen als hij dicht is is het het vermelden waard. */}
+        {!clientAan ? (
+          <p className="text-xs text-ink-600">
+            {snapshot.error ?? "Start the League client — AllMid picks up the connection on its own."}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 function LiveInhoud({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {

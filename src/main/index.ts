@@ -9,6 +9,7 @@ import { app, BrowserWindow, dialog, ipcMain, protocol, screen, shell } from "el
 import { Vensterplek } from "./vensterplek";
 import { AllMidTray } from "./tray";
 import { Updater } from "./updater";
+import { Splash } from "./splash";
 import { join } from "node:path";
 import { JadeService } from "./service";
 import type { RuneKind } from "../core/jade/runes";
@@ -26,6 +27,7 @@ let overlayTopTimer: NodeJS.Timeout | null = null;
 let champSelectShown = false;
 let tray: AllMidTray | null = null;
 let updater: Updater | null = null;
+const splash = new Splash();
 /**
  * Of we echt aan het afsluiten zijn.
  *
@@ -101,8 +103,14 @@ function createMainWindow(): void {
     // Windows start ons met --hidden als het meestarten aan staat. Dan komt er
     // alleen een tray-icoon op; het venster bestaat wel, zodat champion select
     // hem meteen kan tonen zonder eerst te moeten laden.
-    if (startVerborgen()) return;
+    if (startVerborgen()) {
+      splash.sluit();
+      return;
+    }
     mainWindow?.show();
+    // 350 ms marge: laadt de app sneller dan de tekenanimatie, dan flitst de
+    // splash weg en dat leest als een storing in plaats van als opstarten.
+    splash.sluit(350);
   });
 
   // Without this the variable keeps pointing at a window that no longer exists.
@@ -533,6 +541,10 @@ app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
 void app
   .whenReady()
   .then(() => {
+    // Als eerste, vóór al het laadwerk: dat is het hele punt. Behalve bij een
+    // verborgen automatische start -- dan hoort er niets in beeld te komen.
+    if (!process.argv.includes("--hidden")) splash.toon(app.getAppPath());
+
     plek = new Vensterplek(app.getAppPath());
     service = new JadeService(app.getAppPath());
     registerAssetProtocol();
@@ -576,7 +588,10 @@ void app
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
     });
   })
-  .catch((err: Error) => console.error("[allmid] opstarten mislukte:", err));
+  .catch((err: Error) => {
+    splash.sluit();
+    console.error("[allmid] opstarten mislukte:", err);
+  });
 
 // Alleen afsluiten als het venster écht dicht is. Met sluiten-naar-tray wordt
 // het venster verborgen en niet gesloten, dus dit vuurt dan niet -- maar wie de
