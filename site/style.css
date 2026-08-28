@@ -2244,9 +2244,16 @@ img.dm-portret { width: 44px; height: 44px; border-radius: 9px; border: 1px soli
 .radar-core span { transform: rotate(-45deg); font-family: var(--display); font-size: 0.84rem; font-weight: 800; letter-spacing: 0.15em; line-height: 0.9; text-align: center; color: var(--gold-lit); }
 .radar-sweep { position: absolute; inset: 13%; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0 76%, rgba(90, 142, 255, 0.04) 78%, rgba(157, 194, 255, 0.32) 94%, transparent 100%); mask-image: radial-gradient(circle, transparent 0 15%, #000 17%); animation: amSweep 8s linear infinite; }
 .game-nodes { position: absolute; inset: 0; }
-.game-node { --angle: calc(var(--node) * 60deg - 90deg); position: absolute; left: 50%; top: 50%; display: flex; align-items: center; gap: 0.65rem; width: max-content; max-width: 11.4rem; padding: 0.46rem 0.65rem 0.46rem 0.46rem; transform: rotate(var(--angle)) translateX(clamp(9rem, 19vw, 13rem)) rotate(calc(-1 * var(--angle))); border: 1px solid rgba(157, 178, 230, 0.18); border-radius: 0.58rem; background: rgba(10, 13, 25, 0.82); box-shadow: 0 11px 24px rgba(0,0,0,.24); backdrop-filter: blur(8px); }
-.game-node::before { content: ""; position: absolute; right: 100%; top: 50%; width: clamp(2.1rem, 6vw, 4.1rem); height: 1px; transform-origin: right; background: linear-gradient(90deg, transparent, rgba(154, 179, 246, .34)); }
-.game-node:nth-child(n + 4)::before { right: auto; left: 100%; transform: rotate(180deg); transform-origin: left; }
+.game-node { position: absolute; display: flex; align-items: center; gap: 0.65rem; width: max-content; max-width: 11.4rem; padding: 0.46rem 0.65rem 0.46rem 0.46rem; transform: translate(-50%, -50%); border: 1px solid rgba(157, 178, 230, 0.18); border-radius: 0.58rem; background: rgba(10, 13, 25, 0.82); box-shadow: 0 11px 24px rgba(0,0,0,.24); backdrop-filter: blur(8px); }
+/* A fixed hexagon keeps the coverage map optically centred even when a label
+   is longer than the one opposite it. Rotating cards around their left edge
+   looked lively, but made the whole radar feel crooked. */
+.game-node:nth-child(1) { left: 50%; top: 10%; }
+.game-node:nth-child(2) { left: 85%; top: 30%; }
+.game-node:nth-child(3) { left: 85%; top: 70%; }
+.game-node:nth-child(4) { left: 50%; top: 90%; }
+.game-node:nth-child(5) { left: 15%; top: 70%; }
+.game-node:nth-child(6) { left: 15%; top: 30%; }
 .game-node-mark { display: grid; place-items: center; flex: 0 0 auto; width: 2.12rem; height: 2.12rem; border: 1px solid rgba(157, 178, 230, 0.25); border-radius: 0.42rem; background: linear-gradient(135deg, #273758, #151a2b); color: #c8d6ff; font-family: var(--mono); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; }
 .game-node-text { display: grid; min-width: 0; gap: 0.1rem; }
 .game-node-text b { overflow: hidden; color: var(--ink); font-size: 0.72rem; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
@@ -2263,9 +2270,7 @@ img.dm-portret { width: 44px; height: 44px; border-radius: 9px; border: 1px soli
 }
 @media (max-width: 430px) {
   .game-radar { min-height: 20rem; transform: scale(.74); margin: -3.2rem auto -3.4rem; }
-  .game-node { transform: rotate(var(--angle)) translateX(8.8rem) rotate(calc(-1 * var(--angle))); }
   .game-node-text b { max-width: 5.9rem; }
-  .game-node::before { width: 1.7rem; }
 }
 @media (max-width: 560px) {
   body { overflow-x: hidden; }

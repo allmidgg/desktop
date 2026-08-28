@@ -41,6 +41,10 @@ const api = {
   updateSettings: (patch: Partial<Settings>): Promise<Settings> =>
     ipcRenderer.invoke("settings:update", patch),
   uploadNow: (): Promise<AppSnapshot> => ipcRenderer.invoke("upload:now"),
+  /** Installeert de klaargezette update en herstart. Doet niets als er niets klaarstaat. */
+  installUpdate: (): Promise<void> => ipcRenderer.invoke("update:install"),
+  /** Nu kijken of er iets nieuwers is, in plaats van op de zesuurstimer wachten. */
+  checkUpdate: (): Promise<void> => ipcRenderer.invoke("update:check"),
   lookupPlayer: (riotId: string): Promise<PlayerProfile | null> =>
     ipcRenderer.invoke("player:lookup", riotId),
   getTierList: (position: Position, minGames?: number): Promise<TierEntry[]> =>

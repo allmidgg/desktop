@@ -75,3 +75,17 @@ portable:
   # installer is voor vrijwel iedereen de betere keuze: hij start sneller (een
   # portable pakt zich bij elke start opnieuw uit) en zet een snelkoppeling neer.
   artifactName: ${productName}-Portable.${ext}
+
+# Waar de auto-updater kijkt of er iets nieuwers is.
+#
+# Dezelfde plek waar de downloadknop op de site al heen wijst, dus een uitgave
+# hoeft maar op één plaats te bestaan. electron-builder schrijft hier ook
+# latest.yml naast de installer -- dat bestand is wat de updater ophaalt, en
+# zonder publish-blok wordt het niet gemaakt.
+publish:
+  - provider: github
+    owner: allmidgg
+    repo: desktop
+    # Alleen echte uitgaven, geen concepten of pre-releases. Anders krijgt
+    # iedereen een halfaf bouwsel binnen zodra er een draft klaarstaat.
+    releaseType: release

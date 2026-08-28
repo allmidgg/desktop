@@ -241,6 +241,7 @@ export class JadeService extends EventEmitter {
     autoMasteryStatus: null,
     liveGame: null,
     beeldmodus: null,
+    update: { fase: "uit", versie: null, voortgang: 0, fout: null },
   };
 
   getSnapshot(): AppSnapshot {
@@ -499,6 +500,16 @@ export class JadeService extends EventEmitter {
         iconPath: spell.iconPath,
       })),
     });
+  }
+
+  /** De updater duwt zijn stand hierlangs de snapshot in. */
+  zetUpdateStand(stand: AppSnapshot["update"]): void {
+    this.update({ update: stand });
+  }
+
+  /** Is er nu een Classic-game bezig? De updater gebruikt dit om weg te blijven. */
+  get inGame(): boolean {
+    return Boolean(this.snapshot.liveGame?.isClassic) || Boolean(this.snapshot.champSelect);
   }
 
   /** Re-read League's window mode. Failing to find it is not an error. */

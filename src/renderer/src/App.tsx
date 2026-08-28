@@ -157,6 +157,7 @@ function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
             {database.crawling ? " · syncing" : ""}
           </span>
         ) : null}
+        {snapshot ? <UpdateBadge update={snapshot.update} /> : null}
         {snapshot ? <SharingBadge upload={snapshot.upload} /> : null}
         {snapshot ? <AppMenu settings={snapshot.settings} /> : null}
         <div className="flex items-center gap-2 text-[11px] text-ink-500">
@@ -174,6 +175,57 @@ function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
         </div>
       </div>
     </header>
+  );
+}
+
+/**
+ * De update-melding. Alleen zichtbaar als er iets te melden valt.
+ *
+ * Downloaden gebeurt vanzelf, installeren nooit. Dit is een app die in de tray
+ * leeft en dus zelden afgesloten wordt -- de standaard "installeer bij het
+ * afsluiten" zou betekenen dat de update maanden blijft liggen. Dus staat hier
+ * een knop, en jij kiest het moment.
+ */
+function UpdateBadge({ update }: { update: AppSnapshot["update"] }): JSX.Element | null {
+  const [bezig, setBezig] = useState(false);
+
+  // Niets aan de hand is niets te zeggen. Een groen vinkje "je bent up to date"
+  // is ruis in een titelbalk die al vol staat.
+  if (update.fase === "uit" || update.fase === "actueel" || update.fase === "kijken") return null;
+
+  if (update.fase === "downloaden") {
+    return (
+      <span className="num flex items-center gap-2 text-[11px] text-ink-600" title={`Downloading ${update.versie ?? "update"}`}>
+        <span className="h-1.5 w-1.5 animate-pulse-ring rounded-full bg-gold-400" />
+        Updating {update.voortgang}%
+      </span>
+    );
+  }
+
+  if (update.fase === "fout") {
+    return (
+      <span className="text-[11px] text-ink-600" title={update.fout ?? "Update failed"}>
+        Update failed
+      </span>
+    );
+  }
+
+  // klaar
+  return (
+    <button
+      onClick={() => {
+        setBezig(true);
+        void window.jade.installUpdate();
+      }}
+      disabled={bezig}
+      title={`Version ${update.versie ?? ""} is downloaded. Installing restarts AllMid.`}
+      className="no-drag flex items-center gap-1.5 rounded-lg border border-gold-400/40 bg-gold-400/10 px-2 py-1 text-[11px] font-medium text-gold-300 transition-colors hover:bg-gold-400/20 disabled:opacity-50"
+    >
+      <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 2v8" /><path d="m4.5 7 3.5 3.5L11.5 7" /><path d="M3 13.5h10" />
+      </svg>
+      {bezig ? "Restarting..." : `Update to ${update.versie ?? "new version"}`}
+    </button>
   );
 }
 

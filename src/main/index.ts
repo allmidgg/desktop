@@ -8,6 +8,7 @@
 import { app, BrowserWindow, dialog, ipcMain, protocol, screen, shell } from "electron";
 import { Vensterplek } from "./vensterplek";
 import { AllMidTray } from "./tray";
+import { Updater } from "./updater";
 import { join } from "node:path";
 import { JadeService } from "./service";
 import type { RuneKind } from "../core/jade/runes";
@@ -24,6 +25,7 @@ let overlayTopTimer: NodeJS.Timeout | null = null;
 /** Zodat we de popup niet bij elke update opnieuw naar voren duwen. */
 let champSelectShown = false;
 let tray: AllMidTray | null = null;
+let updater: Updater | null = null;
 /**
  * Of we echt aan het afsluiten zijn.
  *
@@ -512,6 +514,9 @@ function registerIpc(): void {
     if (window.isMaximized()) window.unmaximize();
     else window.maximize();
   });
+  ipcMain.handle("update:install", () => updater?.installeerNu());
+  ipcMain.handle("update:check", () => updater?.kijk());
+
   ipcMain.on("window:close", (event) => {
     BrowserWindow.fromWebContents(event.sender)?.close();
   });
@@ -535,6 +540,13 @@ void app
     createMainWindow();
 
     startTray();
+
+    // De updater duwt zijn stand de snapshot in, zodat de UI hem ziet zonder
+    // een tweede kanaal. Hij kijkt niet tijdens champion select of een game.
+    updater = new Updater((stand) => service?.zetUpdateStand(stand));
+    void updater
+      .start(() => !service?.inGame)
+      .catch((err: Error) => console.error("[allmid] updater starten mislukte:", err));
 
     service.on("snapshot", (snapshot: AppSnapshot) => {
       // De kopie eerst: de handlers hieronder lezen hem.
@@ -578,6 +590,8 @@ app.on("window-all-closed", () => {
 // Eén keer opruimen bij een echte afsluiting, ongeacht welke weg ernaartoe leidde.
 app.on("before-quit", () => {
   echtAfsluiten = true;
+  updater?.stop();
+  updater = null;
   tray?.stop();
   tray = null;
   service?.dispose();

@@ -303,6 +303,13 @@ export interface AppSnapshot {
    * Only interesting because the overlay cannot draw over exclusive fullscreen.
    */
   beeldmodus: "fullscreen" | "borderless" | "windowed" | null;
+  /** Where the auto-updater is. "uit" in development, where there is nothing to update. */
+  update: {
+    fase: "uit" | "kijken" | "actueel" | "downloaden" | "klaar" | "fout";
+    versie: string | null;
+    voortgang: number;
+    fout: string | null;
+  };
 }
 
 export interface LiveGamePlayer {
