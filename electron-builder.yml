@@ -49,9 +49,13 @@ win:
 nsis:
   # De kopbanner rechtsboven op de vervolgschermen. NSIS wil hier echt een BMP,
   # geen PNG -- het is een oud formaat en dat merk je hier.
-  installerHeaderIcon: build/icon.ico
+  #
+  # installerHeaderIcon bestaat alleen voor een-klik-installers en
+  # uninstallerHeader bestaat helemaal niet; allebei laten staan liet
+  # electron-builder de config afkeuren.
   installerHeader: build/installerHeader.bmp
-  uninstallerHeader: build/uninstallerHeader.bmp
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
 
   # Geen stille één-klik-installatie. Dit is een .exe die naast je game draait;
   # wie hem installeert hoort te zien waar hij landt. Dat is dezelfde belofte
