@@ -10,6 +10,7 @@ import { Vensterplek } from "./vensterplek";
 import { AllMidTray } from "./tray";
 import { Updater } from "./updater";
 import { Splash } from "./splash";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { JadeService } from "./service";
 import type { RuneKind } from "../core/jade/runes";
@@ -86,6 +87,12 @@ function createMainWindow(): void {
     ...plek!.plaats("main", { width: 1280, height: 820 }),
     minWidth: 1020,
     minHeight: 640,
+    // In dev pakt Electron anders zijn eigen logo voor de taakbalk; in een
+    // gepakte build zet electron-builder dit al goed, maar dan is het hier
+    // dubbelop en niet fout.
+    ...(existsSync(join(app.getAppPath(), "build", "icon.png"))
+      ? { icon: join(app.getAppPath(), "build", "icon.png") }
+      : {}),
     show: false,
     frame: false,
     backgroundColor: "#07080a",

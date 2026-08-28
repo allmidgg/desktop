@@ -35,6 +35,11 @@ files:
 npmRebuild: false
 
 win:
+  # Zonder dit draagt de .exe, de snelkoppeling en de regel in Programmas
+  # toevoegen of verwijderen het standaard Electron-logo. build/icon.ico bevat
+  # alle formaten van 16 tot 256, zodat Windows per plek de juiste pakt in
+  # plaats van er zelf een te verkleinen.
+  icon: build/icon.ico
   target:
     - target: nsis
       arch: [x64]

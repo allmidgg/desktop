@@ -7,12 +7,14 @@
  * verbergt, en vandaar dit icoon, want software die je niet kunt zien en niet
  * kunt afsluiten is spyware.
  *
- * Het icoon is hier getekend in plaats van als bestand meegeleverd. Het merk is
- * een M waarvan de middenstok naar beneden duikt naar een oplichtend punt; die
- * vorm is klein genoeg om als pad te bestaan, en dan hoeft er geen .ico langs
- * de packager en kan hij niet ontbreken in een build.
+ * Het icoon is build/icon.png, hetzelfde beeld als op de taakbalk en in de
+ * installer -- iemand die het in de tray ziet herkent het terug. Er staat een
+ * getekende versie van het merk als achtervang onder, zodat een ontbrekend
+ * bestand nooit een lege tray oplevert.
  */
-import { Menu, Tray, nativeImage, type NativeImage } from "electron";
+import { Menu, Tray, app, nativeImage, type NativeImage } from "electron";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 /** De M, als SVG, op de maat die Windows voor een tray-icoon wil. */
 const MERK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 120 118">
@@ -27,6 +29,15 @@ const MERK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"
  * bron. Twee keer zo groot inladen en laten terugschalen scheelt de trapjes.
  */
 function merkIcoon(): NativeImage {
+  // Het echte icoon als het er is: dat is hetzelfde beeld als op de taakbalk en
+  // in de installer, en dus herkent iemand het terug. De getekende versie
+  // hieronder is de achtervang, zodat een ontbrekend bestand nooit een lege
+  // tray oplevert.
+  const bestand = join(app.getAppPath(), "build", "icon.png");
+  if (existsSync(bestand)) {
+    const echt = nativeImage.createFromPath(bestand);
+    if (!echt.isEmpty()) return echt.resize({ width: 16, height: 16 });
+  }
   const groot = MERK_SVG.replace('width="32" height="32"', 'width="64" height="64"');
   const beeld = nativeImage.createFromDataURL(
     `data:image/svg+xml;base64,${Buffer.from(groot, "utf8").toString("base64")}`,
