@@ -3,7 +3,8 @@ import { useState } from "react";
 import type { AppSnapshot } from "../../../shared/types";
 import type { PlayerProfile } from "../../../core/services/player";
 import {
-  asset, ChampionIcon, EmptyState, FormDots, Panel, RankPill, SectionTitle, Spinner, Streak, Winrate,
+  asset, ChampionIcon, EmptyState, FormDots, Panel, RankPill, SectionTitle, Spinner, Streak,
+  Winrate, WinrateRing,
 } from "../ui";
 
 export function ProfileView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
@@ -109,10 +110,14 @@ export function ProfileView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elemen
             </div>
             </div>
           </div>
-          <div className="flex gap-8 text-right">
-            <Stat label="Winrate" value={jade.games ? `${Math.round(jade.winrate * 100)}%` : "-"} />
-            <Stat label="KDA" value={jade.games ? jade.kda.toFixed(2) : "-"} />
-            <Stat label="Games" value={String(jade.games)} />
+          {/* Eén hoofdgetal en twee die het ondersteunen. Drie gelijke kolommen
+              lieten de lezer zelf uitzoeken wat het belangrijkste was. */}
+          <div className="flex items-center gap-6">
+            <WinrateRing winrate={jade.winrate} games={jade.games} maat={92} />
+            <div className="flex gap-7 text-right">
+              <Stat label="KDA" value={jade.games ? jade.kda.toFixed(2) : "-"} />
+              <Stat label="Games" value={String(jade.games)} />
+            </div>
           </div>
         </div>
 

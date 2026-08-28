@@ -14,7 +14,7 @@ import { ChampSelectView } from "./ChampSelectView";
 import { Fragment, useEffect, useState } from "react";
 import {
   asset, ChampionIcon, EmptyState, FormDots, ItemRow, Panel, RankPill, SectionTitle, SkillGrid,
-  SpellPair, Spinner, SplashBackdrop, Winrate,
+  SpellPair, Spinner, SplashBackdrop, Winrate, WinrateRing,
 } from "../ui";
 
 const PHASE_LABELS: Record<string, string> = {
@@ -657,7 +657,7 @@ function JouwStats({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
         <>
           <div className="stats-kader">
             <div className="stats-ring">
-              <WinrateRing winrate={jade.winrate} />
+              <WinrateRing winrate={jade.winrate} games={jade.games} />
             </div>
             <div className="stats-cel">
               <p className="num text-[24px] leading-none font-bold text-gold-400">
@@ -696,56 +696,6 @@ function JouwStats({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
   );
 }
 
-/**
- * Winrate als ring: één blik, geen tabel.
- *
- * The mock-up draws it 80px across with a 5px band. The radius below is
- * therefore measured to the middle of the stroke and not to the outer edge: an
- * SVG circle grows outwards by half the stroke on either side, so taking the
- * drawn diameter as the radius would put the ring five pixels wider than the
- * design and out of its frame.
- */
-function WinrateRing({ winrate }: { winrate: number }): JSX.Element {
-  const maat = 80;
-  const dikte = 5;
-  const straal = (maat - dikte) / 2;
-  const omtrek = 2 * Math.PI * straal;
-  // winrate is een fractie; hier wordt hij pas een percentage.
-  const pct = Math.max(0, Math.min(100, winrate * 100));
-  const vol = (pct / 100) * omtrek;
-  return (
-    <div className="relative grid shrink-0 place-items-center" style={{ width: maat, height: maat }}>
-      <svg width={maat} height={maat} className="-rotate-90">
-        {/* The unrun part of the ring is a shade, not a border: at full strength
-            a five-pixel line reads as a second ring competing with the gold. */}
-        <circle
-          cx={maat / 2}
-          cy={maat / 2}
-          r={straal}
-          fill="none"
-          stroke="var(--color-surface-3)"
-          strokeWidth={dikte}
-        />
-        {/* Butt caps, as in the mock-up. A rounded cap would also lie at the
-            ends: it adds half a stroke of arc at both, so a 97% winrate would
-            close the circle and read as 100%. */}
-        <circle
-          cx={maat / 2}
-          cy={maat / 2}
-          r={straal}
-          fill="none"
-          stroke="var(--color-gold-400)"
-          strokeWidth={dikte}
-          strokeDasharray={`${vol} ${omtrek}`}
-        />
-      </svg>
-      <div className="absolute text-center">
-        <p className="num text-xl leading-none font-bold text-ink-100">{Math.round(pct)}%</p>
-        <p className="mt-1 text-[8px] tracking-[0.1em] text-ink-300 uppercase">Winrate</p>
-      </div>
-    </div>
-  );
-}
 
 const klok = (s: number): string =>
   `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;

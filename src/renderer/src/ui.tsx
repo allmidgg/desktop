@@ -240,6 +240,63 @@ export function Winrate({ winrate, games }: { winrate: number; games: number }):
 }
 
 /** Recent results as dots, newest first. */
+/**
+ * Winrate als ring: één blik, geen tabel.
+ *
+ * De straal wordt tot het midden van de lijn gemeten en niet tot de buitenrand:
+ * een SVG-cirkel groeit aan beide kanten met de halve lijndikte, dus de
+ * getekende diameter als straal nemen maakt de ring een lijndikte te breed en
+ * duwt hem uit zijn kader.
+ *
+ * De uiteinden zijn recht en niet rond. Een ronde kop voegt aan beide kanten
+ * een halve lijndikte boog toe, en dan sluit 97% de cirkel en leest als 100%.
+ *
+ * `winrate` is een fractie, zoals overal in deze codebase.
+ */
+export function WinrateRing({
+  winrate,
+  games,
+  maat = 80,
+}: {
+  winrate: number;
+  games: number;
+  maat?: number;
+}): JSX.Element {
+  const dikte = maat >= 80 ? 5 : 4;
+  const straal = (maat - dikte) / 2;
+  const omtrek = 2 * Math.PI * straal;
+  const pct = games === 0 ? 0 : Math.max(0, Math.min(100, winrate * 100));
+  const vol = (pct / 100) * omtrek;
+  return (
+    <div className="relative grid shrink-0 place-items-center" style={{ width: maat, height: maat }}>
+      <svg width={maat} height={maat} className="-rotate-90">
+        {/* Het onafgelegde deel is een schaduw, geen rand: op volle sterkte
+            leest een lijn van vijf pixels als een tweede ring naast het goud. */}
+        <circle cx={maat / 2} cy={maat / 2} r={straal} fill="none" stroke="var(--color-surface-3)" strokeWidth={dikte} />
+        {games > 0 ? (
+          <circle
+            cx={maat / 2}
+            cy={maat / 2}
+            r={straal}
+            fill="none"
+            stroke="var(--color-gold-400)"
+            strokeWidth={dikte}
+            strokeDasharray={`${vol} ${omtrek}`}
+          />
+        ) : null}
+      </svg>
+      <div className="absolute text-center">
+        <p className="num font-bold text-ink-100" style={{ fontSize: maat * 0.235 }}>
+          {games === 0 ? "--" : `${Math.round(pct)}%`}
+        </p>
+        <p className="tracking-[0.12em] text-ink-600 uppercase" style={{ fontSize: maat * 0.095 }}>
+          Winrate
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function FormDots({ results }: { results: boolean[] }): JSX.Element {
   return (
     // Bigger and brighter, in both places the mock-up draws them: the dots sit
