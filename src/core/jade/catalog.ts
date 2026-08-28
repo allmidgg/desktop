@@ -304,8 +304,17 @@ export class JadeCatalog {
     return this.items.get(jadeId)?.name ?? `Item ${jadeId}`;
   }
 
+  /**
+   * Zoekt een spell op, ongeacht in welke vorm het ID binnenkomt.
+   *
+   * De map is gevuld op de sleutel die de assets gaven, en die is niet voor elk
+   * spell hetzelfde: Flash staat onder 4, Promote onder 720. Daarom eerst het
+   * ID zoals het is, en pas daarna de versie zonder de 7 ervoor. Alleen dat
+   * laatste proberen liet elk Classic-eigen spell onvindbaar -- spell(720) ging
+   * zoeken op 20, en dat bestaat niet.
+   */
   spell(jadeId: number): JadeSpell | undefined {
-    return this.spells.get(toBaseSpellId(jadeId));
+    return this.spells.get(jadeId) ?? this.spells.get(toBaseSpellId(jadeId));
   }
 
   spellName(jadeId: number): string {
