@@ -7,10 +7,11 @@
  */
 import { app, BrowserWindow, dialog, ipcMain, protocol, screen, shell } from "electron";
 import { Vensterplek } from "./vensterplek";
+import { AllMidTray } from "./tray";
 import { join } from "node:path";
 import { JadeService } from "./service";
 import type { RuneKind } from "../core/jade/runes";
-import type { AppSnapshot } from "../shared/types";
+import type { AppSnapshot, Settings } from "../shared/types";
 
 let service: JadeService | null = null;
 let plek: Vensterplek | null = null;
@@ -22,6 +23,23 @@ let overlayVergrendeld = true;
 let overlayTopTimer: NodeJS.Timeout | null = null;
 /** Zodat we de popup niet bij elke update opnieuw naar voren duwen. */
 let champSelectShown = false;
+let tray: AllMidTray | null = null;
+/**
+ * Of we echt aan het afsluiten zijn.
+ *
+ * Zonder deze vlag kan niets het verschil zien tussen "gebruiker klikte het
+ * kruisje" (verbergen) en "gebruiker koos Quit" (afsluiten), want beide komen
+ * uit als een close-event op hetzelfde venster.
+ */
+let echtAfsluiten = false;
+/**
+ * De laatst bekende instellingen.
+ *
+ * De service houdt ze privé en stuurt ze mee in elke snapshot; het hoofdproces
+ * heeft ze nodig op momenten waarop er geen snapshot langskomt -- een
+ * close-event bijvoorbeeld. Dus houden we hier een kopie bij.
+ */
+let instellingen: Settings | null = null;
 
 // Moet geregistreerd zijn voordat de app klaar is met opstarten.
 protocol.registerSchemesAsPrivileged([
@@ -77,13 +95,28 @@ function createMainWindow(): void {
 
   if (plek!.wasGemaximaliseerd("main")) mainWindow.maximize();
   plek!.volg("main", mainWindow);
-  mainWindow.once("ready-to-show", () => mainWindow?.show());
+  mainWindow.once("ready-to-show", () => {
+    // Windows start ons met --hidden als het meestarten aan staat. Dan komt er
+    // alleen een tray-icoon op; het venster bestaat wel, zodat champion select
+    // hem meteen kan tonen zonder eerst te moeten laden.
+    if (startVerborgen()) return;
+    mainWindow?.show();
+  });
 
   // Without this the variable keeps pointing at a window that no longer exists.
   // A closed BrowserWindow is not null, so `mainWindow?.webContents` sails past
   // the optional check and throws "Object has been destroyed" -- which surfaced
   // as an error dialog every couple of seconds once the live game watcher
   // started pushing a snapshot that often.
+  // Het kruisje verbergt, tenzij de gebruiker echt afsluit. Dit is een
+  // companion die op een champion select wacht; hem afsluiten omdat je even
+  // geen venster wilt zien betekent dat hij die select mist.
+  mainWindow.on("close", (event) => {
+    if (echtAfsluiten || instellingen?.sluitNaarTray === false) return;
+    event.preventDefault();
+    mainWindow?.hide();
+  });
+
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -303,6 +336,71 @@ function syncChampSelectWindow(snapshot: AppSnapshot): void {
   }
 }
 
+/** Is deze start er een die Windows zelf deed, met de app verborgen? */
+function startVerborgen(): boolean {
+  if (!process.argv.includes("--hidden")) return false;
+  return instellingen?.startVerborgen !== false;
+}
+
+/** Venster tonen en naar voren halen, of opnieuw maken als het weg is. */
+function toonHoofdvenster(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createMainWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+/**
+ * Zet het meestarten met Windows gelijk aan de instelling.
+ *
+ * `--hidden` gaat mee zodat een automatische start alleen het tray-icoon
+ * oplevert; een handmatige start heeft die vlag niet en toont dus wel gewoon
+ * het venster.
+ */
+function pasOpstartToe(aan: boolean): void {
+  // In dev wijst het pad naar electron.exe zelf; dat in iemands opstartlijst
+  // zetten is nooit de bedoeling.
+  if (!app.isPackaged) return;
+  app.setLoginItemSettings({
+    openAtLogin: aan,
+    args: ["--hidden"],
+  });
+}
+
+/**
+ * Eén regel die zegt wat de app nu doet, voor de tooltip en bovenaan het menu.
+ *
+ * Bewust in deze volgorde: wat er nu gebeurt gaat voor wat er klaarstaat. Wie
+ * in een game zit wil niet lezen dat de database 125.000 games heeft.
+ */
+function trayStand(snapshot: AppSnapshot): string {
+  if (snapshot.liveGame?.isClassic) return "In a Classic game";
+  if (snapshot.champSelect) return "Champion select";
+  if (snapshot.connection !== "connected") return "Waiting for the League client...";
+  return "Connected -- waiting for a game";
+}
+
+function startTray(): void {
+  if (tray) return;
+  tray = new AllMidTray({
+    toon: toonHoofdvenster,
+    wisselOverlay: () => {
+      const aan = !instellingen?.overlay;
+      void service
+        ?.updateSettings({ overlay: aan })
+        .catch((err: Error) => console.error("[allmid] overlay wisselen mislukte:", err));
+    },
+    sluitAf: () => {
+      echtAfsluiten = true;
+      app.quit();
+    },
+  });
+  tray.start();
+}
+
 function registerAssetProtocol(): void {
   // De client serveert iconen achter een self-signed certificaat met Basic auth,
   // dus de UI kan ze niet rechtstreeks laden. Dit protocol haalt ze op via de
@@ -436,7 +534,21 @@ void app
     registerIpc();
     createMainWindow();
 
+    startTray();
+
     service.on("snapshot", (snapshot: AppSnapshot) => {
+      // De kopie eerst: de handlers hieronder lezen hem.
+      const vorige = instellingen;
+      instellingen = snapshot.settings;
+      // Meestarten volgt de instelling, maar alleen als hij echt wijzigt --
+      // setLoginItemSettings elke twee seconden aanroepen is onnodig gerommel
+      // in het register.
+      if (vorige?.startMetWindows !== snapshot.settings.startMetWindows) {
+        pasOpstartToe(snapshot.settings.startMetWindows);
+      }
+      tray?.zetOverlay(snapshot.settings.overlay);
+      tray?.zetStand(trayStand(snapshot));
+
       stuurNaarVenster("app:snapshot", snapshot);
       if (overlayWindow && !overlayWindow.isDestroyed() && !overlayWindow.webContents.isDestroyed()) {
         overlayWindow.webContents.send("app:snapshot", snapshot);
@@ -454,9 +566,21 @@ void app
   })
   .catch((err: Error) => console.error("[allmid] opstarten mislukte:", err));
 
+// Alleen afsluiten als het venster écht dicht is. Met sluiten-naar-tray wordt
+// het venster verborgen en niet gesloten, dus dit vuurt dan niet -- maar wie de
+// instelling uitzet krijgt het oude gedrag terug.
 app.on("window-all-closed", () => {
+  if (!echtAfsluiten && instellingen?.sluitNaarTray) return;
   service?.dispose();
   if (process.platform !== "darwin") app.quit();
+});
+
+// Eén keer opruimen bij een echte afsluiting, ongeacht welke weg ernaartoe leidde.
+app.on("before-quit", () => {
+  echtAfsluiten = true;
+  tray?.stop();
+  tray = null;
+  service?.dispose();
 });
 
 /**

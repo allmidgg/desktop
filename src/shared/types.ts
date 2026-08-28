@@ -452,6 +452,12 @@ export interface Settings {
   overlay: boolean;
   autoMasteries: boolean;
   shareMatches: boolean;
+  /** Close hides to the tray instead of quitting. */
+  sluitNaarTray: boolean;
+  /** Start with Windows. */
+  startMetWindows: boolean;
+  /** When started with Windows, come up as a tray icon with no window. */
+  startVerborgen: boolean;
   uploadServer: string;
 }
 

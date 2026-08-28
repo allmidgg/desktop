@@ -1262,13 +1262,58 @@ function overlayPagina() {
 }
 
 /**
- * The front page: League of Legends, and what AllMid does with it.
+ * The front page: the AllMid platform, with League of Legends as its first
+ * live module. The data pages below remain deliberately League-specific;
+ * the promise at the front is no longer limited to one game.
  *
  * Deliberately not the Classic page. Classic is the queue we have data for
  * today and it keeps its own page and its own place in the nav; the front of
  * the site is about the app, the roster and the method, because those hold
  * whichever queue the numbers eventually come from.
  */
+function gameUniverse() {
+  const games = [
+    { short: "LOL", name: "League of Legends", state: "Live now", live: true },
+    { short: "VAL", name: "VALORANT", state: "In research" },
+    { short: "CS2", name: "Counter-Strike 2", state: "In research" },
+    { short: "FN", name: "Fortnite", state: "In research" },
+    { short: "OW", name: "Overwatch 2", state: "In research" },
+    { short: "+", name: "Your next game", state: "Tell us what to build" },
+  ];
+
+  return `<section class="universe" id="games">
+  <div class="universe-noise" aria-hidden="true"></div>
+  <div class="wrap universe-grid">
+    <div class="universe-copy rise">
+      <p class="eyebrow">AllMid OS <span class="pulse-dot" aria-hidden="true"></span> expanding</p>
+      <h2>One helper. <em>Every game</em> you care about.</h2>
+      <p>
+        AllMid starts with League of Legends because we would rather prove the system than pretend
+        every game is already finished. The same idea scales: open a game, get the useful context,
+        and keep your attention where it belongs &mdash; in the match.
+      </p>
+      <div class="universe-stats" aria-label="AllMid platform status">
+        <div><b>01</b><span>live module</span></div>
+        <div><b>06</b><span>games mapped</span></div>
+        <div><b>0</b><span>accounts required</span></div>
+      </div>
+      <a class="text-link" href="#get">Get the first module <span aria-hidden="true">&rarr;</span></a>
+    </div>
+    <div class="game-radar rise" aria-label="AllMid game coverage: League of Legends is live; Valorant, Counter-Strike 2, Fortnite, Overwatch 2 and more are in research.">
+      <div class="radar-core" aria-hidden="true"><span>ALL<br />MID</span></div>
+      <div class="radar-sweep" aria-hidden="true"></div>
+      <div class="radar-rings" aria-hidden="true"></div>
+      <div class="game-nodes">
+        ${games.map((game, index) => `<article class="game-node ${game.live ? "is-live" : ""}" style="--node:${index}">
+          <span class="game-node-mark">${game.short}</span>
+          <span class="game-node-text"><b>${game.name}</b><small>${game.state}</small></span>
+        </article>`).join("")}
+      </div>
+    </div>
+  </div>
+</section>`;
+}
+
 function leaguePagina() {
   const voorbeeld = catalogus.champions
     .filter((c) => IN_CLASSIC.has(c.id))
@@ -1290,12 +1335,12 @@ function leaguePagina() {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AllMid &mdash; League of Legends stats and overlay</title>
-<meta name="description" content="A free, open-source League of Legends companion: builds, counters and an in-game overlay, with the sample size on every number. ${n(T.games)} games recorded so far." />
+<title>AllMid &mdash; Game intelligence that moves with you</title>
+<meta name="description" content="AllMid is a free, open-source game helper. League of Legends is live first: builds, counters and an in-game overlay backed by ${n(T.games)} recorded games." />
 <link rel="canonical" href="https://allmid.gg/" />
 <meta property="og:type" content="website" />
-<meta property="og:title" content="AllMid &mdash; League of Legends stats and overlay" />
-<meta property="og:description" content="Builds, counters and an in-game overlay for League of Legends. Free, open source, and every number carries the sample size it came from." />
+<meta property="og:title" content="AllMid &mdash; Game intelligence that moves with you" />
+<meta property="og:description" content="A free, open-source game helper. League of Legends is live first, with more games being mapped next." />
 <meta property="og:url" content="https://allmid.gg/" />
 <meta property="og:image" content="https://allmid.gg/img/meta.png" />
 <meta name="twitter:card" content="summary_large_image" />
@@ -1319,26 +1364,27 @@ ${toolbalk("home")}
   </div>
   <div class="wrap">
     <div class="rise">
-      <p class="eyebrow">Free &middot; Open source &middot; MIT &middot; Windows</p>
-      <h1>Everything you need <em>mid-game</em>, and nothing you have to take on faith.</h1>
+      <p class="eyebrow">Game intelligence, in motion <span class="pulse-dot" aria-hidden="true"></span> League live now</p>
+      <h1>Your game changes.<br /><em>AllMid keeps up.</em></h1>
       <p class="lede">
-        A League of Legends companion that reads your own client, sets your masteries before the
-        timer runs out, and puts objective timers on top of the game. Every figure it shows carries
-        the number of games behind it &mdash; because a win rate without a sample size is just a
-        number that looks like an answer.
+        AllMid is a desktop helper for the moments that decide a match. League of Legends is the
+        first live module: real builds, matchups and objective timing, backed by the games behind
+        every number. The system is being built to travel with you to the next game too.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/allmidgg/desktop/releases/latest/download/AllMid-Setup.exe">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 11 5 5 5-5" /><path d="M4 20h16" /></svg>
           Download for Windows
         </a>
-        <a class="btn btn-ghost" href="champions.html">Browse ${catalogus.champions.length} champions</a>
+        <a class="btn btn-ghost" href="#games">Explore the AllMid universe</a>
       </div>
       <p class="cta-note">Windows 10 &amp; 11 &middot; no account &middot; no telemetry</p>
     </div>
     <div class="lol-held-beeld rise">${heldBeeld}</div>
   </div>
 </section>
+
+${gameUniverse()}
 
 ${modusBalk()}
 
@@ -1994,7 +2040,10 @@ function kenmerkBlok(k, i) {
  * a row of greyed-out logos for games we have not started is a promise, and
  * this site does not make those.
  */
-const SPELLEN = [{ slug: "lol", naam: "League of Legends", live: true }];
+const SPELLEN = [
+  { slug: "lol", naam: "League of Legends", live: true },
+  { slug: "universe", naam: "More games in research", live: false },
+];
 
 /**
  * The header: which game, then where in it.
@@ -4732,6 +4781,91 @@ img.dm-portret { width: 44px; height: 44px; border-radius: 9px; border: 1px soli
 
 @media (prefers-reduced-motion: reduce) {
   .kenmerk:hover .kenmerk-beeld.is-shot img { transform: none; }
+}
+
+/* ── AllMid universe: an animated, honest map of the platform ───────────── */
+
+.pulse-dot {
+  display: inline-block; width: 0.48rem; height: 0.48rem; margin: 0 0.38rem 0.08rem;
+  border-radius: 50%; background: var(--wr-hi); box-shadow: 0 0 0 0 rgba(58, 217, 164, 0.46);
+  vertical-align: middle; animation: amPulse 2.2s ease-out infinite;
+}
+
+.universe {
+  position: relative; isolation: isolate; overflow: hidden;
+  border-block: 1px solid rgba(231, 199, 110, 0.16);
+  background:
+    radial-gradient(circle at 77% 50%, rgba(67, 102, 217, 0.18), transparent 28rem),
+    radial-gradient(circle at 21% 35%, rgba(231, 199, 110, 0.12), transparent 31rem),
+    #090b14;
+}
+.universe::before, .universe::after {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+}
+.universe::before {
+  inset: 0; opacity: 0.42;
+  background-image: linear-gradient(rgba(174, 190, 234, 0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(174, 190, 234, 0.07) 1px, transparent 1px);
+  background-size: 42px 42px; mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+}
+.universe::after {
+  width: 34rem; height: 34rem; top: -15rem; right: -10rem; border: 1px solid rgba(231, 199, 110, 0.1); border-radius: 50%;
+  box-shadow: 0 0 0 5rem rgba(231, 199, 110, 0.025), 0 0 0 10rem rgba(231, 199, 110, 0.018);
+}
+.universe-noise { position: absolute; inset: 0; opacity: 0.24; pointer-events: none; z-index: -1; background-image: radial-gradient(rgba(255,255,255,.45) .55px, transparent .7px); background-size: 7px 7px; mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); }
+.universe-grid { display: grid; grid-template-columns: minmax(0, 0.92fr) minmax(370px, 1.08fr); gap: clamp(2rem, 7vw, 7rem); align-items: center; padding-block: clamp(4rem, 9vw, 8rem); }
+.universe-copy h2 { max-width: 10ch; margin: 0.45rem 0 1.15rem; font-size: clamp(2.25rem, 1.4rem + 3.7vw, 4.25rem); line-height: 0.98; letter-spacing: -0.055em; }
+.universe-copy h2 em { color: var(--gold); font-style: normal; text-shadow: 0 0 32px rgba(231, 199, 110, 0.22); }
+.universe-copy > p:not(.eyebrow) { max-width: 55ch; margin: 0; color: var(--muted); font-size: 1.02rem; line-height: 1.72; }
+.universe-stats { display: flex; flex-wrap: wrap; gap: 1.5rem clamp(1.3rem, 4vw, 2.6rem); margin: 2rem 0 1.6rem; }
+.universe-stats div { display: grid; gap: 0.15rem; }
+.universe-stats b { color: var(--ink); font-family: var(--display); font-size: clamp(1.45rem, 1.15rem + 1vw, 2rem); line-height: 1; letter-spacing: -0.04em; }
+.universe-stats span { color: var(--dim); font-family: var(--mono); font-size: 0.61rem; letter-spacing: 0.11em; text-transform: uppercase; }
+.text-link { display: inline-flex; align-items: center; gap: 0.45rem; color: var(--gold-lit); font-weight: 650; text-decoration: none; border-bottom: 1px solid rgba(231,199,110,.35); padding-bottom: 0.3rem; }
+.text-link span { transition: transform 180ms var(--ease-out); }
+.text-link:hover span { transform: translateX(0.24rem); }
+
+.game-radar { position: relative; min-height: 32rem; width: min(100%, 39rem); margin-left: auto; border-radius: 50%; aspect-ratio: 1; background: radial-gradient(circle, rgba(231, 199, 110, 0.12) 0 2%, rgba(32, 51, 100, 0.12) 25%, transparent 66%); }
+.radar-rings, .radar-rings::before, .radar-rings::after { position: absolute; inset: 13%; border: 1px solid rgba(159, 185, 255, 0.16); border-radius: 50%; content: ""; }
+.radar-rings::before { inset: 18%; }
+.radar-rings::after { inset: 39%; border-color: rgba(231, 199, 110, 0.38); box-shadow: 0 0 28px rgba(231, 199, 110, 0.18); }
+.radar-core { position: absolute; top: 50%; left: 50%; z-index: 2; display: grid; place-items: center; width: 6.2rem; height: 6.2rem; transform: translate(-50%, -50%) rotate(45deg); border: 1px solid rgba(231, 199, 110, 0.8); background: #0d101b; box-shadow: 0 0 0 0.55rem rgba(231, 199, 110, 0.06), 0 0 40px rgba(231, 199, 110, 0.21); }
+.radar-core span { transform: rotate(-45deg); font-family: var(--display); font-size: 0.84rem; font-weight: 800; letter-spacing: 0.15em; line-height: 0.9; text-align: center; color: var(--gold-lit); }
+.radar-sweep { position: absolute; inset: 13%; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0 76%, rgba(90, 142, 255, 0.04) 78%, rgba(157, 194, 255, 0.32) 94%, transparent 100%); mask-image: radial-gradient(circle, transparent 0 15%, #000 17%); animation: amSweep 8s linear infinite; }
+.game-nodes { position: absolute; inset: 0; }
+.game-node { --angle: calc(var(--node) * 60deg - 90deg); position: absolute; left: 50%; top: 50%; display: flex; align-items: center; gap: 0.65rem; width: max-content; max-width: 11.4rem; padding: 0.46rem 0.65rem 0.46rem 0.46rem; transform: rotate(var(--angle)) translateX(clamp(9rem, 19vw, 13rem)) rotate(calc(-1 * var(--angle))); border: 1px solid rgba(157, 178, 230, 0.18); border-radius: 0.58rem; background: rgba(10, 13, 25, 0.82); box-shadow: 0 11px 24px rgba(0,0,0,.24); backdrop-filter: blur(8px); }
+.game-node::before { content: ""; position: absolute; right: 100%; top: 50%; width: clamp(2.1rem, 6vw, 4.1rem); height: 1px; transform-origin: right; background: linear-gradient(90deg, transparent, rgba(154, 179, 246, .34)); }
+.game-node:nth-child(n + 4)::before { right: auto; left: 100%; transform: rotate(180deg); transform-origin: left; }
+.game-node-mark { display: grid; place-items: center; flex: 0 0 auto; width: 2.12rem; height: 2.12rem; border: 1px solid rgba(157, 178, 230, 0.25); border-radius: 0.42rem; background: linear-gradient(135deg, #273758, #151a2b); color: #c8d6ff; font-family: var(--mono); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; }
+.game-node-text { display: grid; min-width: 0; gap: 0.1rem; }
+.game-node-text b { overflow: hidden; color: var(--ink); font-size: 0.72rem; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+.game-node-text small { color: var(--dim); font-family: var(--mono); font-size: 0.54rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.game-node.is-live { border-color: rgba(231, 199, 110, 0.62); background: rgba(34, 31, 19, 0.9); }
+.game-node.is-live .game-node-mark { border-color: var(--gold-dim); background: linear-gradient(135deg, #675321, #241e12); color: var(--gold-lit); box-shadow: 0 0 18px rgba(231, 199, 110, .16); }
+.game-node.is-live .game-node-text small { color: var(--wr-hi); }
+
+@keyframes amSweep { to { transform: rotate(360deg); } }
+@keyframes amPulse { 55% { box-shadow: 0 0 0 0.4rem rgba(58, 217, 164, 0); } 100% { box-shadow: 0 0 0 0 rgba(58, 217, 164, 0); } }
+@media (max-width: 760px) {
+  .universe-grid { grid-template-columns: 1fr; padding-block: 3.8rem 3.4rem; }
+  .game-radar { min-height: 25rem; margin: -0.9rem auto -1.7rem; transform: scale(.9); }
+}
+@media (max-width: 430px) {
+  .game-radar { min-height: 20rem; transform: scale(.74); margin: -3.2rem auto -3.4rem; }
+  .game-node { transform: rotate(var(--angle)) translateX(8.8rem) rotate(calc(-1 * var(--angle))); }
+  .game-node-text b { max-width: 5.9rem; }
+  .game-node::before { width: 1.7rem; }
+}
+@media (max-width: 560px) {
+  body { overflow-x: hidden; }
+  .balk-spellen .wrap { gap: 0.65rem; }
+  .balk-spellen .brand { margin-right: 0; }
+  .balk-bron { display: none; }
+  .spellen { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .spellen::-webkit-scrollbar { display: none; }
+  .spel { flex: none; white-space: nowrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot, .radar-sweep { animation: none; }
 }
 `;
 writeFileSync(join(HERE, "style.css"), css, "utf8");

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { AppSnapshot, UploadStatus } from "../../shared/types";
+import type { AppSnapshot, Settings, UploadStatus } from "../../shared/types";
 import { LiveView } from "./views/LiveView";
 import { ProfileView } from "./views/ProfileView";
 import { RunesView } from "./views/RunesView";
@@ -158,6 +158,7 @@ function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
           </span>
         ) : null}
         {snapshot ? <SharingBadge upload={snapshot.upload} /> : null}
+        {snapshot ? <AppMenu settings={snapshot.settings} /> : null}
         <div className="flex items-center gap-2 text-[11px] text-ink-500">
           <span
             className={`h-1.5 w-1.5 rounded-full ${
@@ -173,6 +174,116 @@ function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
         </div>
       </div>
     </header>
+  );
+}
+
+/**
+ * The app-level switches: how AllMid behaves when you are not looking at it.
+ *
+ * These live in the title bar rather than on a page because they are not about
+ * League -- they are about the program. Three of them, and the third only means
+ * anything with the second on, so it is indented under it and disabled without.
+ */
+function AppMenu({ settings }: { settings: Settings }): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: MouseEvent): void => {
+      if (!box.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const zet = (patch: Partial<Settings>): void => {
+    void window.jade.updateSettings(patch);
+  };
+
+  return (
+    <div className="no-drag relative" ref={box}>
+      <button
+        onClick={() => setOpen(!open)}
+        title="Settings"
+        aria-label="Settings"
+        className={`flex items-center rounded-lg p-1.5 transition-colors ${
+          open ? "bg-white/8 text-ink-100" : "text-ink-500 hover:bg-white/5 hover:text-ink-300"
+        }`}
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
+          <circle cx="8" cy="8" r="2.2" />
+          <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4M12.6 12.6l-1.4-1.4M4.8 4.8L3.4 3.4" />
+        </svg>
+      </button>
+
+      {open ? (
+        <div className="absolute top-full right-0 z-50 mt-1.5 w-72 rounded-xl border border-line bg-[#0a0d14] p-3 shadow-[0_18px_40px_-18px_rgba(0,0,0,0.9)]">
+          <p className="mb-2.5 text-[10px] tracking-[0.14em] text-ink-600 uppercase">Behaviour</p>
+
+          <Schakelaar
+            aan={settings.sluitNaarTray}
+            onClick={() => zet({ sluitNaarTray: !settings.sluitNaarTray })}
+            titel="Close to tray"
+            uitleg="The X hides AllMid instead of quitting, so it can still catch your next champion select. Quit from the tray icon."
+          />
+
+          <Schakelaar
+            aan={settings.startMetWindows}
+            onClick={() => zet({ startMetWindows: !settings.startMetWindows })}
+            titel="Start with Windows"
+            uitleg="Launches on sign-in so it is already there when you open League."
+          />
+
+          <div className={settings.startMetWindows ? "pl-5" : "pl-5 opacity-40"}>
+            <Schakelaar
+              aan={settings.startVerborgen}
+              onClick={() => settings.startMetWindows && zet({ startVerborgen: !settings.startVerborgen })}
+              titel="Start hidden"
+              uitleg="Come up as a tray icon only, with no window."
+              uit={!settings.startMetWindows}
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Eén rij in het menu: schakelaar, titel, en waarom je hem zou willen. */
+function Schakelaar({
+  aan,
+  onClick,
+  titel,
+  uitleg,
+  uit,
+}: {
+  aan: boolean;
+  onClick: () => void;
+  titel: string;
+  uitleg: string;
+  uit?: boolean;
+}): JSX.Element {
+  return (
+    <button
+      onClick={onClick}
+      disabled={uit}
+      className="mb-2 flex w-full gap-2.5 rounded-lg p-1.5 text-left transition-colors hover:bg-white/[0.04] disabled:cursor-default disabled:hover:bg-transparent"
+    >
+      <span
+        className={`mt-0.5 flex h-4 w-7 shrink-0 items-center rounded-full p-0.5 transition-colors ${
+          aan ? "bg-gold-400/80" : "bg-ink-800"
+        }`}
+      >
+        <span
+          className={`h-3 w-3 rounded-full bg-[#0a0d14] transition-transform ${aan ? "translate-x-3" : ""}`}
+        />
+      </span>
+      <span>
+        <span className="block text-[12px] font-medium text-ink-200">{titel}</span>
+        <span className="block text-[11px] leading-snug text-ink-600">{uitleg}</span>
+      </span>
+    </button>
   );
 }
 

@@ -49,6 +49,29 @@ export interface Settings {
    * verkeer. Wie zijn eigen verzamelserver draait vult hier dat adres in.
    */
   uploadServer: string;
+  /**
+   * Sluiten met het kruisje verbergt de app in plaats van hem af te sluiten.
+   *
+   * Standaard aan, want dit is een companion: hij hoort te blijven kijken of er
+   * een champion select begint. Wie hem echt weg wil heeft Afsluiten in het
+   * tray-menu -- en dat staat er expliciet in, omdat een kruisje dat niet sluit
+   * anders aanvoelt als software die je niet laat gaan.
+   */
+  sluitNaarTray: boolean;
+  /**
+   * Meestarten met Windows.
+   *
+   * Standaard uit. Iets in andermans opstartlijst zetten is een keuze die de
+   * gebruiker maakt, niet een die je voor hem maakt bij de installatie.
+   */
+  startMetWindows: boolean;
+  /**
+   * Verborgen starten: alleen het tray-icoon, geen venster.
+   *
+   * Alleen zinnig samen met startMetWindows -- anders start je de app met de
+   * hand en verschijnt er niets, wat als kapot voelt.
+   */
+  startVerborgen: boolean;
 }
 
 /**
@@ -96,6 +119,9 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   overlay: false,
   autoMasteries: false,
   shareMatches: true,
+  sluitNaarTray: true,
+  startMetWindows: false,
+  startVerborgen: true,
   uploadServer: DEFAULT_UPLOAD_SERVER,
   uploadKey: "",
 };
@@ -111,6 +137,9 @@ export const publicSettings = (settings: StoredSettings): Settings => ({
   autoMasteries: settings.autoMasteries,
   shareMatches: settings.shareMatches,
   uploadServer: settings.uploadServer,
+  sluitNaarTray: settings.sluitNaarTray,
+  startMetWindows: settings.startMetWindows,
+  startVerborgen: settings.startVerborgen,
 });
 
 export class SettingsStore {
