@@ -54,6 +54,9 @@ nsis:
   # uninstallerHeader bestaat helemaal niet; allebei laten staan liet
   # electron-builder de config afkeuren.
   installerHeader: build/installerHeader.bmp
+  # De verticale strook links op het welkomst- en afrondscherm.
+  installerSidebar: build/installerSidebar.bmp
+  uninstallerSidebar: build/uninstallerSidebar.bmp
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
 
