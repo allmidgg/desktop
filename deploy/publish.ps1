@@ -148,13 +148,18 @@ if (-not (Test-Path $Target)) {
 $uitsluiten = @(
     '_var-*.html', '_shot.html', '.nojekyll', 'CNAME',
     # Build tooling. Belongs in the repository, not on a web server.
-    'build.mjs', 'fetch-icons.mjs', 'refresh.mjs',
+    # catalogus.mjs was missing from this list and was being published: it is the
+    # script that downloads the champion portraits, and it has no business on a
+    # web server any more than build.mjs does.
+    'build.mjs', 'fetch-icons.mjs', 'refresh.mjs', 'catalogus.mjs',
     # The site does not read these at runtime: index.html and the champion pages
     # do no fetch at all, every figure is baked into the page at build time. They
     # were only ever published because robocopy /MIR mirrors the whole folder,
     # which meant 1.2 MB of the full dataset sitting there for anyone to take.
     # app-stats.json stays, because the desktop app really does download it.
-    'champions.json', 'builds.json', 'meta.json'
+    'champions.json', 'builds.json', 'meta.json',
+    # Read by build.mjs to lay out the League pages and by nothing at runtime.
+    'lol-catalog.json'
 )
 
 $roboArgs = @(

@@ -80,12 +80,16 @@ buildorders.jsonl
 # uploader is built against MatchStore alone and never opens this.
 historie-tijdlijnen.jsonl
 
-# Champion portraits for the full League roster: fetched from Data Dragon by
-# site/data/catalogus.mjs, and regenerated rather than reviewed.
-site/img/lol-champions/
-
-# Generated atmosphere images (from ChatGPT, kept out of the repo like the rest)
-site/img/hero-bg.png
-site/img/meta.png
-site/img/leeg.png
-site/img/scheiding.png
+# The site's own images are tracked, all of them, and that is deliberate.
+#
+# These four and the champion portraits used to be ignored on the reasoning that
+# they are generated and can be regenerated. They cannot, not where it matters:
+# deploy/publish.ps1 hard-resets the server checkout to origin/main and then runs
+# only refresh.mjs and build.mjs. Nothing there fetches a portrait or draws an
+# atmosphere image, so anything not in git simply does not exist on the web
+# server -- while build.mjs keeps writing references to it. That was 220 broken
+# portraits across the champion pages, leeg.png missing on 112 of them, and the
+# hero without its background.
+#
+# 5.4 MB against a repository that already carries 4.3 MB of icons, splashes,
+# items and spells for exactly this reason.
