@@ -3,31 +3,40 @@
  *
  * ── What this can and cannot draw, and why ───────────────────────────────────
  *
- * Classic match history has no timeline. That is not this app being lazy: the
- * LCU's Participant type carries `timeline?: { lane, role }` -- lane assignment,
- * not frames -- and the crawler has exactly two endpoints to ask, both of which
- * answer with end-of-game totals. So for the 130,000-odd games collected from
- * other people there is no gold curve, no first blood, no minute 14, and there
- * never will be.
+ * This panel draws a game this app was running during, and only such a game.
+ * The Live Client Data API hands over every player's inventory second by second
+ * along with its whole event feed, and the watcher writes that to
+ * buildorders.jsonl. That is where every line here comes from.
  *
- * For a game this app was running during, there is all of it. The Live Client
- * Data API hands over every player's inventory second by second and its whole
- * event feed with timestamps, and the watcher has been writing that down to
- * buildorders.jsonl since the day it landed. Nothing ever read that file. This
- * is what it says.
+ * It is not, as this comment used to claim, the only timeline that exists.
+ * `/lol-match-history/v1/game-timelines/{gameId}` answers for Classic games,
+ * including games this account never played -- see core/lcu/timeline.ts. What
+ * that source cannot do is fill this panel: it samples once a minute where the
+ * recording samples every few seconds, and it carries no item purchases and no
+ * skill levels at all, so the purchase tracks below the chart and the build
+ * walk have no counterpart in it. A game the crawler found still has no
+ * purchase order and no first blood here, and that much is permanent; the
+ * per-minute curve for such a game is merely unfetched.
  *
- * Every number on this screen is either a timestamp the game reported or the
- * catalogue price of an item somebody was seen to pick up. The one derived
- * figure -- gold committed to items -- states its own rule on screen, because a
- * curve you cannot account for is decoration.
+ * Every number on this screen is either a reading the game reported, a timestamp
+ * it reported, or the catalogue price of an item somebody was seen to pick up.
+ * The chart can be four different quantities and the caption changes with it,
+ * because the four are not the same kind of thing: kills, creeps and levels are
+ * sampled off the running game every fifteen seconds, and gold committed to
+ * items is rebuilt afterwards from inventories filling up. A curve you cannot
+ * account for is decoration, so each one says which of the two it is.
  */
 import { useMemo, useState } from "react";
 import { aankoopVerloop, bezitOp, bouwPad, goudOp, type Aankoop } from "../../../shared/build";
 import type {
   BuildStep, ChampionSummary, GameTijdlijn, ItemSummary, LiveGameSnapshot, Position,
-  SpelGebeurtenis,
+  SpelGebeurtenis, Verloop, VerloopKolommen,
 } from "../../../shared/types";
+import type { OmslagVenster } from "../../../shared/omslag";
+import { leesDekking, type Dekking } from "../../../shared/dekking";
 import { asset, ChampionIcon, EmptyState, Panel, PositionIcon, SectionTitle } from "../ui";
+import { Duelkromme } from "./Duelkromme";
+import { Dekkingsregel } from "./Dekkingsregel";
 
 const klok = (s: number): string =>
   `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, "0")}`;
@@ -81,6 +90,151 @@ const EVENT_LABEL: Record<SpelGebeurtenis["soort"], string> = {
 /** Which events are big enough to earn a tick on the axis rather than a dot. */
 const GROOT = new Set<SpelGebeurtenis["soort"]>(["dragon", "baron", "inhibitor", "firstblood"]);
 
+/* ── What the chart can be a chart of ────────────────────────────────────────
+
+   Gold committed to items was the only answer for as long as the watcher threw
+   every poll away and kept the last one. It no longer is: the recorder now
+   samples all ten scorelines every fifteen seconds and stores them as
+   OpnameRecord.verloop, so kills, creeps and levels are readings taken during
+   the game rather than a total read off the end of it.
+
+   That distinction is the whole reason for the switch rather than a second
+   chart. Committed gold is a reconstruction -- it moves when somebody visits
+   the shop, not when they earn anything, which is why it can be read at a
+   moment but should never be read as a rate. The other three are measurements.
+   Putting them on the same axis with the same scrubber lets one be checked
+   against another, and the caption says which kind each one is. */
+type Grootheid = "goud" | keyof VerloopKolommen;
+
+/** One reading of a quantity for both sides, which is what the chart plots. */
+interface Voorsprongpunt {
+  /** Game time in seconds, off the recording's own axis and never an index. */
+  t: number;
+  orde: number;
+  chaos: number;
+  /** Blue minus red, so a positive number always means blue. */
+  voorsprong: number;
+}
+
+interface Grootheidsuitleg {
+  sleutel: Grootheid;
+  /** The word on the button and in the read-out. */
+  naam: string;
+  /** Whether it was measured during the game or rebuilt afterwards. */
+  gemeten: boolean;
+  uitleg: JSX.Element;
+}
+
+/** Thousands for gold, plain counts for everything that is a count. */
+const toonWaarde = (grootheid: Grootheid, waarde: number): string =>
+  grootheid === "goud" ? `${(waarde / 1000).toFixed(1)}k` : String(Math.round(waarde));
+
+const GROOTHEDEN: readonly Grootheidsuitleg[] = [
+  {
+    sleutel: "goud",
+    naam: "Item gold",
+    gemeten: false,
+    uitleg: (
+      <>
+        Every purchase was watched appearing in an inventory and stamped with the game clock. The
+        line is the catalogue price of what a side had bought by then, minus the components it
+        swallowed, so an Infinity Edge is not counted three times.{" "}
+        <span className="tijdlijn-nadruk">It is not a gold lead:</span> gold still in a pocket, and
+        gold spent on the trinket, are not in it. The running game reports gold only for the player
+        at the keyboard, which is why nobody can draw the real curve &mdash; and why this one is a
+        standing at a moment rather than a rate over a minute.
+      </>
+    ),
+  },
+  {
+    sleutel: "kills",
+    naam: "Kills",
+    gemeten: true,
+    uitleg: (
+      <>
+        Read off the scoreboard the running game reports for all ten players, once every fifteen
+        seconds while the game was on.{" "}
+        <span className="tijdlijn-nadruk">This is a measurement, not a reconstruction:</span> the
+        step down is the fifteen seconds in which it happened, not the minute in which somebody got
+        round to buying something.
+      </>
+    ),
+  },
+  {
+    sleutel: "cs",
+    naam: "Creep score",
+    gemeten: true,
+    uitleg: (
+      <>
+        Both sides&rsquo; creeps added up, sampled every fifteen seconds. This is the closest thing
+        to a gold curve that actually exists for the other nine players, and it is the one that
+        shows a lane going quiet: farm stops before a scoreline does.
+      </>
+    ),
+  },
+  {
+    sleutel: "level",
+    naam: "Levels",
+    gemeten: true,
+    uitleg: (
+      <>
+        The five levels on each side, added up and sampled every fifteen seconds. Levels move
+        slowly and never go backwards, so a level lead that stops growing is a side that stopped
+        getting experience &mdash; which is what being pushed off a lane looks like before it looks
+        like anything else.
+      </>
+    ),
+  },
+];
+
+/**
+ * One sampled column, summed over a set of seats, at every second it was read.
+ *
+ * ── Why a null carries forward instead of counting as zero ───────────────────
+ *
+ * A null means that seat had no reading at that moment, which happens when the
+ * watcher starts on a game already in progress and the client has not listed
+ * everybody yet. Counting it as zero would draw a side losing forty creeps the
+ * instant one poll came back short and getting them all back on the next one --
+ * a collapse and a recovery, neither of which happened. All six sampled numbers
+ * are counters that only go up, so the last figure read is still true until a
+ * newer one arrives, and a seat never yet seen contributes nothing.
+ *
+ * Only correct walked in ascending order, which is the order a recording is in.
+ */
+function kolomReeks(
+  verloop: Verloop | undefined,
+  stoelen: readonly number[],
+  veld: keyof VerloopKolommen,
+): Array<{ t: number; waarde: number }> {
+  if (!verloop) return [];
+  const bekend = new Map<number, number>();
+  return verloop.tijden.map((t, i) => ({
+    t,
+    waarde: stoelen.reduce((totaal, stoel) => {
+      const gelezen = verloop.spelers[stoel]?.[veld]?.[i];
+      if (typeof gelezen === "number") bekend.set(stoel, gelezen);
+      return totaal + (bekend.get(stoel) ?? 0);
+    }, 0),
+  }));
+}
+
+/* This file used to carry its own search for the steepest fall in the team
+   lead, and a second copy of it lived in shared/meting.ts for the lane strip.
+   Both are gone. The stretch is worked out once, in shared/omslag.ts, and
+   arrives here as a prop -- see the `venster` parameter below.
+
+   Beyond the plain duplication, the copy that lived here was wrong in a way
+   that mattered. It floored its lookback at second zero rather than at the
+   first reading actually taken, so for a recording that began mid-game the
+   first sample was compared against a lead of nought. Any game where the other
+   side happened to be ahead at the moment the app started watching therefore
+   opened with a fall that never happened -- and, being the largest, it won. A
+   recording that starts late already stamps everyone's inventory on its first
+   second; pointing at that same second and calling it the moment the game
+   turned would have made the app confidently wrong about its own weakest
+   evidence. */
+
 interface Reeks {
   spoor: Spoor;
   aankopen: Aankoop[];
@@ -92,40 +246,73 @@ interface Reeks {
  * Kept out of the render path because it walks every purchase of every player
  * and the scrubber re-renders on every mouse move.
  */
-function useTijdlijnData(sporen: Spoor[], items: Map<number, ItemSummary>, duur: number) {
+function useTijdlijnData(
+  sporen: Spoor[],
+  items: Map<number, ItemSummary>,
+  duur: number,
+  verloop: Verloop | undefined,
+  grootheid: Grootheid,
+) {
   return useMemo(() => {
     const prijsVan = (id: number): number => items.get(id)?.price ?? 0;
     const onderdelenVan = (id: number): number[] => items.get(id)?.buildsFrom ?? [];
 
+    // The purchase tracks under the chart are always purchases, whatever the
+    // chart itself is showing, so this is computed regardless of the series.
     const reeksen: Reeks[] = sporen.map((spoor) => ({
       spoor,
       aankopen: aankoopVerloop(spoor.build, prijsVan, onderdelenVan),
     }));
 
-    // Only the seconds something actually happened. A step function needs no
-    // samples in between, and inventing a point per minute would suggest a
-    // reading was taken then.
-    const momenten = new Set<number>([0, Math.max(0, duur)]);
-    for (const r of reeksen) for (const a of r.aankopen) momenten.add(a.stap.at);
-    const tijden = [...momenten].sort((a, b) => a - b);
+    // Seat index is the same number in three places -- OpnameRecord.spelers,
+    // OpnameRecord.verloop.spelers and this array -- because all three are built
+    // by mapping the same list in order. That is what lets a side be a list of
+    // indices rather than a lookup.
+    const stoelenVan = (team: Spoor["team"]): number[] =>
+      sporen.flatMap((spoor, i) => (spoor.team === team ? [i] : []));
+    const ordeStoelen = stoelenVan("ORDER");
+    const chaosStoelen = stoelenVan("CHAOS");
 
-    const kant = (team: Spoor["team"]) => reeksen.filter((r) => r.spoor.team === team);
-    const totaalOp = (rs: Reeks[], t: number): number =>
-      rs.reduce((som, r) => som + goudOp(r.aankopen, t), 0);
+    // A recording written before the sampler landed has no curve, and that is
+    // the ordinary case for everything already in buildorders.jsonl. Nothing is
+    // substituted for it: an empty curve would claim the game was measured and
+    // found flat.
+    const gemeten = Boolean(verloop && verloop.tijden.length > 0);
 
-    const orde = kant("ORDER");
-    const chaos = kant("CHAOS");
-    const punten = tijden.map((t) => ({
-      t,
-      orde: totaalOp(orde, t),
-      chaos: totaalOp(chaos, t),
-    }));
+    let punten: Voorsprongpunt[];
+    if (grootheid === "goud" || !gemeten) {
+      // Only the seconds something actually happened. A step function needs no
+      // samples in between, and inventing a point per minute would suggest a
+      // reading was taken then.
+      const momenten = new Set<number>([0, Math.max(0, duur)]);
+      for (const r of reeksen) for (const a of r.aankopen) momenten.add(a.stap.at);
+      const totaalOp = (stoelen: number[], t: number): number =>
+        stoelen.reduce((som, i) => som + goudOp(reeksen[i]?.aankopen ?? [], t), 0);
+
+      punten = [...momenten]
+        .sort((a, b) => a - b)
+        .map((t) => {
+          const orde = totaalOp(ordeStoelen, t);
+          const chaos = totaalOp(chaosStoelen, t);
+          return { t, orde, chaos, voorsprong: orde - chaos };
+        });
+    } else {
+      // Both sides are read off the same readings, so the two series share an
+      // index -- which is the only reason it is safe to subtract them position
+      // by position rather than looking each one up by time.
+      const orde = kolomReeks(verloop, ordeStoelen, grootheid);
+      const chaos = kolomReeks(verloop, chaosStoelen, grootheid);
+      punten = orde.map((meting, i) => {
+        const tegen = chaos[i]?.waarde ?? 0;
+        return { t: meting.t, orde: meting.waarde, chaos: tegen, voorsprong: meting.waarde - tegen };
+      });
+    }
 
     const max = Math.max(1, ...punten.map((p) => Math.max(p.orde, p.chaos)));
-    const maxVoorsprong = Math.max(1, ...punten.map((p) => Math.abs(p.orde - p.chaos)));
+    const maxVoorsprong = Math.max(1, ...punten.map((p) => Math.abs(p.voorsprong)));
 
-    return { reeksen, punten, max, maxVoorsprong };
-  }, [sporen, items, duur]);
+    return { reeksen, punten, max, maxVoorsprong, gemeten, verloop };
+  }, [sporen, items, duur, verloop, grootheid]);
 }
 
 /** Seconds to an x in chart space, and back. */
@@ -199,6 +386,8 @@ function Grafiek({
   moment,
   zetMoment,
   gekozen,
+  grootheid,
+  venster,
 }: {
   data: ReturnType<typeof useTijdlijnData>;
   duur: number;
@@ -207,8 +396,11 @@ function Grafiek({
   moment: number;
   zetMoment: (t: number) => void;
   gekozen: string | null;
+  grootheid: Grootheid;
+  /** The stretch the panel above named, shaded here. Never found again locally. */
+  venster: OmslagVenster | null;
 }): JSX.Element {
-  const { punten, max, maxVoorsprong, reeksen } = data;
+  const { punten, max, maxVoorsprong, reeksen, gemeten, verloop } = data;
 
   const uitVoorval = (clientX: number, doel: SVGSVGElement): void => {
     const kader = doel.getBoundingClientRect();
@@ -220,17 +412,37 @@ function Grafiek({
     zetMoment(Math.round(Math.min(1, Math.max(0, deel)) * duur));
   };
 
-  const gekozenReeks = reeksen.find((r) => r.spoor.sleutel === gekozen) ?? null;
+  const gekozenStoel = sporen.findIndex((s) => s.sleutel === gekozen);
+  const gekozenReeks = gekozenStoel === -1 ? null : (reeksen[gekozenStoel] ?? null);
+
+  /**
+   * The selected player's own curve, in whichever quantity is being shown.
+   *
+   * For gold it is his purchase walk; for a sampled series it is his own column
+   * out of the recording. Both are the same player measured the same way as the
+   * side he is drawn against, which is the only reason it is safe to put them on
+   * one axis.
+   */
+  const gekozenPunten: Array<{ t: number; waarde: number }> =
+    gekozenStoel === -1
+      ? []
+      : grootheid === "goud" || !gemeten
+        ? [
+            { t: 0, waarde: 0 },
+            ...(gekozenReeks?.aankopen ?? []).map((a) => ({ t: a.stap.at, waarde: a.totaal })),
+          ]
+        : kolomReeks(verloop, [gekozenStoel], grootheid);
+
   const minuutStap = duur > 2400 ? 300 : duur > 900 ? 180 : 60;
   const ticks: number[] = [];
   for (let t = 0; t <= duur; t += minuutStap) ticks.push(t);
 
   const x = xVan(moment, duur);
-  const nu = punten.reduce(
+  const nu = punten.reduce<Voorsprongpunt>(
     (best, p) => (p.t <= moment ? p : best),
-    { t: 0, orde: 0, chaos: 0 },
+    { t: 0, orde: 0, chaos: 0, voorsprong: 0 },
   );
-  const voorsprong = nu.orde - nu.chaos;
+  const voorsprong = nu.voorsprong;
 
   return (
     <div className="tijdlijn-grafiek">
@@ -257,7 +469,7 @@ function Grafiek({
                 vectorEffect="non-scaling-stroke"
               />
               <text x={PAD.links - 8} y={y + 4} textAnchor="end" className="tijdlijn-aslabel">
-                {((max * deel) / 1000).toFixed(1)}k
+                {toonWaarde(grootheid, max * deel)}
               </text>
             </g>
           );
@@ -268,6 +480,25 @@ function Grafiek({
             {klok(t)}
           </text>
         ))}
+
+        {/* The stretch the sentence above the chart named, shaded behind the
+            lines rather than drawn over them: it is an answer, and an answer
+            belongs under the evidence rather than on top of it. Not searched for
+            here -- it arrives as a prop, so the band and the sentence are the
+            same finding and cannot drift apart. */}
+        {venster ? (
+          <rect
+            x={xVan(venster.van, duur)}
+            y={PAD.boven}
+            width={Math.max(1, xVan(venster.tot, duur) - xVan(venster.van, duur))}
+            height={GRAF_H}
+            className="tijdlijn-val"
+          >
+            <title>
+              {`${klok(venster.van)}–${klok(venster.tot)} — the stretch named above the chart`}
+            </title>
+          </rect>
+        ) : null}
 
         <path
           d={stapPad(punten.map((p) => ({ t: p.t, waarde: p.chaos })), duur, max)}
@@ -282,16 +513,9 @@ function Grafiek({
 
         {/* One player picked out in gold. The accent is reserved for the thing
             that is selected, which is exactly what this is. */}
-        {gekozenReeks ? (
+        {gekozenPunten.length > 0 ? (
           <path
-            d={stapPad(
-              [
-                { t: 0, waarde: 0 },
-                ...gekozenReeks.aankopen.map((a) => ({ t: a.stap.at, waarde: a.totaal })),
-              ],
-              duur,
-              max,
-            )}
+            d={stapPad(gekozenPunten, duur, max)}
             className="tijdlijn-lijn tijdlijn-gekozen"
             vectorEffect="non-scaling-stroke"
           />
@@ -392,13 +616,15 @@ function Grafiek({
 
       <div className="tijdlijn-afleeslat">
         <span className="num tijdlijn-klok">{klok(moment)}</span>
-        <span className="num tijdlijn-blauw">{(nu.orde / 1000).toFixed(1)}k</span>
-        <span className="tijdlijn-scheiding">committed to items</span>
-        <span className="num tijdlijn-rood">{(nu.chaos / 1000).toFixed(1)}k</span>
+        <span className="num tijdlijn-blauw">{toonWaarde(grootheid, nu.orde)}</span>
+        <span className="tijdlijn-scheiding">
+          {GROOTHEDEN.find((g) => g.sleutel === grootheid)?.naam.toLowerCase() ?? ""}
+        </span>
+        <span className="num tijdlijn-rood">{toonWaarde(grootheid, nu.chaos)}</span>
         <span className={`num ml-auto ${voorsprong >= 0 ? "tijdlijn-blauw" : "tijdlijn-rood"}`}>
           {voorsprong === 0
             ? "level"
-            : `${voorsprong > 0 ? "Blue" : "Red"} +${(Math.abs(voorsprong) / 1000).toFixed(1)}k`}
+            : `${voorsprong > 0 ? "Blue" : "Red"} +${toonWaarde(grootheid, Math.abs(voorsprong))}`}
         </span>
       </div>
     </div>
@@ -550,6 +776,9 @@ export function Tijdlijn({
   items,
   champions,
   herkomst,
+  verloop,
+  venster,
+  dekking,
 }: {
   sporen: Spoor[];
   duur: number;
@@ -557,6 +786,15 @@ export function Tijdlijn({
   items: Map<number, ItemSummary>;
   champions: Map<number, ChampionSummary>;
   herkomst: JSX.Element;
+  /** The sampled scorelines, on recordings taken after the sampler landed. */
+  verloop?: Verloop;
+  /**
+   * The stretch named in the panel above, shaded on the chart and on the lane
+   * strip. Handed down rather than looked for, so one game has one answer.
+   */
+  venster?: OmslagVenster | null;
+  /** How much of the game the recording actually covers, when that is known. */
+  dekking?: Dekking | null;
 }): JSX.Element {
   /**
    * Null means "follow the end of the game", which is the only sensible resting
@@ -569,7 +807,31 @@ export function Tijdlijn({
   const moment = gekozenMoment === null ? duur : Math.min(gekozenMoment, duur);
   const zetMoment = (t: number): void => zetGekozenMoment(Math.max(0, Math.min(duur, t)));
   const [gekozen, kies] = useState<string | null>(null);
-  const data = useTijdlijnData(sporen, items, duur);
+
+  /**
+   * A recording made before the sampler landed has purchases and nothing else,
+   * so it gets the one series it can support and no switch to press. Offering
+   * three buttons where two of them can only ever draw a flat line would be
+   * offering a measurement that was never taken.
+   */
+  const [grootheid, zetGrootheid] = useState<Grootheid>("goud");
+  const data = useTijdlijnData(sporen, items, duur, verloop, grootheid);
+  // useTijdlijnData is the one place that knows whether the rows decoded, so it
+  // is also the one place that gets to say whether the other series exist.
+  const gemeten = data.gemeten;
+  const actief: Grootheid = gemeten ? grootheid : "goud";
+  const uitleg = GROOTHEDEN.find((g) => g.sleutel === actief) ?? GROOTHEDEN[0];
+
+  /**
+   * Which seat the head-to-head is drawn around.
+   *
+   * The picked track when one is picked, and null otherwise so the strip falls
+   * back to the seat at the keyboard. Written as an explicit -1 check because
+   * findIndex answers 0 for the first seat, and `|| null` would quietly turn
+   * blue side's top laner back into "nobody picked anything".
+   */
+  const gekozenStoel = gekozen === null ? -1 : sporen.findIndex((s) => s.sleutel === gekozen);
+  const ankerStoel = gekozenStoel >= 0 ? gekozenStoel : null;
 
   const orde = data.reeksen.filter((r) => r.spoor.team === "ORDER");
   const chaos = data.reeksen.filter((r) => r.spoor.team === "CHAOS");
@@ -592,7 +854,26 @@ export function Tijdlijn({
   return (
     <Panel className="tijdlijn">
       <div className="tijdlijn-kop">
-        <p className="tijdlijn-titel">Gold committed to items</p>
+        {gemeten ? (
+          <div className="tijdlijn-keuze" role="group" aria-label="What the chart shows">
+            {GROOTHEDEN.map((g) => (
+              <button
+                key={g.sleutel}
+                type="button"
+                onClick={() => zetGrootheid(g.sleutel)}
+                aria-pressed={g.sleutel === actief}
+                className={g.sleutel === actief ? "tijdlijn-keuze-aan" : ""}
+                // The one thing a reader has to know before believing a curve:
+                // whether it was read off the game or rebuilt from side effects.
+                title={g.gemeten ? "Sampled during the game" : "Rebuilt from purchases afterwards"}
+              >
+                {g.naam}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="tijdlijn-titel">Gold committed to items</p>
+        )}
         {/* Arrow keys, because a scrubber you can only reach with a mouse is a
             scrubber half the people looking at this cannot use. */}
         <input
@@ -606,6 +887,15 @@ export function Tijdlijn({
         />
       </div>
 
+      {/* What this chart is allowed to claim, before the chart claims it.
+          A curve drawn from a recording looks identical whether the recording
+          covers the whole game or only its last eleven minutes, and the reader
+          cannot tell those apart from the drawing -- so a partial recording says
+          so here, in the accent colour, above the picture rather than under it.
+          Silent on a game watched end to end: a disclaimer printed over every
+          good game is one nobody reads by the time it matters. */}
+      {dekking ? <Dekkingsregel dekking={dekking} /> : null}
+
       <Grafiek
         data={data}
         duur={duur}
@@ -614,16 +904,38 @@ export function Tijdlijn({
         moment={moment}
         zetMoment={zetMoment}
         gekozen={gekozen}
+        grootheid={actief}
+        venster={venster ?? null}
       />
 
-      <p className="tijdlijn-uitleg">
-        Every purchase was watched appearing in an inventory and stamped with the game clock. The
-        line is the catalogue price of what a side had bought by then, minus the components it
-        swallowed, so an Infinity Edge is not counted three times.{" "}
-        <span className="tijdlijn-nadruk">It is not a gold lead:</span> gold still in a pocket, and
-        gold spent on the trinket, are not in it. The running game reports gold only for the player
-        at the keyboard, which is why nobody can draw the real curve.
-      </p>
+      {/* The same clock and the same scrubber, asked a narrower question. The
+          chart above is ten players and answers whether the game was won, which
+          is a fact about nine other people; this is the one player who had your
+          job on the other side, which is the only fair thing to hold you
+          against. It is handed xVan rather than computing its own, so the two
+          cannot drift apart and there is still exactly one time axis on screen.
+          It follows the selected track when there is one, so any lane can be
+          read this way and not only yours. */}
+      <Duelkromme
+        sporen={sporen}
+        verloop={verloop ?? null}
+        duur={duur}
+        moment={moment}
+        zetMoment={zetMoment}
+        champions={champions}
+        xVan={(t) => xVan(t, duur)}
+        links={PAD.links}
+        rechts={PAD.rechts}
+        breedte={W}
+        anker={ankerStoel}
+        venster={venster ?? null}
+      />
+
+      {/* No sentence here. The stretch is named once, in words, in the panel
+          above this chart, and repeating it under the chart in different wording
+          would read as two findings that happen to agree rather than as one. The
+          band is this chart's share of that finding. */}
+      <p className="tijdlijn-uitleg">{uitleg?.uitleg}</p>
 
       <div className="tijdlijn-sporen">
         {orde.length > 0 ? (
@@ -677,6 +989,7 @@ export function Tijdlijn({
   );
 }
 
+
 /**
  * The timeline of a finished game, if this machine happened to watch it.
  *
@@ -689,10 +1002,13 @@ export function Tijdlijnpaneel({
   tijdlijn,
   items,
   champions,
+  venster,
 }: {
   tijdlijn: GameTijdlijn | null;
   items: Map<number, ItemSummary>;
   champions: Map<number, ChampionSummary>;
+  /** The stretch the panel above named, shaded on the chart. Never found here. */
+  venster?: OmslagVenster | null;
 }): JSX.Element | null {
   if (!tijdlijn) return null;
   const { opname, koppeling } = tijdlijn;
@@ -727,6 +1043,17 @@ export function Tijdlijnpaneel({
         items={items}
         champions={champions}
         herkomst={<Koppelregel koppeling={koppeling} opname={opname} />}
+        // Absent on every recording written before the sampler landed, and the
+        // panel draws itself without it rather than substituting an empty curve.
+        verloop={opname.verloop}
+        venster={venster ?? null}
+        // The joined match knows how long the game really ran, which is the only
+        // way to tell "we stopped watching here" from "the game ended here".
+        // Recovered rather than carried: the join already stores the live clock
+        // minus match history's duration, so match history's duration is the
+        // recording's own length less that difference. Same two numbers the join
+        // was decided on, so this cannot disagree with it.
+        dekking={leesDekking(opname, opname.gameLengthSeconds - koppeling.duurVerschilSeconden)}
       />
     </div>
   );

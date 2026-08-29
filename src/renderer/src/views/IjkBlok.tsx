@@ -23,6 +23,7 @@
 import type {
   BaselineNumber, ChampionSummary, PerformanceBaseline,
 } from "../../../shared/types";
+import type { Oordeel, Uitspraak } from "../../../shared/oordeel";
 import { ChampionIcon, POSITION_LABELS, PositionIcon } from "../ui";
 
 /**
@@ -108,9 +109,19 @@ function ijkBeter(paar: BaselineNumber, hogerIsBeter: boolean): boolean | null {
 export function IjkBlok({
   baseline,
   champion,
+  oordeel,
 }: {
   baseline: PerformanceBaseline;
   champion: ChampionSummary | undefined;
+  /**
+   * The same six rows said out loud, plus the three areas that have no row.
+   *
+   * Inside this block rather than beside it, because it is the same comparison:
+   * the header above already says which champion, which lane and how many games
+   * the averages stand on, and a second box repeating that header would be the
+   * app making one claim twice. Null only if the caller has nothing to say.
+   */
+  oordeel: Oordeel | null;
 }): JSX.Element {
   const beter = IJK_RIJEN.filter(
     (rij) => ijkBeter(baseline[rij.sleutel], rij.hogerIsBeter) === true,
@@ -154,6 +165,8 @@ export function IjkBlok({
           <IjkRij key={rij.sleutel} rij={rij} paar={baseline[rij.sleutel]} />
         ))}
       </div>
+
+      {oordeel ? <OordeelLijst oordeel={oordeel} /> : null}
 
       {/* The rule, in view. Every figure above is reproducible from this
           paragraph and the raw match, which is the only reason any of it is
@@ -220,4 +233,108 @@ function IjkRij({
       </span>
     </div>
   );
+}
+
+/**
+ * The rows above, said as sentences, and the three areas that have no row.
+ *
+ * Three groups on purpose, and the reader is told which is which before reading
+ * any of them. The first group is measured against the whole database and is
+ * allowed to be a verdict. The second is measured against the nine other players
+ * in this one game, because no average for those fields exists anywhere, and is
+ * therefore drawn without a colour and without a claim. The third is the list of
+ * questions this game cannot answer at all -- printed rather than omitted,
+ * because a missing row and a row that was never possible look identical from
+ * the outside, and only one of them is worth being annoyed about.
+ */
+function OordeelLijst({ oordeel }: { oordeel: Oordeel }): JSX.Element | null {
+  const { tegenDatabase, binnenDezeGame, gewoon, zwijgt } = oordeel;
+  if (tegenDatabase.length === 0 && binnenDezeGame.length === 0 && zwijgt.length === 0) return null;
+
+  return (
+    <div className="oordeel">
+      <p className="oordeel-kop">What stood out, against every recorded game of this pick</p>
+      {tegenDatabase.length > 0 ? (
+        tegenDatabase.map((u) => <OordeelRegel key={u.sleutel} uitspraak={u} />)
+      ) : (
+        <p className="oordeel-leeg">
+          Nothing. Every figure above sits closer to normal than half of all recorded games of any
+          pick do, which is its own answer: this was an ordinary game on this champion.
+        </p>
+      )}
+
+      {gewoon.length > 0 ? (
+        <p className="oordeel-gewoon">
+          Normal for this pick, so not listed above: {gewoon.join(", ")}.
+        </p>
+      ) : null}
+
+      {binnenDezeGame.length > 0 ? (
+        <>
+          <p className="oordeel-kop oordeel-kop-tweede">
+            Figures with no average behind them &mdash; these compare you to the nine other players
+            in this game, and to nothing else
+          </p>
+          {binnenDezeGame.map((u) => (
+            <OordeelRegel key={u.sleutel} uitspraak={u} />
+          ))}
+        </>
+      ) : null}
+
+      {zwijgt.length > 0 ? (
+        <div className="oordeel-zwijgt">
+          <p className="oordeel-kop oordeel-kop-tweede">What this game cannot be asked</p>
+          {zwijgt.map((z) => (
+            <p key={z.onderwerp} className="oordeel-stil">
+              <span className="oordeel-stil-kop">{z.onderwerp}.</span> {z.reden}
+            </p>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * One statement, its figures, and the threshold that let it through.
+ *
+ * The band is on the row and not in a tooltip. This block is the only place in
+ * the app that turns a comparison into a sentence, and a sentence carries more
+ * authority than a bar does -- so the reader gets the cut point that produced it
+ * in the same glance, and can disagree with the app's idea of "unusual" without
+ * having to go looking for it.
+ */
+function OordeelRegel({ uitspraak: u }: { uitspraak: Uitspraak }): JSX.Element {
+  const toon = u.toon === "goed" ? "ijk-goed" : u.toon === "slecht" ? "ijk-slecht" : "ijk-neutraal";
+
+  return (
+    <div className={`oordeel-regel ${u.tier === "ver" ? "oordeel-ver" : ""}`}>
+      <span className="oordeel-gebied">{u.gebied}</span>
+      <p className={`oordeel-zin ${toon}`}>{u.zin}</p>
+      <p className="num oordeel-cijfers">{u.cijfers}</p>
+      {u.band && u.gat !== null ? <p className="oordeel-band">{bandTekst(u)}</p> : null}
+      <p className="oordeel-grond">{u.grond}</p>
+    </div>
+  );
+}
+
+/**
+ * The threshold, in the same unit as the gap it let through.
+ *
+ * Both cut points are printed, not just the one that was crossed, because "past
+ * the halfway mark" only means something beside the mark it did not reach.
+ */
+function bandTekst(u: Uitspraak): string {
+  const band = u.band;
+  if (!band || u.gat === null) return "";
+  const toon = band.ratio
+    ? (n: number) => `${(n * 100).toFixed(1)}%`
+    : (n: number) => Math.round(n).toLocaleString("en-GB");
+  const sample = band.slots.toLocaleString("en-GB");
+  const waar =
+    u.tier === "ver"
+      ? `further out than nine in ten of them`
+      : `further out than half of them`;
+
+  return `Gap of ${toon(u.gat)} on ${band.maat} — ${waar}. Over ${sample} recorded player slots, half sit within ${toon(band.helft)} and one in ten passes ${toon(band.staart)}.`;
 }

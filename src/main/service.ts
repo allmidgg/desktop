@@ -37,7 +37,7 @@ import {
   MatchStore, defaultStorePath, slimGame,
   type Position, type StoredMatch, type StoredPlayer,
 } from "../core/services/matchStore";
-import { TijdlijnStore } from "../core/services/tijdlijn";
+import { sluitAfgebrokenRegel, TijdlijnStore } from "../core/services/tijdlijn";
 import { MatchCrawler } from "../core/services/crawler";
 import { JadeStats, likelyPosition, MIN_MATCHUP_GAMES, type ChampionStat } from "../core/services/stats";
 import { leesBeeldmodus } from "../core/lcu/beeldmodus";
@@ -54,6 +54,15 @@ import type {
 
 const RECONNECT_DELAY_MS = 3_000;
 const LANES: Position[] = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "SUPPORT"];
+/**
+ * Failed polls in a row before a game counts as finished.
+ *
+ * Three, at the two-second cadence a live game is polled on, so the game has to
+ * be unreachable for about six seconds. That is long enough that a single
+ * dropped response cannot end a recording, and short enough that the harvest
+ * still lands while the client is on the end-of-game screen.
+ */
+const LIVE_MISLUKT_GRENS = 3;
 
 /**
  * Wanneer we delen.
@@ -180,6 +189,25 @@ export class JadeService extends EventEmitter {
    * it is gitignored and never uploaded. Delete it whenever.
    */
   private liveSampleGeschreven = false;
+  /**
+   * Polls in a row that found nothing, while a game was supposed to be running.
+   *
+   * The server on 2999 disappearing is how a game announces it is over, and it
+   * is the only announcement there is. But LiveClient.get answers null for every
+   * kind of failure alike -- a refused connection, a non-200, a body that would
+   * not parse, a timeout -- so a single missed poll is indistinguishable from
+   * the end of the game, and harvesting on the first one is what turns a blip
+   * into two recordings of one game. The second is the worse half: after the
+   * harvest the watcher is reset, so when the client answers again the next poll
+   * is a first sighting, and noteerAankopen stamps every inventory it finds with
+   * that one second -- a recording claiming ten players bought their whole build
+   * at minute twenty-two.
+   *
+   * Waiting for a run of failures costs nothing at the real end of a game, since
+   * there is no hurry once the game is gone, and the harvest still happens well
+   * inside the time it takes to get back to the client.
+   */
+  private liveMislukt = 0;
   /** Non-null once the community aggregate is in use, so we can say so. */
   private communityLoad: CommunityLoad | null = null;
 
@@ -433,14 +461,22 @@ export class JadeService extends EventEmitter {
         // Normal before the game is up and after it ends. A game that was there
         // a moment ago and is not there now has just finished, and that is the
         // last chance to keep what we watched -- nothing else tells us.
-        if (this.snapshot.liveGame) {
+        //
+        // Only after a run of them, though. See liveMislukt: one poll answering
+        // null is not evidence a game ended, and acting on it costs the game
+        // twice over -- once by harvesting half of it, and again by stamping
+        // everyone's whole inventory onto the second the client came back.
+        if (this.snapshot.liveGame && ++this.liveMislukt >= LIVE_MISLUKT_GRENS) {
           this.bewaarBuildOrders();
           this.liveWatcher?.reset();
           this.liveSampleGeschreven = false;
+          this.liveMislukt = 0;
           this.update({ liveGame: null });
         }
         return;
       }
+      // Answered, so whatever the last few polls were, the game is still on.
+      this.liveMislukt = 0;
       if (!this.liveSampleGeschreven) {
         this.liveSampleGeschreven = true;
         try {
@@ -569,13 +605,17 @@ export class JadeService extends EventEmitter {
     if (!opname) return;
     try {
       const pad = join(this.backupDir, "..", "buildorders.jsonl");
+      // Stand behind a whole line or behind nothing: an append landing on top of
+      // a half-written one fuses the two into a line neither game survives.
+      sluitAfgebrokenRegel(pad);
       appendFileSync(pad, JSON.stringify(opname) + "\n", "utf8");
       // The cache in front of that file is now a version behind, and the game
       // that just ended is exactly the one somebody is about to open.
       this.tijdlijnen.vergeet();
       console.log(
         `[allmid] game van ${opname.gameLengthSeconds}s bewaard in ${pad}` +
-          ` (${opname.spelers.length} spelers, ${opname.gebeurtenissen.length} gebeurtenissen)`,
+          ` (${opname.spelers.length} spelers, ${opname.gebeurtenissen.length} gebeurtenissen,` +
+          ` ${opname.verloop?.tijden.length ?? 0} metingen)`,
       );
     } catch (err) {
       reportBackgroundError(err as Error);
@@ -1573,6 +1613,14 @@ export class JadeService extends EventEmitter {
   }
 
   dispose(): void {
+    // The one way out of the app that used to lose a whole game. stopLiveWatch
+    // harvests whatever the watcher is holding, and nothing called it -- so
+    // quitting mid-game threw the recording away, because it lived only in
+    // memory until the game ended on its own. That was survivable while the
+    // recording was a list of purchases. It is not now that it carries the
+    // score curve, and it fails hardest in exactly the case someone most wants
+    // to look back at: the game that went badly enough to quit during.
+    this.stopLiveWatch();
     this.crawler?.stop();
     this.stopChampSelect?.();
     this.stream?.close();

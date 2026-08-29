@@ -19,7 +19,9 @@
     "typecheck": "tsc --noEmit",
     "crawl": "tsx src/cli/crawl.ts",
     "riot-probe": "tsx src/cli/riot-probe.ts",
+    "timeline-endpoint-probe": "tsx src/cli/timeline-endpoint-probe.ts",
     "stats": "tsx src/cli/stats.ts",
+    "oordeel-probe": "tsx src/cli/oordeel-probe.ts",
     "live": "tsx src/cli/live.ts",
     "server": "tsx server/index.ts",
     "upload": "tsx src/cli/upload.ts"

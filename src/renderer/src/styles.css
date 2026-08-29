@@ -2039,6 +2039,128 @@ button.tier-tegel,
   color: var(--color-ink-300);
 }
 
+/* ---------------------------------------------------------------------------
+   THE SAME ROWS, SAID OUT LOUD
+   ---------------------------------------------------------------------------
+   A sentence carries more authority than a bar, so this half of the block is
+   built to be argued with. Every statement is followed by the two numbers it
+   came from, the cut point that let it through, and the sentence naming where
+   both numbers were counted -- none of it behind a tooltip, because a claim you
+   have to hover to check is a claim most people never check.
+
+   Colour is the same three states as the sticks above, and it means the same
+   thing: jade went your way, loss did not, ink is neither. The figures that have
+   no average behind them are always ink, which is not a design choice but the
+   whole point -- the app does not know whether 14% of your team's damage is bad,
+   so it does not get to paint it red. Gold appears exactly once, as the dot on a
+   gap only one game in ten passes, which is the only thing here rare enough to
+   deserve the accent.
+   --------------------------------------------------------------------------- */
+
+.oordeel {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in oklab, var(--color-line) 60%, transparent);
+  display: grid;
+  gap: 8px;
+}
+
+.oordeel-kop {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-600);
+}
+.oordeel-kop-tweede {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in oklab, var(--color-line) 40%, transparent);
+}
+
+.oordeel-leeg,
+.oordeel-gewoon {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--color-ink-500);
+}
+
+/* The statement is a block and not a table row, because the four lines under it
+   are of wildly different lengths and a grid would either clip the long one or
+   leave a hole beside the short one. */
+.oordeel-regel {
+  position: relative;
+  padding-left: 10px;
+  border-left: 2px solid color-mix(in oklab, var(--color-line) 70%, transparent);
+}
+
+/* Only for a gap past the ninetieth percentile. One dot, in the accent, on the
+   handful of rows that earn it. */
+.oordeel-ver {
+  border-left-color: color-mix(in oklab, var(--color-gold-400) 55%, transparent);
+}
+.oordeel-ver::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-gold-400);
+}
+
+.oordeel-gebied {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-600);
+}
+
+.oordeel-zin {
+  margin-top: 1px;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.oordeel-cijfers {
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--color-ink-400);
+}
+
+.oordeel-band {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--color-ink-600);
+}
+
+.oordeel-grond {
+  margin-top: 3px;
+  font-size: 10px;
+  line-height: 1.55;
+  color: var(--color-ink-600);
+}
+
+/* The questions this game cannot answer. Set quieter than everything above it
+   and still on the page: a row that is missing and a row that was never possible
+   look identical from the outside, and only one of them is worth being annoyed
+   about. */
+.oordeel-zwijgt {
+  display: grid;
+  gap: 5px;
+}
+.oordeel-stil {
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--color-ink-600);
+}
+.oordeel-stil-kop {
+  color: var(--color-ink-400);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ijk-vulling {
     transition: none;
@@ -2048,12 +2170,11 @@ button.tier-tegel,
 /* ═══════════════════════════════════════════════════════════════════════════
    THE TIMELINE
    ---------------------------------------------------------------------------
-   Classic match history has no timeline, so this panel draws the only one that
-   exists: what the app itself watched happen while the game was running. That
-   makes it a different kind of surface from the rest of the app, which reads a
-   database. It is the one place where the numbers were observed rather than
-   fetched, and the design says so by keeping the frame quiet and letting the
-   two team lines and the item art carry everything.
+   This panel draws what the app itself watched happen while the game was
+   running, which makes it a different kind of surface from the rest of the app:
+   everywhere else reads a database, and here the numbers were observed. The
+   design says so by keeping the frame quiet and letting the two team lines and
+   the item art carry everything.
 
    Blue and red here are sides, not outcomes, which is why they are the info and
    loss tones the live scoreboard already uses and not jade-versus-loss. Gold is
@@ -2488,4 +2609,414 @@ button.tier-tegel,
   .tijdlijn-koop:hover {
     transform: none;
   }
+}
+
+/* ── The series switch, the fall band and its sentence ───────────────────────
+   Three quantities share one chart, so the switch has to read as a switch and
+   not as three headings. It sits where the title was, in the same size and the
+   same letter-spacing, and only the active one takes ink.
+
+   The fall band and its sentence are the one place a colour is spent on a
+   judgement rather than on a side. It is loss-400 at low opacity: the chart's
+   own red already means "red side", so the band is deliberately too faint to be
+   read as a curve and the sentence underneath says what it is. */
+.tijdlijn-keuze {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  background: var(--color-surface-2);
+}
+.tijdlijn-keuze button {
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tijdlijn-keuze button:hover {
+  color: var(--color-ink-300);
+}
+.tijdlijn-keuze button.tijdlijn-keuze-aan {
+  background: var(--color-surface-3);
+  color: var(--color-gold-300);
+}
+.tijdlijn-keuze button:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 2px;
+}
+
+.tijdlijn-val {
+  fill: color-mix(in oklab, var(--color-loss-400) 12%, transparent);
+}
+
+.tijdlijn-val-regel {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--color-line);
+  border-left: 2px solid var(--color-loss-500);
+  border-radius: 4px;
+  background: var(--color-surface-2);
+  font-size: 12px;
+  color: var(--color-ink-300);
+  text-align: left;
+  cursor: pointer;
+}
+.tijdlijn-val-regel:hover {
+  border-color: var(--color-line-lit);
+  color: var(--color-ink-100);
+}
+.tijdlijn-val-regel:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 2px;
+}
+.tijdlijn-val-regel .num {
+  color: var(--color-loss-400);
+}
+
+.tijdlijn-etiket {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   YOU AGAINST YOUR OPPOSITE NUMBER
+   ---------------------------------------------------------------------------
+   A strip inside the timeline panel, not a panel of its own, and it borrows the
+   chart's tokens on purpose: same grid, same side colours, same scrubber. It is
+   the same picture asked a narrower question, and anything that looked like a
+   second chart would invite the reader to compare two clocks that are in fact
+   one clock.
+
+   Gold appears exactly twice down here -- the scrubber, and the dot marking
+   which of the two lines is the reader. Blue and red keep meaning sides. The
+   band behind the worst stretch is the only new colour, and it is the loss tone
+   at a wash, because it is the one thing on screen making a claim.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.duel {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-line);
+}
+
+.duel-kop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.duel-paar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.duel-paar img {
+  border-radius: 50%;
+}
+.duel-tegen {
+  color: var(--color-ink-700);
+  font-size: 11px;
+}
+.duel-lane {
+  display: inline-flex;
+  color: var(--color-ink-500);
+  margin-left: 2px;
+}
+
+/* The measure switch. Deliberately quiet: it changes the unit on an axis, which
+   is a smaller act than it looks, and a row of loud buttons would read as the
+   most important thing in a panel whose subject is the chart. */
+.duel-maten {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: auto;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-line);
+}
+.duel-maat {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-ink-500);
+  transition:
+    background-color var(--duur) var(--ease),
+    color var(--duur) var(--ease);
+}
+.duel-maat:hover {
+  color: var(--color-ink-100);
+}
+.duel-maat-aan,
+.duel-maat-aan:hover {
+  background: var(--color-surface-3);
+  color: var(--color-gold-300);
+}
+.duel-maat:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 1px;
+}
+
+.duel-strip {
+  display: block;
+  width: 100%;
+  cursor: crosshair;
+  overflow: visible;
+}
+
+/* The band is a fill with no outline. An outline would make it a region with
+   edges you could argue about; it is a wash saying "in here", and the exact
+   second it starts is in the sentence underneath where it can be read. */
+.duel-val {
+  fill: color-mix(in oklab, var(--color-loss-500) 12%, transparent);
+  cursor: pointer;
+}
+.duel-val:hover {
+  fill: color-mix(in oklab, var(--color-loss-500) 20%, transparent);
+}
+
+.duel-voor {
+  fill: color-mix(in oklab, var(--color-jade-500) 24%, transparent);
+}
+.duel-achter {
+  fill: color-mix(in oklab, var(--color-loss-500) 24%, transparent);
+}
+
+.duel-jij {
+  fill: var(--color-gold-400);
+  stroke: var(--color-void);
+  stroke-width: 1.5;
+}
+
+.duel-afleeslat {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--color-ink-300);
+}
+/* Ahead and behind are outcomes and not sides, so this is the one place in the
+   panel where jade and loss are the right colours: they mean the same thing
+   here that a won or lost game means everywhere else in the app. */
+.duel-woord-voor {
+  color: var(--color-jade-400);
+}
+.duel-woord-achter {
+  color: var(--color-loss-400);
+}
+
+.duel-oordeel {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in oklab, var(--color-loss-500) 28%, transparent);
+  background: color-mix(in oklab, var(--color-loss-500) 7%, transparent);
+  font-size: 12px;
+  color: var(--color-ink-300);
+  text-align: left;
+  transition: background-color var(--duur) var(--ease);
+}
+.duel-oordeel:hover {
+  background: color-mix(in oklab, var(--color-loss-500) 13%, transparent);
+}
+.duel-etiket {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-loss-400);
+  white-space: nowrap;
+}
+.duel-objectief {
+  margin-left: auto;
+  color: var(--color-gold-500);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.duel-leeg {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--color-ink-500);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Which minute it went worse
+   ───────────────────────────────────────────────────────────────────────────
+   The panel that answers the question the timeline only illustrates. It borrows
+   nothing from the chart above it on purpose: no accent, no second graph, no
+   axis. A finding is a sentence, and the only colour on it is the one that says
+   which way the stretch went -- jade for the one that went your way, loss red
+   for the one that did not. Those two are meaning colours here, exactly as they
+   are for a won and a lost game, and the gold accent stays where it belongs:
+   on the clock, which is the thing you are being pointed at.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.omslag {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.omslag-niets {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-ink-300);
+}
+
+/* One finding is one block with a coloured edge. A left border rather than a
+   tinted panel: the sentence is the thing being read, and a wash behind it
+   competes with the text for the same attention. */
+.omslag-venster {
+  border-left: 2px solid var(--color-line);
+  padding-left: 12px;
+  display: grid;
+  gap: 8px;
+}
+.omslag-venster-achter {
+  border-left-color: var(--color-loss-500);
+}
+.omslag-venster-voor {
+  border-left-color: var(--color-jade-500);
+}
+
+.omslag-kop {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.omslag-merk {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.omslag-achter {
+  color: var(--color-loss-400);
+}
+.omslag-voor {
+  color: var(--color-jade-400);
+}
+
+/* The one place the accent appears. A time is what this panel is pointing at,
+   so a time is what gets the gold. */
+.omslag-klok {
+  color: var(--color-gold-300);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.omslag-tegen {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-ink-500);
+}
+.omslag-tegen img {
+  border-radius: var(--radius-xs);
+}
+
+.omslag-zin {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--color-ink-100);
+}
+
+/* Where the stretch sits in the game, at the width of the whole game. Not a
+   chart: no axis, no scale, nothing to read off it beyond "this part". */
+.omslag-strook {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  overflow: hidden;
+}
+.omslag-strook-vlak {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+}
+.omslag-strook-vlak.omslag-achter {
+  background: var(--color-loss-500);
+}
+.omslag-strook-vlak.omslag-voor {
+  background: var(--color-jade-500);
+}
+
+.omslag-cijfers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--color-ink-500);
+}
+.omslag-punt {
+  color: var(--color-ink-700);
+}
+
+.omslag-feiten {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--color-ink-300);
+}
+.omslag-feit {
+  display: flex;
+  gap: 8px;
+}
+.omslag-feit-tijd {
+  color: var(--color-ink-600);
+  flex: none;
+  min-width: 38px;
+}
+
+.omslag-overig,
+.omslag-rekenwerk {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--color-ink-500);
+}
+.omslag-overig summary,
+.omslag-rekenwerk summary {
+  cursor: pointer;
+  color: var(--color-ink-600);
+}
+.omslag-overig summary:hover,
+.omslag-rekenwerk summary:hover {
+  color: var(--color-ink-300);
+}
+.omslag-overig ul,
+.omslag-rekenwerk ul {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0 0 2px;
+}
+.omslag-overig li {
+  display: flex;
+  gap: 8px;
+}
+.omslag-rekenwerk li {
+  padding-left: 10px;
+  border-left: 1px solid var(--color-line);
 }

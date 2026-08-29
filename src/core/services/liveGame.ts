@@ -15,7 +15,71 @@ import { SkillOrderRecorder } from "../lcu/liveClient";
 import { berekenInzichten, gebeurtenissenVan, spelerSleutel, trinketLeeg } from "./liveInzichten";
 import type {
   BuildStep, LiveGamePlayer, LiveGameSnapshot, OpnameRecord, OpnameSpeler, Position,
+  Verloop, VerloopKolommen,
 } from "../../shared/types";
+
+/**
+ * Seconds of game time between two readings of the scoreline.
+ *
+ * The poll runs every two seconds because that is what it takes to catch two
+ * skill points taken in a row in the right order. That is a polling rate and not
+ * a measuring rate: keeping every poll writes the same scoreline down thirty
+ * times a minute. Priced on the median real Classic game -- 1,825 seconds, the
+ * p50 over all 126,287 non-bot games in matches.jsonl -- the curve costs roughly
+ * 133 KiB a game at two seconds, 27 KiB at ten, and 4.4 KiB at sixty.
+ *
+ * Sixty is the cheap answer and it is the wrong one, because the whole ask is
+ * which minute it went wrong and a reading once a minute can only say which
+ * minute it had already gone wrong by. Ten is where the sampling stops losing
+ * anything real: over those same games the median laner farms 5.78 creeps a
+ * minute on top, 5.43 bottom, 5.34 middle and 4.59 in the jungle, which is one
+ * creep every 10.4 to 13.1 seconds. A ten-second grid therefore misses at most a
+ * single creep, and can never miss a kill, a death or a level at all: those are
+ * counters that only climb, so whatever happened in between is still standing in
+ * the next reading.
+ *
+ * The support is the exception and is left out of that argument on purpose: at a
+ * median 0.78 creeps a minute the grid is far finer than the thing being
+ * measured, which costs nothing but means a support's creep curve is a staircase
+ * of single steps rather than a slope. Anything reading it has to know that.
+ */
+const MONSTER_INTERVAL_SECONDEN = 10;
+
+/**
+ * The most readings one recording will ever hold.
+ *
+ * Not a limit on how long a game may be. The longest of the 130,095 games in
+ * matches.jsonl ran 4,593 seconds, which is 460 readings at ten seconds, so
+ * every real game on this disk fits under this at full detail. What it bounds is
+ * a watcher left running against a client that never let go of the game -- the
+ * one case where the loop has no natural end, and the one nothing else in here
+ * guards against.
+ */
+const MAX_MONSTERS = 512;
+
+const KOLOMNAMEN = ["kills", "deaths", "assists", "cs", "wards", "level"] as const;
+
+const leegKolommen = (lengte: number): VerloopKolommen => ({
+  kills: new Array<number | null>(lengte).fill(null),
+  deaths: new Array<number | null>(lengte).fill(null),
+  assists: new Array<number | null>(lengte).fill(null),
+  cs: new Array<number | null>(lengte).fill(null),
+  wards: new Array<number | null>(lengte).fill(null),
+  level: new Array<number | null>(lengte).fill(null),
+});
+
+/**
+ * Pad a seat's columns out to the reading count.
+ *
+ * Every column has to stay exactly as long as the time axis. Let one fall behind
+ * and every reading after the gap sits at the wrong moment -- a curve that is
+ * confidently and silently wrong, rather than one with a visible hole in it.
+ */
+const vulAanTot = (kolommen: VerloopKolommen, lengte: number): void => {
+  for (const naam of KOLOMNAMEN) {
+    while (kolommen[naam].length < lengte) kolommen[naam].push(null);
+  }
+};
 
 /**
  * Names come back in more shapes than you would like: "Nasus", "Jade_Nasus",
@@ -101,6 +165,24 @@ export class LiveGameWatcher {
   private readonly vorigeInventaris = new Map<string, Map<number, number>>();
   /** The last thing we saw, so a finished game can still be written down. */
   private laatsteSnapshot: LiveGameSnapshot | null = null;
+  /**
+   * The scoreline over time, one column per number per player.
+   *
+   * Keyed on the player rather than on the seat index for the same reason the
+   * builds are: the client does not promise the order of allPlayers, and columns
+   * filed under an index that shifted mid-game would splice two players' games
+   * into one curve. Put into seat order once, at harvest, against a list that is
+   * known and fixed by then.
+   */
+  private readonly verloopSpelers = new Map<string, VerloopKolommen>();
+  /** Game time of each reading. The time axis every column is indexed against. */
+  private readonly verloopTijden: number[] = [];
+  /** Your own gold at each reading; null where the poll did not report it. */
+  private readonly verloopGoud: Array<number | null> = [];
+  /** Seconds currently aimed for between readings. Doubles at the reading cap. */
+  private verloopInterval = MONSTER_INTERVAL_SECONDEN;
+  /** Your gold at the most recent poll, so the closing reading has one too. */
+  private laatsteGoud: number | null = null;
 
   constructor(
     private readonly zoekChampion: ChampionZoeker,
@@ -123,6 +205,7 @@ export class LiveGameWatcher {
       this.recorder.reset();
       this.builds.clear();
       this.vorigeInventaris.clear();
+      this.wisVerloop();
     }
     this.laatsteTijd = gameTime;
   }
@@ -131,8 +214,112 @@ export class LiveGameWatcher {
     this.recorder.reset();
     this.builds.clear();
     this.vorigeInventaris.clear();
+    this.wisVerloop();
     this.laatsteTijd = null;
     this.laatsteSnapshot = null;
+  }
+
+  private wisVerloop(): void {
+    this.verloopSpelers.clear();
+    this.verloopTijden.length = 0;
+    this.verloopGoud.length = 0;
+    this.verloopInterval = MONSTER_INTERVAL_SECONDEN;
+    this.laatsteGoud = null;
+  }
+
+  /**
+   * Keep this poll if enough game time has passed since the last one kept.
+   *
+   * Measured on the game clock and never on the wall clock, and that is what
+   * makes a missed poll honest. If the client stops answering for forty seconds,
+   * the next reading is written down once, at the second it actually happened,
+   * and the gap stands in `tijden` as a jump from 120 to 175. Nothing is
+   * interpolated across it: a straight line drawn through a gap is exactly the
+   * flat stretch a reader takes for a quiet minute, and afterwards there is no
+   * telling the invented one from a real one.
+   */
+  private bemonster(gameTime: number, spelers: LiveGamePlayer[], goud: number | null): void {
+    const vorige = this.verloopTijden[this.verloopTijden.length - 1];
+    if (vorige !== undefined && gameTime < vorige + this.verloopInterval) return;
+    this.duwMonster(gameTime, spelers, goud);
+    if (this.verloopTijden.length >= MAX_MONSTERS) this.halveerVerloop();
+  }
+
+  /** Append one reading, leaving every column exactly as long as `tijden`. */
+  private duwMonster(gameTime: number, spelers: LiveGamePlayer[], goud: number | null): void {
+    const lengte = this.verloopTijden.length + 1;
+    this.verloopTijden.push(gameTime);
+    this.verloopGoud.push(goud);
+
+    for (const p of spelers) {
+      const sleutel = spelerSleutel(p);
+      let kolommen = this.verloopSpelers.get(sleutel);
+      if (!kolommen) {
+        // A seat first seen at reading n was not measured for the n before it,
+        // which is what happens when the app starts watching a game that was
+        // already running. Null rather than zero, so that never draws as a
+        // player who spent ten minutes doing nothing.
+        kolommen = leegKolommen(lengte - 1);
+        this.verloopSpelers.set(sleutel, kolommen);
+      }
+      kolommen.kills.push(p.kills);
+      kolommen.deaths.push(p.deaths);
+      kolommen.assists.push(p.assists);
+      kolommen.cs.push(p.cs);
+      // Rounded on the way in. The ward figure is Riot's score rather than a
+      // count, and this payload is not shy of decimals -- gameTime arrives in
+      // the same response as 0.025671999901533127. Fifteen digits per seat per
+      // reading buys nothing any chart can show.
+      kolommen.wards.push(Math.round(p.wards));
+      kolommen.level.push(p.level);
+    }
+
+    // A seat this poll did not list still needs its slot, or its columns stop
+    // lining up with the time axis and every reading after the gap sits at the
+    // wrong moment.
+    for (const kolommen of this.verloopSpelers.values()) vulAanTot(kolommen, lengte);
+  }
+
+  /**
+   * Halve the resolution rather than stop recording.
+   *
+   * A cap that simply stopped appending would end the curve mid-game, and a
+   * curve that stops early draws as a game that ended early -- the one way of
+   * being wrong that is worse than having no curve at all. Dropping every second
+   * reading and doubling the interval keeps a curve that still spans the whole
+   * game, at half the detail, with the count bounded for good.
+   */
+  private halveerVerloop(): void {
+    const houd = <T>(rij: T[]): T[] => rij.filter((_, i) => i % 2 === 0);
+    this.verloopTijden.splice(0, this.verloopTijden.length, ...houd(this.verloopTijden));
+    this.verloopGoud.splice(0, this.verloopGoud.length, ...houd(this.verloopGoud));
+    for (const kolommen of this.verloopSpelers.values()) {
+      for (const naam of KOLOMNAMEN) {
+        kolommen[naam].splice(0, kolommen[naam].length, ...houd(kolommen[naam]));
+      }
+    }
+    this.verloopInterval *= 2;
+  }
+
+  /**
+   * The readings, put into seat order.
+   *
+   * Seat order comes from the player list the record itself is built from, so
+   * index i here is spelers[i] there and the same seat the events point at.
+   * A seat the sampler never saw gets a column of nulls rather than being left
+   * out, for the same reason no seat is ever dropped from spelers: an index that
+   * shifts hands every later seat somebody else's game.
+   */
+  private verloopVoor(spelers: LiveGamePlayer[]): Verloop | undefined {
+    if (this.verloopTijden.length === 0) return undefined;
+    return {
+      interval: this.verloopInterval,
+      tijden: [...this.verloopTijden],
+      goud: [...this.verloopGoud],
+      spelers: spelers.map(
+        (p) => this.verloopSpelers.get(spelerSleutel(p)) ?? leegKolommen(this.verloopTijden.length),
+      ),
+    };
   }
 
   /**
@@ -205,6 +392,17 @@ export class LiveGameWatcher {
       ...(p.isYou ? { skillOrder: laatste.skillOrder } : {}),
     }));
 
+    // The last poll almost never lands on a cadence boundary, and the end of a
+    // game is the part anyone reads hardest. Closing the curve on the final
+    // reading is what makes it arrive at the same scoreline the record above
+    // reports, instead of stopping up to ten seconds short of it.
+    const laatsteMonster = this.verloopTijden[this.verloopTijden.length - 1];
+    if (laatsteMonster !== undefined && laatste.gameTimeSeconds > laatsteMonster) {
+      this.duwMonster(laatste.gameTimeSeconds, laatste.players, this.laatsteGoud);
+    }
+
+    const verloop = this.verloopVoor(laatste.players);
+
     return {
       recordedAt: Date.now(),
       gameMode: laatste.mode,
@@ -212,6 +410,7 @@ export class LiveGameWatcher {
       gameLengthSeconds: laatste.gameTimeSeconds,
       spelers,
       gebeurtenissen: laatste.gebeurtenissen,
+      ...(verloop ? { verloop } : {}),
     };
   }
 
@@ -262,6 +461,19 @@ export class LiveGameWatcher {
       p.itemWaarde = inzichten.itemWaarde.get(sleutel) ?? 0;
       p.killDeelname = inzichten.killDeelname.get(sleutel) ?? 0;
     }
+
+    // The only gold figure that exists at all while a game runs: what is in your
+    // own pocket right now. The client reports currentGold for the active player
+    // and for nobody else, and it is gold in hand rather than gold earned, so it
+    // drops every time you spend. Worth recording anyway -- your own gold read
+    // against your own deaths is close to the whole question of which minute it
+    // went wrong.
+    const goud = data.activePlayer?.currentGold;
+    this.laatsteGoud = typeof goud === "number" ? Math.round(goud) : null;
+    // Only Classic games are ever harvested, so only Classic games are worth
+    // measuring; sampling another mode would fill memory for a record oogst()
+    // will refuse to return anyway.
+    if (isClassic) this.bemonster(gameTime, spelers, this.laatsteGoud);
 
     this.laatsteSnapshot = {
       mode,

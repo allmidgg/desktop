@@ -4,20 +4,25 @@
  *
  * ── The thing this file exists to work around ────────────────────────────────
  *
- * Classic match history has no timeline. That is not a limitation of this app:
- * the LCU's own Participant type carries `timeline?: { lane, role }` and nothing
- * else -- lane assignment, not frames -- and the only two endpoints there are to
- * ask are the match list and `/lol-match-history/v1/games/{gameId}`, both of
- * which answer with end-of-game totals. So there is no gold curve to fetch, no
- * kill at 12:04 to look up, and no backfill: the 130,086 games already in
- * matches.jsonl will never have one.
+ * This file used to open by stating that Classic match history has no timeline.
+ * That was wrong, and it was wrong for as long as anyone had bothered to check:
+ * `/lol-match-history/v1/game-timelines/{gameId}` answers 200 with one frame a
+ * minute, for games this account never played. See core/lcu/timeline.ts, which
+ * has the measurements. The claim traced back to `Participant.timeline` being
+ * typed as `{ lane, role }` -- true, and about lane assignment rather than
+ * frames -- and nobody had ever asked for a timeline as a resource of its own.
  *
- * What there is, is the game itself. While it runs, the Live Client Data API on
- * port 2999 reports every inventory second by second and hands over its whole
- * event feed with timestamps. The watcher already wrote the purchases down. That
- * file has been growing since the day the watcher landed and nothing has ever
- * read it, which is why the game detail screen still says there is no timeline
- * while a timeline for that exact game sits on disk two directories away.
+ * That does not make this file redundant, because the two sources hold
+ * different things. The match-history timeline carries gold, xp, levels, creeps
+ * and positions per minute, and exactly three kinds of event: champion kills,
+ * buildings, and elite monsters. It carries no item purchases and no skill
+ * levels at all. So the recording this file reads is still the only source for
+ * when an item was bought, and it is still the only one that samples finer than
+ * a minute. They complement each other; neither replaces the other.
+ *
+ * What this file reads is the game itself. While it runs, the Live Client Data
+ * API on port 2999 reports every inventory second by second and hands over its
+ * whole event feed with timestamps, and the watcher writes it down.
  *
  * ── Why joining is not just a lookup ─────────────────────────────────────────
  *
@@ -27,7 +32,7 @@
  * matched on what they both describe, and the reasoning is handed to the screen
  * rather than swallowed, because a join you cannot inspect is a guess.
  */
-import { readFileSync, statSync } from "node:fs";
+import { appendFileSync, closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import type { GameTijdlijn, OpnameRecord, OpnameSpeler, TijdlijnKoppeling } from "../../shared/types";
 import type { StoredMatch } from "./matchStore";
 
@@ -108,6 +113,47 @@ function bundelOudeRegels(regels: OudeRegel[]): OpnameRecord[] {
     })),
     gebeurtenissen: [],
   }));
+}
+
+/**
+ * Closes a line a previous write did not finish, before anything is appended.
+ *
+ * The match store already lives by this rule and its own header says why: a
+ * write that breaks halfway leaves a record with no newline after it, and
+ * whoever appends behind that glues his first record onto the broken half, so
+ * one interruption costs two games instead of one -- and the second one
+ * silently, because the append reported success.
+ *
+ * buildorders.jsonl never had the guard and needs it more than it used to. The
+ * line was around 7,500 bytes when it held ten scorelines and their purchases;
+ * with a score curve on it, it is several times that. A bigger write is a wider
+ * window to be interrupted in, and the thing now at risk is the only copy of
+ * how a game went.
+ *
+ * The already-broken line is still lost. That one cannot be recovered by
+ * anybody; what this prevents is it taking the next game down with it.
+ */
+export function sluitAfgebrokenRegel(pad: string): void {
+  let grootte = 0;
+  try {
+    grootte = statSync(pad).size;
+  } catch {
+    // No file yet: the first append creates it, and it will end in a newline.
+    return;
+  }
+  if (grootte === 0) return;
+
+  let fd: number | null = null;
+  try {
+    fd = openSync(pad, "r");
+    const laatste = Buffer.allocUnsafe(1);
+    readSync(fd, laatste, 0, 1, grootte - 1);
+    if (laatste[0] !== 0x0a) appendFileSync(pad, "\n", "utf8");
+  } catch {
+    // Failing to tidy up is not a reason to lose the game we came here to write.
+  } finally {
+    if (fd !== null) closeSync(fd);
+  }
 }
 
 /** Reads one JSONL file into recordings, tolerating both line shapes. */

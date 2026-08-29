@@ -290,8 +290,11 @@ export interface GameDetail {
    * What happened over time, for the games this app was watching.
    *
    * Null for every game the crawler found rather than played, which is almost
-   * all of them. Match history carries no timeline to reconstruct one from, so
-   * the absence is permanent and not a loading state.
+   * all of them, and nothing backfills it: a recording is made while the game
+   * runs or not at all. Match history does serve a per-minute timeline for
+   * Classic (core/lcu/timeline.ts), but it carries no purchases and no skill
+   * levels, so it could never produce one of these -- it would be a different
+   * and coarser source, not a way to fill this in.
    */
   tijdlijn: GameTijdlijn | null;
   /**
@@ -351,6 +354,101 @@ export interface OpnameSpeler {
 }
 
 /**
+ * One seat's six numbers across the whole game, one array per number.
+ *
+ * Stored column by column rather than as a list of readings, and that is a
+ * measurement rather than a preference. Priced over 3,000 real games out of
+ * matches.jsonl at a reading every fifteen seconds, the same curve costs 80,064
+ * bytes a game written as one named object per player per reading, 20,428 as a
+ * fixed-order tuple per player per reading, and 18,216 like this. It is both the
+ * smallest of the three and the only cheap one that still says which number is
+ * which.
+ *
+ * Every array here is exactly as long as Verloop.tijden, and index i in all of
+ * them is the reading taken at tijden[i]. A null is a seat that had no reading
+ * at that moment -- a player the client had not listed yet, because the app
+ * started watching a game already in progress. Never a zero: a zero draws as a
+ * real measurement of a player doing nothing, and once it is on disk there is no
+ * telling the two apart.
+ */
+export interface VerloopKolommen {
+  kills: Array<number | null>;
+  deaths: Array<number | null>;
+  assists: Array<number | null>;
+  cs: Array<number | null>;
+  /**
+   * Riot's ward score, rounded. A score and not a count of wards; the name the
+   * running game uses is kept so the figure can be traced back to it.
+   */
+  wards: Array<number | null>;
+  level: Array<number | null>;
+}
+
+/* A row-shaped view of the above -- VerloopSpeler and VerloopMonster -- lived
+   here for a while so that a reader walking readings in time order would not
+   have to transpose. Removed: nothing ever imported either of them, and the
+   transpose that would have connected them to the stored shape was never
+   written. A second description of the same data with no consumer cannot be
+   kept honest by anything, so it is the half that goes stale, and it goes stale
+   silently -- which is worse than the transpose it was meant to save. Column-
+   major is the one shape, because that is the one that was measured. */
+
+/**
+ * How the game went, as opposed to how it ended.
+ *
+ * This is what the rest of a recording cannot give. OpnameSpeler holds the
+ * scoreline a player finished on and the events hold the moments something was
+ * announced; neither answers "which minute did it start going wrong", because
+ * that question is about the shape of the numbers between the announcements.
+ *
+ * Only ever exists for games this app watched itself. Nothing backfills it: the
+ * games in matches.jsonl were crawled out of other people's match history and
+ * nobody was watching any of them. Match history does serve a per-minute
+ * timeline for Classic (core/lcu/timeline.ts), but it is a coarser and different
+ * source -- minutes rather than seconds, no purchases, no skill levels -- so it
+ * could sit beside this and never become it.
+ *
+ * ── This stays on the machine that recorded it ───────────────────────────────
+ *
+ * Nine of the ten seats in here belong to people who did not install anything.
+ * A final scoreline for ten players is a row of numbers; a per-reading series
+ * for ten players is a behavioural fingerprint, enough to pick one game and one
+ * account out of a pile without a name attached to it. The uploader is
+ * accordingly built only against MatchStore and never opens buildorders.jsonl,
+ * and both that file and the raw live sample are gitignored.
+ *
+ * That is not a settled question either: docs/riot-ticket.md records Riot's
+ * position that Classic data is not approved for aggregation or display on
+ * third-party products, and that ticket is unanswered. Anything that would put
+ * this on a wire is the owner's decision to take deliberately, not a change to
+ * make in passing while wiring something else up.
+ */
+export interface Verloop {
+  /**
+   * Seconds the sampler was aiming for between readings.
+   *
+   * A statement of intent and never the time axis. A poll that failed leaves a
+   * wider gap than this, and the value doubles if a game runs long enough to hit
+   * the sample cap. `tijden` is the truth; nothing may plot a reading at index
+   * times interval.
+   */
+  interval: number;
+  /** Game time in seconds at each reading, ascending. The time axis. */
+  tijden: number[];
+  /**
+   * Your own gold in hand at each reading, or null where the poll did not say.
+   *
+   * Only ever yours. The Live Client Data API reports currentGold for the active
+   * player and for nobody else, so this is the one gold figure that exists at
+   * all while a game runs -- and it is gold in the pocket rather than gold
+   * earned, so it drops every time you spend. A wallet, not a score.
+   */
+  goud: Array<number | null>;
+  /** One entry per seat, in the same order as OpnameRecord.spelers. */
+  spelers: VerloopKolommen[];
+}
+
+/**
  * One whole game as it was watched, one line in buildorders.jsonl.
  *
  * Written the moment the game ends and the server on 2999 disappears. There is
@@ -365,6 +463,15 @@ export interface OpnameRecord {
   gameLengthSeconds: number;
   spelers: OpnameSpeler[];
   gebeurtenissen: SpelGebeurtenis[];
+  /**
+   * The score curve, for recordings taken after the sampler landed.
+   *
+   * Optional because every line already in buildorders.jsonl predates it, and
+   * those lines are read back unchanged. A reader has to be able to draw itself
+   * without this rather than substituting an empty curve, which would claim a
+   * game was measured and found flat.
+   */
+  verloop?: Verloop;
 }
 
 /**
@@ -585,6 +692,7 @@ export interface BuildStep {
   /** Game time in seconds when it first showed up. */
   at: number;
 }
+
 
 export interface LiveGameSnapshot {
   /** What the client calls the mode. JADE for Classic. */

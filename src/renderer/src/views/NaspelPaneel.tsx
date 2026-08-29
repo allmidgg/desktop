@@ -16,6 +16,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { Tijdlijnpaneel } from "./Tijdlijn";
+import { OmslagPaneel } from "./Omslag";
 import { IjkBlok } from "./IjkBlok";
 import { MINIMALE_GAMEDUUR_SECONDEN } from "../../../shared/types";
 import type {
@@ -23,6 +24,8 @@ import type {
 } from "../../../shared/types";
 import type { Naspel, NaspelDeel, NaspelLane, NaspelSpeler, NaspelTeam } from "../../../shared/naspel";
 import { leesNaspel, NASPEL_FACTOREN } from "../../../shared/naspel";
+import { leesOordeel } from "../../../shared/oordeel";
+import { leesOmslag } from "../../../shared/omslag";
 import {
   ChampionIcon, GeenDetail, ItemRow, POSITION_LABELS, PositionIcon, SpellPair, Spinner,
   type GeenDetailReden,
@@ -109,6 +112,62 @@ export function NaspelPaneel({
 
   const naspel = useMemo(() => (detail ? leesNaspel(detail) : null), [detail]);
 
+  // Built here rather than in the main process because it is arithmetic on data
+  // that already crossed IPC, and because it needs both halves of the screen:
+  // the baseline that only exists for you, and the scored lobby that knows your
+  // share of the team's kills and damage. Null whenever the baseline is, which
+  // is the same condition IjkBlok itself is drawn under -- four of its five
+  // verdicts have nothing to stand on without it, and a verdict list made of the
+  // leftovers would be a different rule wearing the same clothes.
+  const oordeel = useMemo(() => {
+    if (!detail || !naspel || !detail.baseline) return null;
+    const champion = champions.get(detail.baseline.championId);
+    return leesOordeel(
+      detail,
+      naspel,
+      detail.baseline,
+      champion?.name ?? String(detail.baseline.championId),
+      POSITION_LABELS[detail.baseline.position] ?? detail.baseline.position,
+    );
+  }, [detail, naspel, champions]);
+
+  /**
+   * Which stretch of this game went worst, worked out exactly once.
+   *
+   * Three things on this screen want that answer: the sentence naming it, the
+   * band on the chart, and the band on the lane strip inside the chart. They
+   * have to be the same stretch. Each of them finding its own would mean the
+   * app answers the one question it was built to answer three times over, in
+   * three different places, with three different minutes -- and a reader who is
+   * told 22:00 in a sentence and shown a band over 14:00 has not learned when
+   * the game turned, he has learned the app is guessing.
+   *
+   * Null is the ordinary answer and stays ordinary: no recording, no readings,
+   * no seat marked as yours, or no norm for the champion yet. Everything
+   * downstream draws itself without a stretch rather than inventing a flat one.
+   */
+  const omslag = useMemo(() => {
+    const opname = detail?.tijdlijn?.opname;
+    if (!detail || !opname) return null;
+
+    // The norm for the seat that was at the keyboard. Taken off the player row
+    // rather than recomputed, because that row is what the badge above is
+    // scored against, and reading the same figure from two places is how two
+    // numbers start disagreeing.
+    const jij = opname.spelers.findIndex((s) => (s.skillOrder?.length ?? 0) > 0);
+    const mijnChampion = jij < 0 ? null : (opname.spelers[jij]?.championId ?? null);
+    const rij =
+      detail.players.find((p) => p.isYou) ??
+      (mijnChampion === null ? undefined : detail.players.find((p) => p.championId === mijnChampion));
+
+    return leesOmslag(
+      opname,
+      rij?.ijklijn ?? null,
+      (id) => items.get(id)?.price ?? 0,
+      (id) => items.get(id)?.buildsFrom ?? [],
+    ).omslag;
+  }, [detail, items]);
+
   if (bezig) {
     return (
       <div className="px-4 py-6">
@@ -158,6 +217,7 @@ export function NaspelPaneel({
         <IjkBlok
           baseline={detail.baseline}
           champion={champions.get(detail.baseline.championId)}
+          oordeel={oordeel}
         />
       ) : null}
 
@@ -181,24 +241,46 @@ export function NaspelPaneel({
 
       <ScoreRegel naspel={naspel} />
 
+      {/* The answer before the picture. Somebody who has just finished a game
+          wants to know which minute it went wrong, not to go hunting for it in a
+          chart, so the finding sits above the thing it was found in -- and the
+          chart is then the place to go and check it. Draws nothing at all unless
+          this machine watched the game and the readings can carry a finding. */}
+      <OmslagPaneel
+        omslag={omslag}
+        opname={detail.tijdlijn?.opname ?? null}
+        champions={champions}
+      />
+
       {/* The one game in a hundred thousand this machine was actually running
-          during. Classic match history has no timeline to rebuild, so this only
-          exists because the app watched it happen and wrote it down. */}
-      <Tijdlijnpaneel tijdlijn={detail.tijdlijn} items={items} champions={champions} />
+          during. The match-history timeline does exist -- see core/lcu/timeline.ts
+          -- but it carries no purchases and samples once a minute, so what is
+          drawn here is still the recording this app made itself. It gets handed
+          the same stretch the sentence above names, rather than looking for one,
+          so the band and the sentence cannot disagree. */}
+      <Tijdlijnpaneel
+        tijdlijn={detail.tijdlijn}
+        items={items}
+        champions={champions}
+        venster={omslag?.ergste ?? null}
+      />
 
       <p className="text-[11px] leading-relaxed text-ink-600">
         Everything above the timeline is measured against the ten players in this game and nothing
         else.{" "}
         {detail.tijdlijn ? (
           <>
-            Classic match history carries no timeline; the one below it was recorded by this app
-            while the game was running, which is the only way this mode ever gets one.
+            The timeline below was recorded by this app while the game was running, which is why it
+            can say what was bought and when, and why it reads the scoreline every few seconds
+            rather than once a minute.
           </>
         ) : (
           <>
-            Classic match history carries no timeline, so there is no gold curve to draw, no first
-            blood to report and no purchase order to follow &mdash; only what each player finished
-            with. Games this app was running during are the exception, and this was not one of them.
+            This app was not running while this game was played, so nothing here is a reading taken
+            during it &mdash; only what each player finished with. Match history does keep a
+            per-minute timeline for Classic games, which nothing in this app fetches yet; it holds
+            gold, creeps and levels but no purchases, so it could show how the game went and never
+            what was built.
           </>
         )}
       </p>
