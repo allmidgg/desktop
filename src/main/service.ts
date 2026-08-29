@@ -1118,23 +1118,58 @@ export class JadeService extends EventEmitter {
     ]);
     this.update({ profile, recentGames: games.map((game) => toRecentGame(game, puuid)) });
 
-    // Je eigen games horen altijd in de database te staan.
-    //
-    // De lijst hierboven komt rechtstreeks uit de client, maar het detailscherm
-    // zoekt op in de opgeslagen matches -- en daar kwamen je eigen games alleen
-    // in als de crawler je toevallig was tegengekomen. Vandaar "This game is not
-    // in your database" onder een wedstrijd die je zelf net gespeeld had.
-    //
-    // slimGame gooit weg wat niet telt (geen Classic, korter dan vijf minuten),
-    // en add() slaat over wat er al staat, dus dit mag bij elke verversing
-    // draaien zonder iets te verdubbelen.
-    const eigen = games.map(slimGame).filter((m): m is NonNullable<typeof m> => m !== null);
-    if (eigen.length > 0) {
-      const nieuw = await this.store.add(eigen);
-      if (nieuw > 0) {
-        this.rebuildStats();
-        this.publishDatabaseStatus();
-      }
+    await this.bewaarEigenGames(games);
+  }
+
+  /**
+   * Puts your own games in the database, which is where the detail screen looks.
+   *
+   * The match list and the match detail are not the same payload, and that
+   * difference is the whole reason this method exists. A game from
+   * `/lol-match-history/v1/products/lol/{puuid}/matches` arrives with exactly
+   * ONE participant on it -- you -- because the list is a list of your results
+   * rather than of the games. `slimGame` needs all ten and so returns null for
+   * every one of them.
+   *
+   * That is not a guess: measured against the running client, the list form of
+   * game 7965097532 carries 1 participant and 1 identity, and slimGame refuses
+   * it; the detail form of the same id carries 10 and is accepted. So mapping
+   * slimGame straight over the list -- which is what stood here -- stored
+   * precisely nothing, every time, and said so to nobody: the result was an
+   * empty array rather than an error, and the "did anything land" check read
+   * zero and moved on. Six of this account's twenty games were missing from the
+   * store because of it, including the newest, which is also the only one with
+   * a recording.
+   *
+   * So the detail is fetched, exactly as the crawler does it. Games already in
+   * the store are skipped first, which keeps the usual refresh at zero requests
+   * -- there is normally nothing new -- and caps the worst case at one request
+   * per game in the list.
+   */
+  private async bewaarEigenGames(games: Game[]): Promise<void> {
+    const { client } = this;
+    if (!client) return;
+
+    const onbekend = games.filter((game) => !this.store.has(game.gameId));
+    if (onbekend.length === 0) return;
+
+    const eigen: StoredMatch[] = [];
+    for (const game of onbekend) {
+      const volledig = await client
+        .tryGet<Game>(`/lol-match-history/v1/games/${game.gameId}`)
+        .catch(() => null);
+      if (!volledig) continue;
+      // slimGame still does the deciding: not Classic, or under five minutes,
+      // and it stays out. This only makes sure it is judging the whole game.
+      const slim = slimGame(volledig);
+      if (slim) eigen.push(slim);
+    }
+
+    if (eigen.length === 0) return;
+    const nieuw = await this.store.add(eigen);
+    if (nieuw > 0) {
+      this.rebuildStats();
+      this.publishDatabaseStatus();
     }
   }
 
