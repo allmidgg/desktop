@@ -321,7 +321,7 @@ export interface BaselineNumber {
  * shared database" and "the games this machine happened to crawl" are not the
  * same claim.
  *
- * Note what is not in here: none of the five optional StoredPlayer fields. Every
+ * Note what is not in here: none of the optional StoredPlayer fields. Every
  * figure below comes from cs, gold, kills, deaths, assists and the match
  * duration, all of which are mandatory -- which is why this block works on games
  * stored long before damage was ever kept.

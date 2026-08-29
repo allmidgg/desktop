@@ -1747,7 +1747,7 @@ export class JadeService extends EventEmitter {
    * Null only when neither exists, which leesNaspel reads as "this whole game
    * falls back on the middle of the lobby".
    *
-   * Touches none of the five optional StoredPlayer fields, which is why it works
+   * Touches none of the optional StoredPlayer fields, which is why it works
    * on every match in the database rather than only on the ones stored from today
    * onwards.
    */
@@ -1782,7 +1782,7 @@ export class JadeService extends EventEmitter {
    * the averages are not there the answer is null and the screen has one block
    * fewer rather than a number nobody can defend.
    *
-   * Touches none of the five optional StoredPlayer fields, which is why it works
+   * Touches none of the optional StoredPlayer fields, which is why it works
    * on every match in the database rather than only on the ones stored from
    * today onwards.
    */

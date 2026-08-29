@@ -94,6 +94,37 @@ export interface StoredPlayer {
   wards?: number;
   /** Champion level aan het eind. */
   level?: number;
+  /**
+   * The six runes taken, primary tree first, when the source knew them.
+   *
+   * New with the modern side, and empty on every Classic record there is or
+   * ever will be -- measured on the running client, a Classic game reports
+   * `perk0` through `perk5` as zero, which is the reason this app has never had
+   * a rune statistic. MATCH-V5 does send them: EUW1_7924801606 gives its
+   * Trundle 8008, 9111, 9104, 8299, 8473, 8446, and all ten seats are filled.
+   *
+   * Optional like the five fields above it, and that is what makes it free for
+   * the records that already exist: the 130,197 stored ones simply do not have
+   * the key, `load()` reads them unchanged, and every validator on both sides
+   * of the upload checks the fields it knows by name rather than rejecting the
+   * ones it does not. Nothing was rewritten to add this.
+   *
+   * It is not free for the records to come, and the measurement belongs here
+   * rather than in a commit message: a modern game costs 3,545 bytes without
+   * the two rune fields, and the six selections add 400 bytes to that.
+   *
+   * Note what is deliberately missing: no line in `voorVerzending()`. Runes are
+   * written to the local store and are not part of an upload, because the pool
+   * this app uploads to is the Classic one and Classic games have no runes to
+   * send. Adding them there is an edit somebody has to make on purpose, which
+   * is exactly the property that function exists to have.
+   */
+  perks?: number[];
+  /**
+   * The three stat shards, offense, flex, defense. Same story as `perks`, and
+   * 300 bytes a game -- a separate field so that cost can be dropped on its own.
+   */
+  statShards?: number[];
 }
 
 export interface StoredMatch {

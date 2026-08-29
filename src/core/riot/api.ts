@@ -12,6 +12,37 @@
 const DEV_KEY_REQUESTS_PER_WINDOW = 95; // marge onder de 100
 const WINDOW_MS = 120_000;
 
+/**
+ * How fast this client is allowed to go, and what to do when it was wrong.
+ *
+ * The numbers used to be constants, which was fine while the only caller was a
+ * probe run by hand against a development key. It stops being fine the moment a
+ * crawler runs on the server: a development key does 100 requests per two
+ * minutes and a production key does far more, the production figure is
+ * negotiated per application rather than published as a law, and the difference
+ * between the two is the difference between a database that takes two days to
+ * build and one that takes an hour. A rate baked into a constant means that
+ * difference can only be had by editing and rebuilding.
+ *
+ * The defaults are the old constants, so every existing call site keeps exactly
+ * the behaviour it had.
+ */
+export interface RiotApiOptions {
+  /** Requests allowed inside one window. Defaults to 95, just under a dev key's 100. */
+  readonly requestsPerWindow?: number;
+  /** How long that window is. Defaults to two minutes, the dev key's window. */
+  readonly windowMs?: number;
+  /**
+   * Called when Riot answered 429 -- that is, when our own bookkeeping was wrong.
+   *
+   * The request is still retried after Retry-After, so without this hook a rate
+   * that is set too high is invisible: it shows up as a crawl that is mysteriously
+   * slow rather than as a limit that needs lowering. A caller that logs this gets
+   * told which of the two it is.
+   */
+  readonly onRateLimited?: (retryAfterSeconds: number, url: string) => void;
+}
+
 /** Van platform (waar een account staat) naar regio (waar match-v5 draait). */
 const REGION_BY_PLATFORM: Record<string, string> = {
   EUW1: "europe", EUN1: "europe", TR1: "europe", RU: "europe", ME1: "europe",
@@ -33,11 +64,22 @@ export class RiotApiError extends Error {
 
 export class RiotApiClient {
   private readonly timestamps: number[] = [];
+  private readonly requestsPerWindow: number;
+  private readonly windowMs: number;
+  private readonly onRateLimited?: (retryAfterSeconds: number, url: string) => void;
 
   constructor(
     private readonly apiKey: string,
     private readonly platform = "EUW1",
-  ) {}
+    options: RiotApiOptions = {},
+  ) {
+    // Clamped rather than trusted. A zero or a negative would make throttle()
+    // wave every request through, which is the one failure mode that gets a key
+    // suspended instead of merely slowed down.
+    this.requestsPerWindow = Math.max(1, Math.floor(options.requestsPerWindow ?? DEV_KEY_REQUESTS_PER_WINDOW));
+    this.windowMs = Math.max(1_000, Math.floor(options.windowMs ?? WINDOW_MS));
+    this.onRateLimited = options.onRateLimited;
+  }
 
   get region(): string {
     return REGION_BY_PLATFORM[this.platform.toUpperCase()] ?? "europe";
@@ -46,12 +88,12 @@ export class RiotApiClient {
   /** Wacht tot er weer ruimte is binnen het venster van twee minuten. */
   private async throttle(): Promise<void> {
     const now = Date.now();
-    while (this.timestamps.length > 0 && now - (this.timestamps[0] ?? 0) > WINDOW_MS) {
+    while (this.timestamps.length > 0 && now - (this.timestamps[0] ?? 0) > this.windowMs) {
       this.timestamps.shift();
     }
-    if (this.timestamps.length >= DEV_KEY_REQUESTS_PER_WINDOW) {
+    if (this.timestamps.length >= this.requestsPerWindow) {
       const oldest = this.timestamps[0] ?? now;
-      const wait = WINDOW_MS - (now - oldest) + 250;
+      const wait = this.windowMs - (now - oldest) + 250;
       await new Promise((resolve) => setTimeout(resolve, wait));
       return this.throttle();
     }
@@ -65,7 +107,12 @@ export class RiotApiClient {
 
     // 429 betekent dat onze eigen boekhouding ernaast zat; Riot vertelt hoe lang.
     if (res.status === 429) {
-      const retryAfter = Number(res.headers.get("retry-after") ?? "5");
+      const header = Number(res.headers.get("retry-after"));
+      // Riot does not always send the header (a 429 from the edge instead of the
+      // service can arrive bare), and Number("") is 0, which would turn the wait
+      // into a one-second hot loop against a limit we are already over.
+      const retryAfter = Number.isFinite(header) && header > 0 ? header : 5;
+      this.onRateLimited?.(retryAfter, url);
       await new Promise((resolve) => setTimeout(resolve, (retryAfter + 1) * 1000));
       return this.get<T>(host, path);
     }
