@@ -105,7 +105,7 @@ async function main(): Promise<void> {
   }
 
   const alle = store.all();
-  const stats = JadeStats.from(alle);
+  const stats = JadeStats.from(alle, "lol:jade");
   console.log(`${c.dim}${alle.length.toLocaleString("en-GB")} games, ${hoeveel} sampled${c.reset}\n`);
 
   let getoond = 0;

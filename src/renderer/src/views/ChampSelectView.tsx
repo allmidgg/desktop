@@ -14,9 +14,11 @@ import { useEffect, useState } from "react";
 import type {
   AppSnapshot, ChampionPlan, ChampionSummary, LaneAnalysis, ScoutEntry,
 } from "../../../shared/types";
+import type { ModeId } from "../../../core/modes/types";
+import { rangVoor, samenvatting } from "../modus";
 import {
-  asset, ChampionIcon, FormDots, Panel, PositionIcon, POSITION_LABELS, RankPill, SplashBackdrop,
-  Streak, Winrate,
+  asset, catalogusIndex, ChampionIcon, FormDots, Panel, PositionIcon, POSITION_LABELS, RankPill,
+  SplashBackdrop, Streak, Winrate,
 } from "../ui";
 
 /**
@@ -52,7 +54,14 @@ export function ChampSelectView({
   const select = snapshot.champSelect;
   if (!select) return null;
 
-  const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
+  // The mode the lobby is queueing for, off the snapshot -- never the browse
+  // mode, which is a different fact about a different thing: what you last
+  // looked at in the tier list has no bearing on the game you are about to
+  // start. Null means nothing has said yet, and an index over no mode is empty
+  // rather than Classic: at that point nobody has picked anything either, so
+  // there is nothing it could have drawn.
+  const modus = select.mode ?? "unknown";
+  const champions = catalogusIndex(snapshot.champions, modus);
   const seconds = useAftellen(select.timeLeftMs, select.timerAt);
   const assignedCells = new Set(
     select.lanes.flatMap((lane) => [lane.allyChampionId, lane.enemyChampionId]).filter(Boolean),
@@ -111,6 +120,7 @@ export function ChampSelectView({
               lane={lane}
               entries={[...select.myTeam, ...select.theirTeam]}
               champions={champions}
+              modus={modus}
             />
           </div>
         ))}
@@ -120,8 +130,8 @@ export function ChampSelectView({
         <BuildPanel
           plan={select.localPlan}
           champions={champions}
-          items={new Map(snapshot.items.map((i) => [i.jadeId, i]))}
-          spells={new Map(snapshot.spells.map((s) => [s.jadeId, s]))}
+          items={catalogusIndex(snapshot.items, modus)}
+          spells={catalogusIndex(snapshot.spells, modus)}
         />
       ) : null}
 
@@ -140,7 +150,7 @@ export function ChampSelectView({
           <p className="mb-2 text-[10px] tracking-[0.16em] text-ink-700 uppercase">Lane unknown</p>
           <div className="flex flex-wrap gap-2">
             {unassigned.map((entry) => (
-              <MiniPlayer key={entry.cellId} entry={entry} champions={champions} />
+              <MiniPlayer key={entry.cellId} entry={entry} champions={champions} modus={modus} />
             ))}
           </div>
         </Panel>
@@ -153,10 +163,13 @@ function LaneRow({
   lane,
   entries,
   champions,
+  modus,
 }: {
   lane: LaneAnalysis;
   entries: ScoutEntry[];
   champions: Map<number, ChampionSummary>;
+  /** The lobby's mode, carried down so a card reads the right half of a profile. */
+  modus: ModeId;
 }): JSX.Element {
   const findEntry = (championId: number | null): ScoutEntry | undefined =>
     championId ? entries.find((e) => (e.championId || e.championPickIntent) === championId) : undefined;
@@ -170,7 +183,13 @@ function LaneRow({
         lane.isLocalPlayerLane ? "" : "opacity-95"
       }`}
     >
-      <PlayerCard entry={ally} champions={champions} side="ally" highlight={lane.isLocalPlayerLane} />
+      <PlayerCard
+        entry={ally}
+        champions={champions}
+        modus={modus}
+        side="ally"
+        highlight={lane.isLocalPlayerLane}
+      />
 
       <div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-line bg-white/[0.015] px-2 py-2">
         <div className="flex items-center gap-1.5 text-ink-500">
@@ -182,7 +201,7 @@ function LaneRow({
         <MatchupVerdict lane={lane} />
       </div>
 
-      <PlayerCard entry={enemy} champions={champions} side="enemy" highlight={false} />
+      <PlayerCard entry={enemy} champions={champions} modus={modus} side="enemy" highlight={false} />
     </div>
   );
 }
@@ -221,11 +240,13 @@ function MatchupVerdict({ lane }: { lane: LaneAnalysis }): JSX.Element {
 function PlayerCard({
   entry,
   champions,
+  modus,
   side,
   highlight,
 }: {
   entry: ScoutEntry | undefined;
   champions: Map<number, ChampionSummary>;
+  modus: ModeId;
   side: "ally" | "enemy";
   highlight: boolean;
 }): JSX.Element {
@@ -252,6 +273,8 @@ function PlayerCard({
   const champion = championId ? champions.get(championId) : undefined;
   const hovering = !entry.championId && Boolean(entry.championPickIntent);
   const profile = entry.profile;
+  const stats = samenvatting(profile, modus);
+  const rang = rangVoor(profile, modus);
   const record = entry.championRecord;
   const alignRight = side === "enemy";
 
@@ -307,16 +330,24 @@ function PlayerCard({
         </div>
       </div>
 
+      {/* The half of the profile that belongs to the mode this lobby is for. A
+          player's Classic form says nothing about the game about to start when
+          that game is the other one, and a card showing it would be indistinguishable
+          from one that had measured it. */}
       {profile ? (
         <div className={`shrink-0 ${alignRight ? "text-left" : "text-right"}`}>
-          <RankPill rank={profile.rank} compact />
-          <div className={`mt-1 flex items-center gap-2 ${alignRight ? "" : "justify-end"}`}>
-            <Winrate winrate={profile.jade.winrate} games={profile.jade.games} />
-          </div>
-          <div className={`mt-1 flex items-center gap-2 ${alignRight ? "" : "justify-end"}`}>
-            <Streak streak={profile.jade.streak} />
-            <FormDots results={profile.jade.recentResults} />
-          </div>
+          {rang === undefined ? null : <RankPill rank={rang} compact />}
+          {stats ? (
+            <>
+              <div className={`mt-1 flex items-center gap-2 ${alignRight ? "" : "justify-end"}`}>
+                <Winrate winrate={stats.winrate} games={stats.games} />
+              </div>
+              <div className={`mt-1 flex items-center gap-2 ${alignRight ? "" : "justify-end"}`}>
+                <Streak streak={stats.streak} />
+                <FormDots results={stats.recentResults} />
+              </div>
+            </>
+          ) : null}
         </div>
       ) : (
         <span className="shrink-0 text-[10px] text-ink-700">name hidden</span>
@@ -376,19 +407,22 @@ function CounterPanel({
 function MiniPlayer({
   entry,
   champions,
+  modus,
 }: {
   entry: ScoutEntry;
   champions: Map<number, ChampionSummary>;
+  modus: ModeId;
 }): JSX.Element {
   const championId = entry.championId || entry.championPickIntent;
   const champion = championId ? champions.get(championId) : undefined;
+  const rang = rangVoor(entry.profile, modus);
   return (
     <div className="flex items-center gap-2 rounded-lg bg-white/[0.04] py-1 pr-2.5 pl-1">
       <ChampionIcon iconPath={champion?.iconPath} name={champion?.name} size={22} />
       <span className="text-[11px] text-ink-300">
         {entry.toonNaam ?? champion?.name ?? "Hidden player"}
       </span>
-      {entry.profile ? <RankPill rank={entry.profile.rank} compact /> : null}
+      {rang === undefined ? null : <RankPill rank={rang} compact />}
     </div>
   );
 }

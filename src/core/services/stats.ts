@@ -11,7 +11,10 @@
  * 2. Een matchup is pas een matchup als beide champions in dezelfde lane staan.
  *    Een Ashe die tegen een Nasus in de toplane "wint" zegt niets over Ashe.
  */
-import { JADE_CHAMPION_OFFSET, JADE_ITEM_OFFSET, JADE_QUEUES } from "../jade/ids";
+import { JADE_CHAMPION_OFFSET, JADE_ITEM_OFFSET } from "../jade/ids";
+import { modeOfStored } from "../modes/detect";
+import { COLLECTED_MODES, queueCounts } from "../modes/registry";
+import type { ModeId } from "../modes/types";
 import type { Position, StoredMatch } from "./matchStore";
 
 /** Hoe sterk we naar 50% trekken. 20 komt neer op: bij 20 games telt de data half mee. */
@@ -152,6 +155,34 @@ export interface ChampionBaseline {
  * because a silent reorder would turn deaths into assists without any error.
  */
 export interface AggregateStats {
+  /**
+   * Which mode every tally in this file was counted over.
+   *
+   * The published file has never carried this and the app has never asked. All
+   * 128,628 games in it are Classic, and the only thing standing between that
+   * and a mixed file is one line in the upload server -- the championId range in
+   * isValidMatch -- which is not there to separate modes and was never written
+   * as a mode gate. Once that line changes for any reason, a mixed aggregate
+   * downloads into every installation at once, and rebuildStats() prefers it
+   * over the local store. This field is what makes that visible.
+   *
+   * Absent means lol:jade, and that default can only ever produce lol:jade. A
+   * modern file has to say so out loud or fromAggregate refuses it, so a dropped
+   * field can never promote Classic tallies into the modern set.
+   *
+   * site/data/refresh.mjs writes it. Any change to the id shift below happens in
+   * the same commit as a change there: it is one decision written in two files.
+   */
+  modus?: ModeId;
+  /**
+   * Bumped whenever the shape changes in a way an older reader cannot follow.
+   *
+   * Absent means the shape published up to now, which is version 1. A file that
+   * announces a version this build does not know is refused rather than read,
+   * because the failure it prevents is silent: `velden` catches a reordered
+   * array but nothing catches a field that changed meaning.
+   */
+  schemaVersion?: number;
   /** When the counting ran. */
   generatedAt: string;
   /** Timestamp of the newest game in it: how fresh the numbers actually are. */
@@ -168,6 +199,16 @@ export interface AggregateStats {
 
 /** The lanes a player is ever tallied in; UNKNOWN is never counted. */
 const BASELINE_LANES: readonly Position[] = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "SUPPORT"];
+
+/**
+ * The newest aggregate shape this build can read.
+ *
+ * 2 is the first version that names its own mode. Everything published before it
+ * said nothing, which is why an absent version reads as 1 and an absent mode
+ * reads as lol:jade -- both are statements about files that already exist, not
+ * guesses about files that might.
+ */
+export const AGGREGATE_SCHEMA_VERSION = 2;
 
 const CHAMPION_FIELDS = ["games", "wins", "kills", "deaths", "assists", "cs", "gold", "seconden"];
 const PAIR_FIELDS = ["games", "wins"];
@@ -207,12 +248,43 @@ export class JadeStats {
   private readonly items = new Map<string, Tally>();
   /** "positie|champion|spellA-spellB" -> tally */
   private readonly spells = new Map<string, Tally>();
-  /** positie -> aantal spelersloten */
+  /**
+   * positie -> aantal spelersloten
+   *
+   * This is the denominator under every pickRate and under laneShare(), and it
+   * is the reason this class now carries a mode. It is keyed by position alone,
+   * so two modes counted into one instance would grow it without growing any
+   * numerator with it. Nothing throws, no winrate changes, and every pick rate
+   * silently shrinks by the other mode's share. Worked through on the real
+   * aggregate at the measured mode mix: 80 of the 102 champion-lane pairs that
+   * clear MIN_LANE_SHARE drop below it and vanish from the matchup advice --
+   * Fiddlesticks jungle on 14,570 games, Teemo top on 13,059, Soraka support on
+   * 9,880. The games are all still there. The screen just stops saying anything
+   * about them.
+   *
+   * One instance per mode is what makes that impossible. Putting the mode into
+   * the keys instead would mean carrying a prefix through every scan in this
+   * file -- the startsWith() in itemStats, spellStats, strugglesAgainst and
+   * strongAgainst, and the bare iterations in countersFor, tierList,
+   * positionsFor and coverage. Forget one and that loop walks into the other
+   * mode's entries and returns them. Here there is no entry to walk into, and
+   * not a single key changes shape.
+   */
   private readonly positionTotals = new Map<Position, number>();
   private matchCount = 0;
 
-  static from(matches: StoredMatch[]): JadeStats {
-    const stats = new JadeStats();
+  /**
+   * The one mode every tally in this instance belongs to, fixed at construction.
+   *
+   * Costs nothing in memory: an instance holds only its own mode's entries, so
+   * two of them come to the same total as one map with longer keys.
+   */
+  constructor(readonly mode: ModeId = "lol:jade") {}
+
+  static from(matches: StoredMatch[], mode: ModeId = "lol:jade"): JadeStats {
+    const stats = new JadeStats(mode);
+    // No filter here: ingest() refuses anything from another mode itself, so
+    // there is no version of this call that can mix.
     for (const match of matches) stats.ingest(match);
     return stats;
   }
@@ -229,7 +301,19 @@ export class JadeStats {
    * Deliberately NOT merged with the local store. The app uploads what it crawls,
    * so those games are already in here -- adding them again would count them twice.
    */
-  static fromAggregate(raw: AggregateStats): JadeStats {
+  static fromAggregate(raw: AggregateStats, mode: ModeId = "lol:jade"): JadeStats {
+    // Asked for rather than read, so a file arriving at the wrong door is refused
+    // instead of absorbed. This closes the last path by which the 130,197 Classic
+    // games could land in the modern set: a redirect, a misconfigured CDN, a
+    // wrong path in the cache. rebuildStats() already catches and falls back.
+    const fileMode: ModeId = raw.modus ?? "lol:jade";
+    if (fileMode !== mode) {
+      throw new Error(`app-stats holds ${fileMode} tallies, ${mode} was asked for`);
+    }
+    const versie = raw.schemaVersion ?? 1;
+    if (versie > AGGREGATE_SCHEMA_VERSION) {
+      throw new Error(`app-stats.json is schema ${versie}; this build reads up to ${AGGREGATE_SCHEMA_VERSION}`);
+    }
     const zelfde = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
     if (!zelfde(raw.velden?.champions ?? [], CHAMPION_FIELDS)) {
       throw new Error(`app-stats.json champion fields changed: ${JSON.stringify(raw.velden?.champions)}`);
@@ -238,7 +322,7 @@ export class JadeStats {
       throw new Error(`app-stats.json pair fields changed: ${JSON.stringify(raw.velden?.paar)}`);
     }
 
-    const stats = new JadeStats();
+    const stats = new JadeStats(mode);
     stats.matchCount = raw.games;
 
     /**
@@ -251,7 +335,18 @@ export class JadeStats {
      * as they came. Champions and their opponents shift by CHAMPION_OFFSET and
      * items by ITEM_OFFSET; summoner spells are already stored as Jade ids on
      * the other side, so those pass through untouched.
+     *
+     * How far apart the two sets of ids sit has a different answer per mode. The
+     * published file counts in base ids either way; for Classic the client
+     * speaks Jade ids so everything shifts, and for the modern game the client
+     * already speaks base ids so nothing does. Shifting there anyway is not a
+     * visible failure -- every lookup simply misses while the app reports a
+     * database of tens of thousands, which is the bug described just above as
+     * having already happened once. This is the same decision that
+     * site/data/refresh.mjs makes when it subtracts on the way out.
      */
+    const champOffset = mode === "lol:jade" ? JADE_CHAMPION_OFFSET : 0;
+    const itemOffset = mode === "lol:jade" ? JADE_ITEM_OFFSET : 0;
     const deel = (sleutel: string): [string, string, string | undefined] => {
       const i = sleutel.indexOf("|");
       const j = sleutel.indexOf("|", i + 1);
@@ -261,11 +356,11 @@ export class JadeStats {
     };
     const champSleutel = (sleutel: string): string => {
       const [lane, champ] = deel(sleutel);
-      return `${lane}|${Number(champ) + JADE_CHAMPION_OFFSET}`;
+      return `${lane}|${Number(champ) + champOffset}`;
     };
     const staartSleutel = (sleutel: string, verschuif: (staart: string) => string): string => {
       const [lane, champ, staart] = deel(sleutel);
-      return `${lane}|${Number(champ) + JADE_CHAMPION_OFFSET}|${verschuif(staart ?? "")}`;
+      return `${lane}|${Number(champ) + champOffset}|${verschuif(staart ?? "")}`;
     };
 
     for (const [position, aantal] of Object.entries(raw.positionTotals)) {
@@ -293,8 +388,8 @@ export class JadeStats {
       });
     }
     for (const [naam, doel, verschuif] of [
-      ["matchups", stats.matchups, (x: string) => String(Number(x) + JADE_CHAMPION_OFFSET)],
-      ["items", stats.items, (x: string) => String(Number(x) + JADE_ITEM_OFFSET)],
+      ["matchups", stats.matchups, (x: string) => String(Number(x) + champOffset)],
+      ["items", stats.items, (x: string) => String(Number(x) + itemOffset)],
       // Spell pairs are written as Jade ids already ("74-712" is Flash+Teleport),
       // so only the champion in front of them needs shifting.
       ["spells", stats.spells, (x: string) => x],
@@ -325,7 +420,42 @@ export class JadeStats {
   }
 
   ingest(match: StoredMatch): void {
-    if (match.queueId === JADE_QUEUES.BOT) return;
+    // One tally, one mode, and this throws rather than quietly skipping.
+    //
+    // Nasus top at 6.43 CS/min in Classic is measured against a different item
+    // set, different runes, different map timers and a different champion pool
+    // than Nasus top in the modern game. Added together the result is wrong and
+    // looks completely ordinary, which is the whole danger: nobody reading the
+    // number can tell. A caller that hands a JadeStats the wrong mode has a bug,
+    // and what it costs is not one game but every average, every baseline and
+    // every tier list built on this object. Skipping would hide exactly the
+    // mistake that most needs to be loud.
+    //
+    // Loud is affordable because somebody catches it. Service.telLokaal() wraps
+    // every call that reaches here from a store, counts the mode again from the
+    // records that do belong to it, and publishes how many it had to leave out.
+    // The user keeps a working app with honest numbers and a sentence saying
+    // what happened; the caller that handed over the wrong game still gets the
+    // stack trace in the log. Check that method before relaxing this throw --
+    // the promise in this paragraph is only true while it is there.
+    const mode = modeOfStored(match);
+    if (mode !== this.mode) {
+      throw new Error(
+        `JadeStats(${this.mode}) was handed a ${mode} game (${match.gameId}, queue ${match.queueId}); ` +
+          `statistics from two modes may never be added together`,
+      );
+    }
+    // Bots play differently and customs are arranged rather than matched, so both
+    // distort every average they touch. This used to name one queue by number --
+    // 4320, the Classic bot queue. Asking the queue table instead covers bots and
+    // customs in every mode, including the ones that do not exist yet, and
+    // including the four modern bot queues that report gameMode SWIFTPLAY and
+    // would sail straight past any test on the mode string.
+    //
+    // It also moves the count to after both refusals. It used to fire before the
+    // player loop, so a game that produced no tally at all still raised the
+    // denominator this class reports as its game count.
+    if (!queueCounts(match.queueId)) return;
     this.matchCount++;
     for (const player of match.players) {
       if (player.position === "UNKNOWN") continue;
@@ -630,6 +760,50 @@ export class JadeStats {
 }
 
 /**
+ * One JadeStats per mode, and the only way to reach one.
+ *
+ * The point of the class is that asking for statistics forces you to say which
+ * game you mean. There is no default and no "current" mode in here on purpose: a
+ * default is how a Classic game ends up judged against modern averages, and
+ * nothing on the screen would show it -- SpelerIjklijn carries a game count and
+ * a source but never a mode, so a baseline drawn from the wrong pool looks
+ * exactly like a correct one.
+ *
+ * It holds only the modes we collect. Asking for lol:kiwi-jade or for the
+ * unknown mode throws rather than handing back an empty bucket, because an empty
+ * bucket answers null to everything and reads as "no data yet" instead of as
+ * "you asked the wrong question".
+ */
+export class StatsPerModus {
+  private readonly per = new Map<ModeId, JadeStats>();
+
+  constructor() {
+    for (const mode of COLLECTED_MODES) this.per.set(mode, new JadeStats(mode));
+  }
+
+  voor(mode: ModeId): JadeStats {
+    const stats = this.per.get(mode);
+    if (!stats) throw new Error(`no statistics bucket for mode ${mode}`);
+    return stats;
+  }
+
+  /**
+   * Swap in a freshly counted set. Refuses one counted for another mode.
+   *
+   * The guard is not paranoia about this file's own callers: fromAggregate()
+   * builds its instance from a downloaded file, so this is the last place that
+   * can notice a redirect, a stale CDN entry or a hand-edited cache path having
+   * put one mode's tallies where the other mode's belong.
+   */
+  zet(mode: ModeId, stats: JadeStats): void {
+    if (stats.mode !== mode) {
+      throw new Error(`refusing ${stats.mode} statistics in the ${mode} slot`);
+    }
+    this.per.set(mode, stats);
+  }
+}
+
+/**
  * De positie waarop iemand het vaakst speelt, uit zijn eigen games.
  * In champion select weten we van tegenstanders niets -- behalve dit.
  */
@@ -650,6 +824,19 @@ export const LEGE_PUUID = "00000000-0000-0000-0000-000000000000";
  */
 export const MIN_POSITIE_GAMES = 4;
 
+/**
+ * Hand this one mode's games, never two concatenated.
+ *
+ * There is no mode parameter because there is nothing to key: the answer is one
+ * position per player, so a second mode's games would not land in a bucket of
+ * their own, they would be added to the first mode's counts. Someone who plays
+ * mid in Classic and support in the modern game then gets one "usual position"
+ * that is true nowhere, and MIN_POSITIE_GAMES is cleared sooner by the mixture
+ * -- so champ select places the unknown players more confidently while placing
+ * them worse. Since step 5 each store holds exactly one mode, so passing
+ * `stores.for(mode).all()` is all this needs; passing a merged array is the only
+ * way to break it.
+ */
 export function likelyPosition(
   matches: StoredMatch[],
   puuid: string,

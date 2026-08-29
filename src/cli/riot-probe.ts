@@ -10,7 +10,7 @@
  */
 import { LcuClient, LcuNotRunningError } from "../core/lcu/connector";
 import { RiotApiClient, RiotApiError } from "../core/riot/api";
-import { fetchCurrentSummoner, fetchJadeGames } from "../core/services/player";
+import { fetchCurrentSummoner, fetchRecentGames } from "../core/services/player";
 import { JADE_QUEUES } from "../core/jade/ids";
 
 const c = { reset: "\x1b[0m", dim: "\x1b[2m", bold: "\x1b[1m", green: "\x1b[32m", red: "\x1b[31m", yellow: "\x1b[33m" };
@@ -114,7 +114,7 @@ ${c.red}League-client staat uit.${c.reset} Geef dan je Riot-ID mee:
   }
 
   // 2. Een Classic-game die we zeker gespeeld hebben, opgebouwd uit het lokale ID.
-  const [localGame] = lcu ? await fetchJadeGames(lcu, lcuPuuid, 1) : [];
+  const [localGame] = lcu ? await fetchRecentGames(lcu, lcuPuuid, 1) : [];
   const candidates = [...ids];
   if (localGame) {
     const constructed = riot.matchIdFromGameId(localGame.gameId);

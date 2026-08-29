@@ -18,10 +18,31 @@
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
+import type { ModeId } from "../modes/types";
 import type { AggregateStats } from "./stats";
 
 /** Where the site publishes it. Same host as the download button. */
 export const COMMUNITY_STATS_URL = "https://allmid.gg/data/app-stats.json";
+
+/**
+ * One file per mode, on its own URL, rather than one file holding both.
+ *
+ * The alternative -- a single file shaped `{ modi: { ... } }` -- breaks every
+ * client already installed: they check the shape before believing anything, so
+ * they would refuse the new file and stay frozen on the copy they downloaded
+ * last. Safe, and permanently stale. Adding a field to the existing file costs
+ * old clients nothing (they cast to an interface with named fields and ignore
+ * what they do not know), and a second mode simply gets an address nobody old
+ * ever asks for.
+ *
+ * The path is derived from the mode id so the two can never drift apart, and
+ * lol:jade keeps the address and the filename it has always had.
+ */
+const bestandsnaam = (mode: ModeId): string =>
+  mode === "lol:jade" ? "app-stats.json" : `app-stats-${mode.replace(/[^a-z0-9]+/gi, "-")}.json`;
+
+export const communityStatsUrl = (mode: ModeId): string =>
+  mode === "lol:jade" ? COMMUNITY_STATS_URL : `https://allmid.gg/data/${bestandsnaam(mode)}`;
 
 /**
  * How long a cached copy is considered fresh enough to skip the network.
@@ -38,6 +59,8 @@ const MAX_BYTES = 32 * 1024 * 1024;
 
 export interface CommunityLoad {
   stats: AggregateStats;
+  /** The mode these tallies were counted over. Never inferred by the caller. */
+  modus: ModeId;
   /** "network" when just downloaded, "cache" when read from disk. */
   bron: "network" | "cache";
   /** When the counting ran, not when it was downloaded. */
@@ -61,11 +84,34 @@ export class CommunityStatsCache {
 
   constructor(
     dataRoot: string,
-    private readonly url: string = COMMUNITY_STATS_URL,
+    /** Which mode this cache holds. It decides the address and the filename. */
+    readonly modus: ModeId = "lol:jade",
+    private readonly url: string = communityStatsUrl(modus),
   ) {
+    const naam = bestandsnaam(modus);
     this.dir = join(dataRoot, "data", "community");
-    this.bestand = join(this.dir, "app-stats.json");
-    this.metaBestand = join(this.dir, "app-stats.meta.json");
+    this.bestand = join(this.dir, naam);
+    this.metaBestand = join(this.dir, naam.replace(/\.json$/, ".meta.json"));
+  }
+
+  /**
+   * Whether a downloaded file is the one this cache was asked for.
+   *
+   * Checked here as well as in fromAggregate, and not out of caution: this is
+   * the only place that decides what gets WRITTEN to disk. Without it a file
+   * from the wrong mode -- a redirect, a stale CDN entry, a path edited by hand
+   * -- would replace a good cached copy, and every launch from then on would
+   * hand it to fromAggregate, be refused, and fall back to locally counted
+   * games while the cache stayed poisoned. Refusing before writing keeps the
+   * copy that still works.
+   *
+   * An absent field means lol:jade, because every file published so far was
+   * counted from a store that is 100% Jade queues. That default can only ever
+   * produce lol:jade, so a field lost somewhere in the pipeline can never
+   * promote Classic tallies into another mode's set.
+   */
+  private klopt(stats: AggregateStats): boolean {
+    return (stats.modus ?? "lol:jade") === this.modus;
   }
 
   /** The copy on disk, or null when there is none or it will not parse. */
@@ -74,8 +120,10 @@ export class CommunityStatsCache {
     try {
       const stats = JSON.parse(readFileSync(this.bestand, "utf8")) as AggregateStats;
       if (!stats?.champions || !stats?.matchups) return null;
+      if (!this.klopt(stats)) return null;
       return {
         stats,
+        modus: this.modus,
         bron: "cache",
         generatedAt: stats.generatedAt,
         newestGame: stats.newestGame ?? stats.generatedAt,
@@ -127,6 +175,7 @@ export class CommunityStatsCache {
       // Refuse anything that is not recognisably the aggregate. Better to keep a
       // known-good cached copy than to overwrite it with an error page.
       if (!stats?.champions || !stats?.matchups || !stats?.velden) return uitCache;
+      if (!this.klopt(stats)) return uitCache;
 
       mkdirSync(this.dir, { recursive: true });
       writeFileSync(this.bestand, tekst, "utf8");
@@ -138,6 +187,7 @@ export class CommunityStatsCache {
 
       return {
         stats,
+        modus: this.modus,
         bron: "network",
         generatedAt: stats.generatedAt,
         newestGame: stats.newestGame ?? stats.generatedAt,

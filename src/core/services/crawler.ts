@@ -14,8 +14,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { LcuClient } from "../lcu/connector";
 import type { Game, MatchHistoryResponse } from "../lcu/types";
-import { isJadeGame } from "../jade/ids";
-import { slimGame, type MatchStore } from "./matchStore";
+import { modeOf } from "../modes/detect";
+import { COLLECTED_MODES, modeCrawls } from "../modes/registry";
+import { slimGame, type MatchStores } from "./matchStore";
 
 const PAGE_SIZE = 20;
 
@@ -65,7 +66,19 @@ export class MatchCrawler {
 
   constructor(
     private readonly client: LcuClient,
-    private readonly store: MatchStore,
+    /**
+     * The router, not a single file.
+     *
+     * This used to be one bare MatchStore, and it was the last writer in the app
+     * that appended whatever came back without asking which mode it was.
+     * slimGame() stopped rejecting on mode on purpose -- slimming a game and
+     * deciding where it belongs are two different jobs -- and wrote down that
+     * every caller must therefore route through MatchStores.add(). This one did
+     * not. It was unreachable only because the list filter below and the store
+     * happened to agree, which puts the guarantee in two places that can drift
+     * instead of in the one place that decides.
+     */
+    private readonly stores: MatchStores,
     private readonly onProgress?: (progress: CrawlProgress) => void,
     /** Wordt aangeroepen als de crawler pauzeert of hervat omdat je speelt. */
     private readonly onPause?: (paused: boolean) => void,
@@ -154,7 +167,13 @@ export class MatchCrawler {
         }
         const detailed = await this.fetchDetails(games);
         const slimmed = detailed.map(slimGame).filter((m): m is NonNullable<typeof m> => m !== null);
-        this.newThisRun += await this.store.add(slimmed);
+        // Each game into the file its own record says it belongs in. The list
+        // filter above should mean every one of these is a crawled mode, and
+        // this is what makes that a fact rather than an agreement between two
+        // filters: a game that slipped through lands in its own store instead of
+        // in the Classic one, where nothing downstream would ever have said so.
+        const gefileerd = await this.stores.add(slimmed);
+        this.newThisRun += gefileerd.jade + gefileerd.sr;
 
         // Nieuwe spelers uit deze games achteraan in de rij.
         for (const match of slimmed) {
@@ -213,12 +232,29 @@ export class MatchCrawler {
     }
   }
 
+  /**
+   * How many games sit in the stores this crawler is allowed to fill.
+   *
+   * Summed over the crawled modes rather than reading one file, so the number
+   * beside "games" on the CLI keeps meaning "what this run is adding to" if a
+   * second mode is ever opened to crawling. Modes it may not crawl are left out:
+   * counting the modern store here would make the line grow every time you played
+   * a game yourself, which is not what a crawl counter reports.
+   */
+  private get storeSize(): number {
+    let total = 0;
+    for (const mode of COLLECTED_MODES) {
+      if (modeCrawls(mode)) total += this.stores.for(mode).size;
+    }
+    return total;
+  }
+
   private progress(): CrawlProgress {
     const minutes = (Date.now() - this.startedAt) / 60_000;
     return {
       visitedPlayers: this.visited.size,
       queuedPlayers: this.queue.length,
-      storedMatches: this.store.size,
+      storedMatches: this.storeSize,
       newThisRun: this.newThisRun,
       gamesPerMinute: minutes > 0 ? this.newThisRun / minutes : 0,
     };
@@ -259,7 +295,29 @@ export class MatchCrawler {
       this.consecutiveErrors = 0;
       const page = res?.games?.games ?? [];
       if (page.length === 0) break;
-      found.push(...page.filter(isJadeGame));
+      // Still filtered, and deliberately so. This walks the match histories of
+      // strangers, which is the act Riot's developer policy is about -- and for
+      // the modern game there is a documented way in (MATCH-V5) while for
+      // Classic there is none. Opening this would collect data we are meant to
+      // fetch legally, at the cost of the data we cannot get any other way: the
+      // client answers one request at a time, so every modern game fetched here
+      // is a Classic game not fetched, and the store is the memory ceiling of
+      // the app long before the disk is (measured on the real database: 130,188
+      // games hold 483 MB of heap, and nothing sets --max-old-space-size).
+      //
+      // A classifier rather than the old boolean, so this is routing that
+      // currently has one destination instead of a wall. Your own history is a
+      // different question: reading the games you played yourself is what every
+      // companion app does, and it is not a scrape.
+      // The literal "lol:jade" used to stand here. It now asks the registry the
+      // same question, because the empty tier list has to print the reason this
+      // filter exists and two copies of one rule drift apart without anything
+      // failing.
+      found.push(
+        ...page.filter((game) =>
+          modeCrawls(modeOf({ queueId: game.queueId, mapId: game.mapId, gameMode: game.gameMode })),
+        ),
+      );
     }
     return { games: found, ok: true };
   }
@@ -296,7 +354,15 @@ export class MatchCrawler {
   private async fetchDetails(games: Game[]): Promise<Game[]> {
     const detailed: Game[] = [];
     for (const game of games) {
-      if (this.store.has(game.gameId) || this.stopped) continue;
+      // The platform comes along, because a game id is only unique within one
+      // shard. The list form carries it (measured: "EUW1" on every row), so
+      // asking with it costs nothing and keeps this from skipping a game we do
+      // not have on the strength of a number another region handed out.
+      // Across both stores, for the same reason bewaarEigenGames asks that way:
+      // at this point we hold an id and not the detail that says which mode it
+      // is, so "do we already have this game" is a question about the database
+      // and not about one file.
+      if (this.stores.has(game.gameId, game.platformId) || this.stopped) continue;
       await this.pace();
       const full = await this.client
         .tryGet<Game>(`/lol-match-history/v1/games/${game.gameId}`)

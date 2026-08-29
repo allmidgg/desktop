@@ -72,6 +72,12 @@ export interface ParticipantIdentity {
 
 export interface Game {
   gameId: number;
+  /**
+   * The shard the game was played on, e.g. "EUW1". Optional because the list
+   * form of a game carries less than the detail form, and because a caller that
+   * builds a Game by hand should not have to invent one.
+   */
+  platformId?: string;
   gameCreation: number;
   gameCreationDate: string;
   gameDuration: number;

@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { LcuClient, LcuNotRunningError } from "../core/lcu/connector";
 import { LcuEventStream } from "../core/lcu/events";
 import type { Game } from "../core/lcu/types";
-import { JadeCatalog, type JadeChampion } from "../core/jade/catalog";
+import { GameCatalog, type CatalogChampion } from "../core/jade/catalog";
 import { MasteryCatalog } from "../core/jade/masteries";
 import { RuneCatalog, RUNE_SLOTS, type RuneKind } from "../core/jade/runes";
 import {
@@ -21,7 +21,7 @@ import {
   fetchAccountLoadout, readMasteryPages, readRunePages, type Loadout,
 } from "../core/services/loadout";
 import {
-  buildPlayerProfile, fetchCurrentSummoner, fetchJadeGames, participantOf,
+  buildPlayerProfile, fetchCurrentSummoner, fetchRecentGames, modeOfGame, participantOf,
   fetchSummonerByRiotId, type PlayerProfile,
 } from "../core/services/player";
 import { planRunes } from "../core/services/runeOptimizer";
@@ -29,25 +29,32 @@ import { planMasteries } from "../core/services/masteryOptimizer";
 import {
   watchChampSelect, resolveBans, type ChampSelectView, type ChampSelectPlayer,
 } from "../core/services/champSelect";
-import { JADE_MAP_ID } from "../core/jade/ids";
 import { LiveClient } from "../core/lcu/liveClient";
 import { CommunityStatsCache, type CommunityLoad } from "../core/services/communityStats";
 import { LiveGameWatcher, championZoeker } from "../core/services/liveGame";
 import {
-  MatchStore, defaultStorePath, slimGame,
+  MatchStores, slimGame,
   type Position, type StoredMatch, type StoredPlayer,
 } from "../core/services/matchStore";
 import { sluitAfgebrokenRegel, TijdlijnStore } from "../core/services/tijdlijn";
 import { HistorieTijdlijnStore } from "../core/services/historieTijdlijn";
 import { MatchCrawler } from "../core/services/crawler";
-import { JadeStats, likelyPosition, MIN_MATCHUP_GAMES, type ChampionStat } from "../core/services/stats";
+import {
+  JadeStats, likelyPosition, MIN_MATCHUP_GAMES, StatsPerModus, type ChampionStat,
+} from "../core/services/stats";
+import {
+  COLLECTED_MODES, learnQueues, modeCollects, modeLabel, type CollectedMode,
+} from "../core/modes/registry";
+import { modeOfStored } from "../core/modes/detect";
+import type { ModeId } from "../core/modes/types";
 import { leesBeeldmodus } from "../core/lcu/beeldmodus";
 import {
   SettingsStore, defaultSettingsPath, publicSettings, DEFAULT_SETTINGS, type Settings,
 } from "../core/services/settings";
 import { MatchUploader, defaultUploadStatePath } from "../core/services/uploader";
 import type {
-  AppSnapshot, ApplyResult, ChampSelectSnapshot, ChampionSummary, GameflowPhase, LaneAnalysis,
+  AppSnapshot, ApplyResult, ChampSelectSnapshot, ChampionSummary, DatabaseModusStatus,
+  GameflowPhase, ItemSummary, LaneAnalysis, SpellSummary,
   ChampionDetail, ChampionPlan, GameDetail, ItemEntry, MasteryPlanSummary, MasteryTreeInfo,
   HistorieUitslag, MatchupEntry, PerformanceBaseline, RecentGameSummary, SpelerIjklijn,
   RuneInfo, RunePlanSummary, ScoutEntry, TierEntry, UploadStatus,
@@ -55,6 +62,26 @@ import type {
 
 const RECONNECT_DELAY_MS = 3_000;
 const LANES: Position[] = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "SUPPORT"];
+
+/**
+ * Boots of Speed, per mode. Every pair of boots in the game builds out of it, so
+ * this one id is what separates boots from core items.
+ *
+ * One table because it is one decision. It used to be written twice: the detail
+ * screen picked per mode while the champ select planner kept the Classic literal
+ * 771001, and in a modern lobby that meant no item matched, so the boots stayed
+ * in the core-item list and pushed a real item out of it -- two different builds
+ * for the same champion on two screens, neither of them saying which was which.
+ * data/catalog.json carries both roots: 771001 "Boots of Speed" building into
+ * seven, and 1001 "Boots" building into ten.
+ *
+ * Keyed by CollectedMode, so adding a mode is a compiler error here rather than a
+ * silently wrong build somewhere downstream.
+ */
+const BOOTS_ROOT: Readonly<Record<CollectedMode, number>> = {
+  "lol:jade": 771001,
+  "lol:sr": 1001,
+};
 /**
  * Failed polls in a row before a game counts as finished.
  *
@@ -120,16 +147,67 @@ function normalizePosition(assigned: string | undefined): Position | null {
 
 export class JadeService extends EventEmitter {
   private client: LcuClient | null = null;
-  private jade: JadeCatalog | null = null;
+  private catalogus: GameCatalog | null = null;
   private masteries: MasteryCatalog | null = null;
   private runes: RuneCatalog | null = null;
   private loadout: Loadout | null = null;
   private stream: LcuEventStream | null = null;
   private stopChampSelect: (() => void) | null = null;
 
-  private readonly store: MatchStore;
+  /**
+   * The match databases, one file per mode.
+   *
+   * Deliberately not a field called `store`. A single store is what let every
+   * call site here mean "the games" without ever saying which games, and that
+   * silence is the whole bug: the day a modern game is stored, a screen reading
+   * `store` gets both families added together and reports it as one number. Now
+   * each of the call sites below has to name a mode, and the ones that say
+   * "lol:jade" say so because they are about Classic and not because there was
+   * nothing else to say.
+   */
+  private readonly stores: MatchStores;
   private readonly settings: SettingsStore;
-  private stats = new JadeStats();
+  /**
+   * One set of tallies per mode.
+   *
+   * Deliberately not a field called `stats`. Removing that name is what turned
+   * all twenty-one reads of it below into a compiler error, so every one of them
+   * now has to name the mode it means instead of inheriting one. The dangerous
+   * ones are ijklijnVoor and baselineFor: a baseline taken from the wrong mode
+   * puts the MVP badge on the wrong player and looks exactly like a correct one.
+   *
+   * The rule this class cannot enforce and every caller here must keep: the mode
+   * you are BROWSING is a choice the user made; the mode you are JUDGING is a
+   * property of the match in your hand. Never let the first supply the second.
+   */
+  private readonly statistiek = new StatsPerModus();
+  /**
+   * What went wrong the last time a mode's tally was built, per mode.
+   *
+   * Empty in every ordinary run, and it has to stay reachable rather than being a
+   * local in telLokaal(): a count that silently came out lower than the file it
+   * was read from is precisely the failure this file spends its comments warning
+   * about. The sentence in here is written for the user and goes out with
+   * publishDatabaseStatus(), where the meta screen prints it beside the mode's
+   * game total. Cleared on the next successful count, so a repaired file makes
+   * the message disappear by itself.
+   */
+  private readonly statistiekProbleem = new Map<CollectedMode, string>();
+  /**
+   * The mode the loadout screens work in: rune pages and mastery pages.
+   *
+   * Not a browse choice, and no longer named like one. The window now says which
+   * mode it wants on every call that reads statistics, so nothing here has to
+   * guess for those. What is left is the two screens that write to the client's
+   * own loadout, and those are Classic by construction -- the modern game has no
+   * mastery trees and no Jade rune shop to spend on, so a champion list that
+   * followed the reader's browse choice would offer to plan pages that cannot
+   * exist.
+   *
+   * It may never reach ijklijnVoor or baselineFor: those judge a match, and a
+   * match carries its own mode.
+   */
+  private readonly loadoutModus: CollectedMode = "lol:jade";
   private crawler: MatchCrawler | null = null;
   /**
    * Voor welke champion we de masteries voor het laatst gezet hebben. Zonder dit
@@ -177,7 +255,15 @@ export class JadeService extends EventEmitter {
    */
   private readonly historie: HistorieTijdlijnStore;
   private readonly uploadStatePath: string;
-  private readonly community: CommunityStatsCache;
+  /**
+   * The community aggregate, one cache per mode.
+   *
+   * A cache owns a URL and a file on disk, both derived from its mode, so two
+   * modes need two of them rather than one that is told which mode it is holding
+   * this minute -- that version would overwrite Classic's cached copy with the
+   * modern file the first time the two were asked for in the same session.
+   */
+  private readonly community: ReadonlyMap<CollectedMode, CommunityStatsCache>;
   /**
    * The running game, read from port 2999.
    *
@@ -218,12 +304,19 @@ export class JadeService extends EventEmitter {
    * inside the time it takes to get back to the client.
    */
   private liveMislukt = 0;
-  /** Non-null once the community aggregate is in use, so we can say so. */
-  private communityLoad: CommunityLoad | null = null;
+  /**
+   * Which modes are running on the shared aggregate, so we can say so per mode.
+   *
+   * A missing entry means that mode is counting its own crawled games. That is
+   * not the same statement for both modes and the screen must be able to tell
+   * them apart: Classic falling back means "the download failed", modern falling
+   * back means "nobody publishes one yet".
+   */
+  private readonly communityLoad = new Map<CollectedMode, CommunityLoad>();
 
   constructor(dataRoot: string) {
     super();
-    this.store = new MatchStore(defaultStorePath(dataRoot));
+    this.stores = new MatchStores(dataRoot);
     this.settings = new SettingsStore(defaultSettingsPath(dataRoot));
     this.backupDir = join(dataRoot, "data", "backups");
     this.tijdlijnen = new TijdlijnStore(join(dataRoot, "data", "buildorders.jsonl"));
@@ -238,7 +331,38 @@ export class JadeService extends EventEmitter {
       (gameId) => this.emit("tijdlijn", gameId),
     );
     this.uploadStatePath = defaultUploadStatePath(dataRoot);
-    this.community = new CommunityStatsCache(dataRoot);
+    this.community = new Map(
+      COLLECTED_MODES.map((mode) => [mode, new CommunityStatsCache(dataRoot, mode)]),
+    );
+  }
+
+  /**
+   * The tallies for one mode. The only way into them.
+   *
+   * Throws for a mode we do not collect, which is the point: an empty bucket
+   * would answer null to every question and read as "not enough games yet"
+   * rather than as "you asked about a mode that has no numbers and never will".
+   */
+  private statsVoor(mode: ModeId): JadeStats {
+    return this.statistiek.voor(mode);
+  }
+
+  /**
+   * The mode whose numbers may be used to advise this lobby.
+   *
+   * The lobby's own mode comes off the view, where the champ select watcher put
+   * it after asking the gameflow session. This turns it into the narrower
+   * question the advice needs: not "what is being played" but "which tally may I
+   * open for it", and those differ for a mode we recognise and hold nothing for.
+   *
+   * Null is the honest answer to that question surprisingly often -- an ARAM, a
+   * mode Riot added last week, or simply the first moment of champ select before
+   * anything has said. Every caller below treats null as "no advice", which is
+   * the whole reason it is not a CollectedMode with Classic as its default:
+   * defaulting would hand a modern lobby Classic matchups, at full confidence.
+   */
+  private champSelectModus(view: ChampSelectView): CollectedMode | null {
+    return view.mode !== null && modeCollects(view.mode) ? view.mode : null;
   }
 
   /**
@@ -252,19 +376,82 @@ export class JadeService extends EventEmitter {
    * one player's matches against everyone else's.
    */
   private rebuildStats(): void {
-    const gedeeld = this.communityLoad;
-    if (gedeeld) {
-      try {
-        this.stats = JadeStats.fromAggregate(gedeeld.stats);
-        return;
-      } catch (err) {
-        // A shape change in the published file should not take the app down; it
-        // just means falling back to what we counted ourselves.
-        reportBackgroundError(err as Error);
-        this.communityLoad = null;
+    // Per mode, and each mode's fallback is its own. fromAggregate is told which
+    // mode it is being loaded for and throws on a file that says otherwise, so a
+    // wrong URL or a stray redirect cannot pour Classic tallies into the modern
+    // bucket -- it costs that one mode its shared numbers and leaves the other
+    // one alone.
+    for (const mode of COLLECTED_MODES) {
+      const gedeeld = this.communityLoad.get(mode);
+      if (gedeeld) {
+        try {
+          this.statistiek.zet(mode, JadeStats.fromAggregate(gedeeld.stats, mode));
+          this.statistiekProbleem.delete(mode);
+          continue;
+        } catch (err) {
+          // A shape change in the published file should not take the app down; it
+          // just means falling back to what we counted ourselves.
+          reportBackgroundError(err as Error);
+          this.communityLoad.delete(mode);
+        }
       }
+      // Both stores are loaded by start(), so this is a count of what is really
+      // on disk for this mode rather than of an empty index.
+      this.statistiek.zet(mode, this.telLokaal(mode));
     }
-    this.stats = JadeStats.from(this.store.all());
+  }
+
+  /**
+   * Count one mode from its own store, and survive a record that does not belong
+   * in it.
+   *
+   * JadeStats.ingest() throws on a record whose mode is not the tally's mode, and
+   * it is right to: two modes added together is invisible in the result, so the
+   * refusal has to be loud. What made it dangerous is where the throw came out.
+   * The only caller is rebuildStats(), and start() calls that before it connects
+   * -- so one mis-filed line in matches.jsonl left start() by way of its own
+   * catch, which reports every failure as "Could not connect: ..." and schedules
+   * a restart. The restart reads the same file, hits the same line and throws
+   * again: a permanent reconnect loop, an app with no numbers in it, and a
+   * message blaming the League client for a damaged local file. That is a worse
+   * outcome than the mixing the throw exists to prevent.
+   *
+   * So the refusal is caught here, one level below start(), and the mode is
+   * counted again from the records that do belong to it. The filter asks
+   * modeOfStored(), which is the same question ingest() asks, so the second pass
+   * cannot fail for this reason -- and if the store holds nothing but foreign
+   * records the result is an empty tally for that one mode, with the other mode
+   * untouched.
+   *
+   * The user is told. A quietly smaller game count is exactly the kind of silent
+   * wrong number the rest of this file is built to avoid, so the number of
+   * refused records goes into the snapshot and the meta screen prints it beside
+   * the mode's total. The refusal itself goes to the log, and it names the game
+   * id and the queue id of the first record that did not belong -- which is what
+   * somebody needs to find the line.
+   */
+  private telLokaal(mode: CollectedMode): JadeStats {
+    const alle = this.stores.for(mode).all();
+    try {
+      const stats = JadeStats.from(alle, mode);
+      this.statistiekProbleem.delete(mode);
+      return stats;
+    } catch (err) {
+      reportBackgroundError(err as Error);
+      const eigen = alle.filter((match) => modeOfStored(match) === mode);
+      const geweigerd = alle.length - eigen.length;
+      console.error(
+        `[allmid] the ${mode} store holds ${geweigerd} record(s) belonging to another mode;` +
+          ` they were left out of the tally and the remaining ${eigen.length} were counted.` +
+          ` A record only gets there by hand or by a writer that skipped MatchStores.add()`,
+      );
+      this.statistiekProbleem.set(
+        mode,
+        `${geweigerd.toLocaleString("en-US")} stored ${geweigerd === 1 ? "game" : "games"}` +
+          ` could not be counted: not ${modeLabel(mode)}`,
+      );
+      return JadeStats.from(eigen, mode);
+    }
   }
 
   private snapshot: AppSnapshot = {
@@ -274,13 +461,17 @@ export class JadeService extends EventEmitter {
     summoner: null,
     profile: null,
     champSelect: null,
+    // Mirrors the field of the same name above, so the runes and masteries
+    // screens filter their champion lists by the same mode the planner behind
+    // them will actually plan for.
+    loadoutModus: this.loadoutModus,
     champions: [],
     items: [],
     spells: [],
     masteryPages: [],
     runePages: [],
     recentGames: [],
-    database: { matches: 0, players: 0, usableMatchups: 0, crawling: false, community: null },
+    database: { matches: 0, players: 0, crawling: false, community: null, perModus: {} },
     settings: publicSettings(DEFAULT_SETTINGS),
     upload: {
       enabled: DEFAULT_SETTINGS.shareMatches,
@@ -315,7 +506,23 @@ export class JadeService extends EventEmitter {
     try {
       await this.settings.load();
       this.update({ settings: this.settings.shared });
-      await this.store.load();
+      // Both stores, because both are read now. This used to load Classic only,
+      // on the argument that a mode costs its whole file to open -- measured on
+      // Classic, about 1.4 seconds and 483 MB of heap. That argument does not
+      // reach the modern store: the crawler is not allowed in it (modeCrawls is
+      // false for lol:sr), so the only thing that ever writes there is your own
+      // match history, and matches-modern.jsonl does not exist at all until you
+      // have played a modern game. Measured on this machine: the file is absent,
+      // so load() is a mkdir and returns.
+      //
+      // Leaving it unloaded was not free, which is the actual reason this
+      // changed. MatchStores.load() writes it down itself: a store that was never
+      // loaded answers false to everything. So perModus["lol:sr"].matches read 0
+      // no matter what was on disk, and stores.has() said "no" about every modern
+      // game already stored -- which made bewaarEigenGames() spend one detail
+      // request per already-stored modern game in your last 15, on every profile
+      // refresh, for the whole session.
+      await this.stores.load(...COLLECTED_MODES);
       this.rebuildStats();
       this.publishDatabaseStatus();
       this.startUploadSchedule();
@@ -352,26 +559,88 @@ export class JadeService extends EventEmitter {
     }
   }
 
+  /**
+   * Folds the client's own queue table into ours.
+   *
+   * registry.ts has said since it was written that "learnQueues folds in the rest
+   * at runtime, for the times League is open". Nothing called it, so that
+   * sentence was a description of an intention. This is the call that makes it
+   * true, and it lives here because here is the one moment we are certain League
+   * is open and answering.
+   *
+   * What it buys: the table in registry.ts lists only the queues this app acts
+   * on, by hand, and Riot renumbers queues. A renumbered queue is unknown to us,
+   * and an unknown queue resolves to no mode at all -- so games in it are stored
+   * nowhere and counted nowhere, without a line anywhere saying why the database
+   * stopped growing. After this the client's own numbering is folded in, refusals
+   * included: learnQueues will not move a queue we already know to another mode,
+   * and hands back a sentence per refusal instead of swallowing it. Those go to
+   * the log, because a queue that changed mode under us is a thing a person has
+   * to look at before any tally trusts it again.
+   *
+   * A learned queue counts for nothing until somebody classifies it by hand, so
+   * this cannot change a single existing number and no rebuild follows it.
+   *
+   * Never rejects. It is awaited inside onConnected's Promise.all, and a rejection
+   * there would come out of start()'s catch as "Could not connect" with a restart
+   * behind it -- an unreachable queue endpoint is not worth an app that loops.
+   */
+  private async leerQueues(): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    try {
+      const rijen = await client.tryGet<Array<{ id?: number; mapId?: number; gameMode?: string }>>(
+        "/lol-game-queues/v1/queues",
+      );
+      if (!Array.isArray(rijen)) return;
+      // Filtered before handing over, because learnQueues takes the three fields
+      // as given and the client has rows with a null gameMode on it.
+      const bruikbaar = rijen.filter(
+        (rij): rij is { id: number; mapId: number; gameMode: string } =>
+          typeof rij.id === "number" &&
+          typeof rij.mapId === "number" &&
+          typeof rij.gameMode === "string" &&
+          rij.gameMode.length > 0,
+      );
+      const { added, refused } = learnQueues(bruikbaar);
+      for (const melding of refused) console.warn(`[allmid] queuetabel: ${melding}`);
+      if (added > 0) {
+        console.log(
+          `[allmid] queuetabel: ${added} onbekende queues bijgeleerd uit de client` +
+            ` (${bruikbaar.length} gelezen); ze tellen voorlopig voor niets mee`,
+        );
+      }
+    } catch (err) {
+      reportBackgroundError(err as Error);
+    }
+  }
+
   private async onConnected(): Promise<void> {
     const client = this.client;
     if (!client) return;
 
-    const [jade, masteries, runes] = await Promise.all([
-      JadeCatalog.load(client),
+    // The queue table comes along with the catalogues, and before anything reads
+    // a game: every mode decision downstream goes through it, so learning it
+    // after the first store write would file that game under the old answer.
+    const [catalogus, masteries, runes] = await Promise.all([
+      GameCatalog.load(client),
       MasteryCatalog.load(client),
       RuneCatalog.load(client),
+      this.leerQueues(),
     ]);
-    this.jade = jade;
+    this.catalogus = catalogus;
     this.masteries = masteries;
     this.runes = runes;
 
-    // Splash art comes in behind the app rather than in front of it: sixty-three
-    // lookups is long enough that waiting for them leaves the window empty, and
-    // artwork arriving a second late costs nobody anything.
-    void jade
+    // Splash art comes in behind the app rather than in front of it: one lookup
+    // per champion in both id spaces is long enough that waiting for them leaves
+    // the window empty, and artwork arriving a second late costs nobody
+    // anything. Batched inside verrijkSplashPaden so the client is never asked
+    // for more than a dozen at once.
+    void catalogus
       .verrijkSplashPaden()
       .then((veranderd) => {
-        if (veranderd) this.update({ champions: [...jade.champions.values()].map(toChampionSummary) });
+        if (veranderd) this.update({ champions: schermCatalogus(catalogus).champions });
       })
       .catch(reportBackgroundError);
 
@@ -379,21 +648,7 @@ export class JadeService extends EventEmitter {
     this.update({
       connection: "connected",
       error: null,
-      champions: [...jade.champions.values()].map(toChampionSummary),
-      items: [...jade.items.values()].map((item) => ({
-        jadeId: item.jadeId,
-        name: item.name,
-        iconPath: item.iconPath,
-        // The catalogue has had this all along and kept it to itself, which is
-        // why the renderer could draw a build but never say what it cost.
-        price: item.price,
-        buildsFrom: item.buildsFrom,
-      })),
-      spells: [...jade.spells.values()].map((spell) => ({
-        jadeId: spell.jadeId,
-        name: spell.name,
-        iconPath: spell.iconPath,
-      })),
+      ...schermCatalogus(catalogus),
       summoner: {
         riotId: `${summoner.gameName}#${summoner.tagLine}`,
         summonerLevel: summoner.summonerLevel,
@@ -402,8 +657,16 @@ export class JadeService extends EventEmitter {
       },
     });
 
-    this.crawler = new MatchCrawler(client, this.store, () => this.publishDatabaseStatus());
-    this.crawler.seed([summoner.puuid, ...this.store.knownPuuids]);
+    // The crawler is handed the router rather than one file. What keeps it out of
+    // the modern game is modeCrawls(), which it asks about every game in every
+    // list it reads -- and that is the rule we want it held to, because walking
+    // the match histories of strangers is what Riot's policy is about while a
+    // documented API exists for that mode. Handing it a single store said the
+    // same thing by accident: it would have written a modern game into the
+    // Classic file rather than refusing it.
+    const classic = this.stores.for("lol:jade");
+    this.crawler = new MatchCrawler(client, this.stores, () => this.publishDatabaseStatus());
+    this.crawler.seed([summoner.puuid, ...classic.knownPuuids]);
 
     await Promise.all([this.refreshLoadout(), this.refreshOwnProfile(), this.refreshPhase()]);
     this.listen();
@@ -440,9 +703,15 @@ export class JadeService extends EventEmitter {
    * cache decides whether that actually reaches the network -- see VERS_MS there.
    */
   private async loadCommunityStats(): Promise<void> {
-    const geladen = await this.community.laad();
+    // Classic only, and not because the other cache does not exist -- it does,
+    // one line up. Nobody publishes a modern aggregate yet (that is step 11), so
+    // asking would be a 404 against allmid.gg from every install every six hours
+    // for a file whose absence we already know about. The mode is named here so
+    // the day it is published this is one entry in a list, not a rewrite.
+    const cache = this.community.get("lol:jade");
+    const geladen = await cache?.laad();
     if (!geladen) return;
-    this.communityLoad = geladen;
+    this.communityLoad.set("lol:jade", geladen);
     this.rebuildStats();
     this.publishDatabaseStatus();
   }
@@ -472,8 +741,16 @@ export class JadeService extends EventEmitter {
     // catalogue can still be loading when a game starts, and a lookup frozen
     // while it was empty would report every champion as unrecognised.
     this.liveWatcher ??= new LiveGameWatcher(
-      (naam) => championZoeker(this.snapshot.champions)(naam),
-      (itemId) => this.jade?.item(itemId)?.price ?? 0,
+      // The mode comes from the game being watched, not from this line. The
+      // index is built per mode inside championZoeker, so the running game's own
+      // mode decides which of the two spaces "Ashe" is looked up in.
+      (naam, modus) => championZoeker(this.snapshot.champions)(naam, modus),
+      // Same source of truth for the prices. A mode we cannot name gets no
+      // prices rather than the wrong ones -- an item priced in the other space
+      // is not a wrong number but no number at all, so every item would come
+      // back 0 regardless; this way it does so for a stated reason.
+      (itemId, modus) =>
+        (modus === "unknown" ? 0 : this.catalogus?.for(modus).item(itemId)?.price) ?? 0,
     );
     const tik = async () => {
       const data = await this.live.allGameData();
@@ -512,7 +789,7 @@ export class JadeService extends EventEmitter {
       // show up, and they change it between games.
       const eersteTik = !this.snapshot.liveGame;
       this.update({
-        liveGame: this.liveWatcher!.verwerk(data, this.snapshot.summoner?.riotId ?? null, JADE_MAP_ID),
+        liveGame: this.liveWatcher!.verwerk(data, this.snapshot.summoner?.riotId ?? null),
       });
       if (eersteTik) void this.ververisBeeldmodus().catch(reportBackgroundError);
     };
@@ -543,31 +820,20 @@ export class JadeService extends EventEmitter {
    * because the client's own assets are the authoritative ones.
    */
   private async laadCatalogusVastAlvast(): Promise<void> {
-    if (this.jade) return;
+    if (this.catalogus) return;
     const pad = join(this.backupDir, "..", "catalog.json");
-    const cached = await JadeCatalog.fromCache(pad).catch(() => null);
-    const catalogus = cached ?? (await JadeCatalog.fromCommunityDragon().catch(() => null));
+    // A cache written before the catalogue held both id spaces is refused by
+    // fromCache rather than read, so this falls through to the mirror instead of
+    // starting the app with an empty modern index behind a normal-looking screen.
+    const cached = await GameCatalog.fromCache(pad).catch(() => null);
+    const catalogus = cached ?? (await GameCatalog.fromCommunityDragon().catch(() => null));
     if (!catalogus) return;
     // A client that connected while we were fetching wins: its assets are the
     // real ones, and overwriting them with a cache would be a downgrade.
-    if (this.jade) return;
-    this.jade = catalogus;
+    if (this.catalogus) return;
+    this.catalogus = catalogus;
     if (!cached) await catalogus.save(pad).catch(() => undefined);
-    this.update({
-      champions: [...catalogus.champions.values()].map(toChampionSummary),
-      items: [...catalogus.items.values()].map((item) => ({
-        jadeId: item.jadeId,
-        name: item.name,
-        iconPath: item.iconPath,
-        price: item.price,
-        buildsFrom: item.buildsFrom,
-      })),
-      spells: [...catalogus.spells.values()].map((spell) => ({
-        jadeId: spell.jadeId,
-        name: spell.name,
-        iconPath: spell.iconPath,
-      })),
-    });
+    this.update(schermCatalogus(catalogus));
   }
 
   /** De updater duwt zijn stand hierlangs de snapshot in. */
@@ -577,7 +843,7 @@ export class JadeService extends EventEmitter {
 
   /** Is er nu een Classic-game bezig? De updater gebruikt dit om weg te blijven. */
   get inGame(): boolean {
-    return Boolean(this.snapshot.liveGame?.isClassic) || Boolean(this.snapshot.champSelect);
+    return Boolean(this.snapshot.liveGame?.isJade) || Boolean(this.snapshot.champSelect);
   }
 
   /**
@@ -643,18 +909,47 @@ export class JadeService extends EventEmitter {
   }
 
   private publishDatabaseStatus(): void {
-    const gedeeld = this.communityLoad;
-    this.update({
-      database: {
-        matches: this.store.size,
-        players: this.store.knownPuuids.length,
-        usableMatchups: this.stats.coverage(MIN_MATCHUP_GAMES).usable,
-        crawling: this.crawler?.isRunning ?? false,
-        // Where the advice comes from. Without this the window shows "412 games"
-        // next to numbers drawn from 128,628, which reads as a bug.
+    // Counted per mode, for the reason already written down below: a total shown
+    // beside numbers drawn from a different pool reads as a bug. That failure
+    // comes back at full size with two modes -- a bar announcing 130,197 games
+    // while every modern screen says there are not enough games to say anything.
+    const perModus: Partial<Record<ModeId, DatabaseModusStatus>> = {};
+    for (const mode of COLLECTED_MODES) {
+      const gedeeld = this.communityLoad.get(mode);
+      perModus[mode] = {
+        // The games the advice for this mode actually rests on: the shared
+        // aggregate when there is one, and what we crawled ourselves when there
+        // is not. Not the store size, which would count the bot and custom games
+        // that ingest() refuses.
+        matches: this.statsVoor(mode).totalMatches,
+        usableMatchups: this.statsVoor(mode).coverage(MIN_MATCHUP_GAMES).usable,
         community: gedeeld
           ? { games: gedeeld.games, players: gedeeld.players, newestGame: gedeeld.newestGame }
           : null,
+        // Normally null. Set when telLokaal() had to leave records out, so the
+        // screen that prints this mode's total can say why it is smaller than
+        // the store it came from.
+        probleem: this.statistiekProbleem.get(mode) ?? null,
+      };
+    }
+    const jade = this.communityLoad.get("lol:jade");
+    this.update({
+      database: {
+        // The Classic figures, kept because the field is still part of the
+        // snapshot's shape. No screen reads these three any more -- the window
+        // asks perModus for the mode it is showing, which is what the step that
+        // added that map was for. They are the raw store size and the raw puuid
+        // count, which is not what perModus reports: that one counts what the
+        // advice rests on and leaves out bots and customs.
+        matches: this.stores.for("lol:jade").size,
+        players: this.stores.for("lol:jade").knownPuuids.length,
+        crawling: this.crawler?.isRunning ?? false,
+        // Where the advice comes from. Without this the window shows "412 games"
+        // next to numbers drawn from 128,628, which reads as a bug.
+        community: jade
+          ? { games: jade.games, players: jade.players, newestGame: jade.newestGame }
+          : null,
+        perModus,
       },
     });
   }
@@ -702,7 +997,7 @@ export class JadeService extends EventEmitter {
         busy: this.uploading,
         lastRunAt: this.lastUpload?.at ?? null,
         shared,
-        pending: Math.max(0, this.store.size - shared),
+        pending: Math.max(0, this.stores.for("lol:jade").size - shared),
         lastUploaded: this.lastUpload?.uploaded ?? 0,
         serverTotal: this.lastUpload?.serverTotal ?? null,
         error: this.lastUpload?.error ?? null,
@@ -735,7 +1030,10 @@ export class JadeService extends EventEmitter {
     const signature = JSON.stringify([server, key]);
     if (this.uploader && this.uploaderSignature === signature) return this.uploader;
 
-    const uploader = new MatchUploader(server, key, this.store);
+    // Classic only, and that is a policy line rather than a scoping detail: the
+    // shared aggregate is fed by crawling, and crawling strangers is what we do
+    // not do for the modern game.
+    const uploader = new MatchUploader(server, key, this.stores.for("lol:jade"));
     await uploader.loadState(this.uploadStatePath);
     this.uploader = uploader;
     this.uploaderSignature = signature;
@@ -860,7 +1158,13 @@ export class JadeService extends EventEmitter {
   }
 
   private toChampSelectSnapshot(view: ChampSelectView): ChampSelectSnapshot {
-    const matches = this.store.all();
+    const modus = this.champSelectModus(view);
+    // One mode's games, never two concatenated -- likelyPosition adds them up
+    // per player rather than keeping them apart, so a mixture would give someone
+    // one "usual position" that is true in neither mode. No mode to advise on
+    // means no games either: a lobby we cannot place gets the lobby itself and
+    // none of the numbers around it.
+    const matches = modus ? this.stores.for(modus).all() : [];
 
     const toEntry = (scouted: {
       cell: ChampSelectPlayer;
@@ -869,7 +1173,13 @@ export class JadeService extends EventEmitter {
     }): ScoutEntry => {
       const championId = scouted.cell.championId || scouted.cell.championPickIntent;
       const position = scouted.profile ? likelyPosition(matches, scouted.profile.puuid) : null;
-      const record = scouted.profile?.jade.topChampions.find((c) => c.championId === championId);
+      // This player's record on this champion, out of the half of their profile
+      // that belongs to the lobby's mode. Their Classic games say nothing about
+      // a modern pick, and "4/1 on champ" is a claim precise enough that nobody
+      // would think to doubt which game it counted.
+      const record = modus
+        ? scouted.profile?.perModus[modus]?.topChampions.find((c) => c.championId === championId)
+        : undefined;
       return {
         cellId: scouted.cell.cellId,
         championId: scouted.cell.championId,
@@ -891,12 +1201,15 @@ export class JadeService extends EventEmitter {
     const myTeam = view.myTeam.map(toEntry);
     const theirTeam = view.theirTeam.map(toEntry);
 
-    const lanes = this.analyzeLanes(myTeam, theirTeam);
+    const lanes = this.analyzeLanes(myTeam, theirTeam, modus);
     const local = myTeam.find((entry) => entry.isLocalPlayer);
     const localChampionId = local ? local.championId || local.championPickIntent || null : null;
     const localLane = lanes.find((lane) => lane.isLocalPlayerLane);
 
     return {
+      // The lobby's real mode, not the narrowed one the advice ran on: the
+      // screen has to be able to say "ARAM" about a lobby we hold no numbers for.
+      mode: view.mode,
       phase: view.session.timer?.phase ?? "",
       timeLeftMs: view.session.timer?.adjustedTimeLeftInPhase ?? 0,
       timerAt: Date.now(),
@@ -905,7 +1218,7 @@ export class JadeService extends EventEmitter {
       bans: resolveBans(view.session),
       lanes,
       localChampionId,
-      localPlan: this.buildPlan(localChampionId, localLane?.position ?? null),
+      localPlan: this.buildPlan(localChampionId, localLane?.position ?? null, modus),
     };
   }
 
@@ -917,7 +1230,17 @@ export class JadeService extends EventEmitter {
    * database meestal speelt. Weten we het niet, dan laten we de lane leeg in
    * plaats van te gokken.
    */
-  private analyzeLanes(myTeam: ScoutEntry[], theirTeam: ScoutEntry[]): LaneAnalysis[] {
+  private analyzeLanes(
+    myTeam: ScoutEntry[],
+    theirTeam: ScoutEntry[],
+    /**
+     * The mode whose tallies this lobby may be advised from. Handed in, never
+     * read from a field, and null for a lobby we hold no numbers for -- the
+     * lanes are still paired up, they just come back without matchups.
+     */
+    mode: CollectedMode | null,
+  ): LaneAnalysis[] {
+    const stats = mode ? this.statsVoor(mode) : null;
     const assign = (entries: ScoutEntry[]): Map<Position, ScoutEntry> => {
       const byPosition = new Map<Position, ScoutEntry>();
       const leftovers: ScoutEntry[] = [];
@@ -941,8 +1264,8 @@ export class JadeService extends EventEmitter {
       for (const entry of rest) {
         const championId = entry.championId || entry.championPickIntent;
         if (!championId) continue;
-        const vrij = this.stats
-          .positionsFor(championId)
+        const vrij = stats
+          ?.positionsFor(championId)
           .find((p) => p.position !== "UNKNOWN" && !byPosition.has(p.position));
         if (vrij) byPosition.set(vrij.position, entry);
       }
@@ -959,23 +1282,24 @@ export class JadeService extends EventEmitter {
       const enemyChampionId = enemy ? enemy.championId || enemy.championPickIntent : 0;
 
       const matchup =
-        allyChampionId && enemyChampionId
-          ? this.stats.matchup(allyChampionId, enemyChampionId, position)
+        stats && allyChampionId && enemyChampionId
+          ? stats.matchup(allyChampionId, enemyChampionId, position)
           : null;
 
       // Alleen champions die de matchup daadwerkelijk winnen. Een "counter" met
       // 46% winrate is geen counter -- die zou je juist niet moeten pakken.
-      const counters = enemyChampionId
-        ? this.stats
-            .countersFor(enemyChampionId, position)
-            .filter((entry) => entry.winrate > 0.5)
-            .slice(0, 5)
-            .map((entry) => ({
-              championId: entry.championId,
-              winrate: entry.winrate,
-              games: entry.games,
-            }))
-        : [];
+      const counters =
+        stats && enemyChampionId
+          ? stats
+              .countersFor(enemyChampionId, position)
+              .filter((entry) => entry.winrate > 0.5)
+              .slice(0, 5)
+              .map((entry) => ({
+                championId: entry.championId,
+                winrate: entry.winrate,
+                games: entry.games,
+              }))
+          : [];
 
       return {
         position,
@@ -996,14 +1320,18 @@ export class JadeService extends EventEmitter {
    */
   private async emitDemoChampSelect(): Promise<void> {
     const client = this.client;
-    const match = this.store.all().sort((a, b) => b.createdAt - a.createdAt)[0];
+    // The demo is built out of a stored game, so its mode is that game's mode
+    // rather than whatever lobby the client is in. The store it comes from is
+    // the Classic one, which is the whole answer.
+    const modus = "lol:jade" as const;
+    const match = this.stores.for(modus).all().sort((a, b) => b.createdAt - a.createdAt)[0];
     if (!client || !match) return;
 
-    const matches = this.store.all();
+    const matches = this.stores.for(modus).all();
     const toEntry = async (player: (typeof match.players)[number], index: number): Promise<ScoutEntry> => {
       const profile = await buildPlayerProfile(client, player.puuid, 20).catch(() => null);
       const position = likelyPosition(matches, player.puuid);
-      const record = profile?.jade.topChampions.find((c) => c.championId === player.championId);
+      const record = profile?.perModus[modus]?.topChampions.find((c) => c.championId === player.championId);
       return {
         cellId: index,
         championId: player.championId,
@@ -1030,6 +1358,7 @@ export class JadeService extends EventEmitter {
     this.update({
       phase: "ChampSelect",
       champSelect: {
+        mode: modus,
         phase: "BAN_PICK",
         timeLeftMs: 27_000,
         timerAt: Date.now(),
@@ -1040,9 +1369,9 @@ export class JadeService extends EventEmitter {
           myTeamBans: [60001, 60011],
           theirTeamBans: [60017, 60036],
         },
-        lanes: this.analyzeLanes(myTeam, theirTeam),
+        lanes: this.analyzeLanes(myTeam, theirTeam, modus),
         localChampionId,
-        localPlan: this.buildPlan(localChampionId, null),
+        localPlan: this.buildPlan(localChampionId, null, modus),
       },
     });
 
@@ -1114,7 +1443,7 @@ export class JadeService extends EventEmitter {
     if (!client || !puuid) return;
     const [profile, games] = await Promise.all([
       buildPlayerProfile(client, puuid, 30),
-      fetchJadeGames(client, puuid, 15),
+      fetchRecentGames(client, puuid, 15),
     ]);
     this.update({ profile, recentGames: games.map((game) => toRecentGame(game, puuid)) });
 
@@ -1150,7 +1479,11 @@ export class JadeService extends EventEmitter {
     const { client } = this;
     if (!client) return;
 
-    const onbekend = games.filter((game) => !this.store.has(game.gameId));
+    // Across both stores, and with the shard the client named: at this point we
+    // have the id and not yet the detail that says which mode it is. See the
+    // hole written out on MatchStores.has() for what a "yes" from the wrong store
+    // costs, and why nothing can hit it while both files come from one region.
+    const onbekend = games.filter((game) => !this.stores.has(game.gameId, game.platformId));
     if (onbekend.length === 0) return;
 
     const eigen: StoredMatch[] = [];
@@ -1159,15 +1492,24 @@ export class JadeService extends EventEmitter {
         .tryGet<Game>(`/lol-match-history/v1/games/${game.gameId}`)
         .catch(() => null);
       if (!volledig) continue;
-      // slimGame still does the deciding: not Classic, or under five minutes,
-      // and it stays out. This only makes sure it is judging the whole game.
+      // slimGame still does the deciding on whether a game is usable at all --
+      // under five minutes, or a mode we do not collect, and it stays out. What
+      // it no longer decides is which file it belongs in; that is the add()
+      // below, which reads the mode off the record and files it accordingly.
       const slim = slimGame(volledig);
       if (slim) eigen.push(slim);
     }
 
     if (eigen.length === 0) return;
-    const nieuw = await this.store.add(eigen);
-    if (nieuw > 0) {
+    const nieuw = await this.stores.add(eigen);
+    // Either mode, because both are on screen now. This used to ask only about
+    // Classic, from back when nothing read the modern tallies. It does now: the
+    // meta screen prints "from N collected League of Legends games" straight out
+    // of perModus["lol:sr"], and the effects that redraw the tier list and the
+    // live panel are keyed on that same number. Left as it was, a modern game
+    // landed in its file and every modern screen went on saying 0 until
+    // something else happened to trigger a rebuild.
+    if (nieuw.jade + nieuw.sr > 0) {
       this.rebuildStats();
       this.publishDatabaseStatus();
     }
@@ -1199,12 +1541,16 @@ export class JadeService extends EventEmitter {
   }
 
   planRunesFor(championId: number | null, role?: string): RunePlanSummary | null {
-    const { runes, jade } = this;
+    const { runes, catalogus } = this;
     if (!runes) return null;
-    const champion = championId ? (jade?.champion(championId) ?? null) : null;
+    // Browse mode: the runes page is a champion you went and picked from a list,
+    // not a champion anything told us you are playing.
+    const champion = championId
+      ? (catalogus?.for(this.loadoutModus).champion(championId) ?? null)
+      : null;
     const plan = planRunes(runes, champion, role);
     return {
-      championId: champion?.jadeId ?? null,
+      championId: champion?.id ?? null,
       championName: champion?.name ?? null,
       role: plan.role,
       kinds: plan.kinds.map((kind) => ({
@@ -1284,13 +1630,40 @@ export class JadeService extends EventEmitter {
     // true, and it still visited up to 130,127 entries to answer a question the
     // key already answers. Measured on the real file: 1.39 ms to reach the last
     // record and 1.00 ms to conclude a game is absent, against 0.0001 ms here.
-    const match = this.store.get(gameId);
+    const match = this.stores.for("lol:jade").get(gameId);
     if (!match) return null;
     const jouwPuuid = this.snapshot.summoner?.puuid ?? null;
     // The seat and the player together, from one search. findIndex answers -1
     // for a game you were not in, which is 130,067 of them.
     const jouwStoel = jouwPuuid === null ? -1 : match.players.findIndex((p) => p.puuid === jouwPuuid);
     const jij = jouwStoel < 0 ? null : (match.players[jouwStoel] ?? null);
+
+    // The mode of THIS game, read off the record itself, and never the mode the
+    // window happens to be browsing. Opening a Classic game while the window is
+    // on modern has to measure against the Classic averages, and a selector
+    // reading a current-mode field would hand out ten wrong baselines with
+    // nothing on screen to show for it -- SpelerIjklijn carries a game count and
+    // a source but not a mode.
+    //
+    // Null for a game we cannot place, and for lol:kiwi-jade, which we can place
+    // exactly and collect nowhere. There is then no dataset to measure against,
+    // and saying nothing is the honest answer.
+    //
+    // The lookup above reads the Classic store alone, so today this can only
+    // come out Classic. It is read off the record anyway rather than assumed,
+    // because an assumption here becomes a wrong baseline the day the lookup
+    // widens, silently and with nothing on screen to show it.
+    //
+    // Widening it is not a free change, though, and this is where the next
+    // reader should learn that: the panel that opens a game leans on this lookup
+    // staying narrow. GeenDetailReden answers "modus-zonder-detail" for a modern
+    // row precisely because a modern game comes back null here whatever its age,
+    // and that sentence -- your own games are stored, nobody else's ever will be
+    // -- is what replaced three false ones. Widen this and that branch stops
+    // being reachable for a stored game, so its wording has to move in the same
+    // change. See the note above GeenDetailReden in renderer/src/ui.tsx.
+    const gameModus = modeOfStored(match);
+    const matchMode = modeCollects(gameModus) ? gameModus : null;
 
     // A recording, when this machine happened to be watching. Two games out of
     // 130,086, and no more are coming for the old ones -- a recording is made
@@ -1330,7 +1703,7 @@ export class JadeService extends EventEmitter {
       queueId: match.queueId,
       patch: match.patch,
       surrendered: match.surrendered,
-      baseline: jij ? this.baselineFor(jij, match.duration) : null,
+      baseline: jij && matchMode ? this.baselineFor(jij, match.duration, matchMode) : null,
       // Null for nearly every game, and permanently so: the crawler collects
       // other people's matches and nobody was watching any of them.
       tijdlijn: opname,
@@ -1359,7 +1732,7 @@ export class JadeService extends EventEmitter {
         // than only for you. baselineFor() below answers "how did your game
         // go"; the badge answers "who played best", and that needs a norm on
         // every seat or it cannot use one on any of them.
-        ijklijn: this.ijklijnVoor(p),
+        ijklijn: matchMode ? this.ijklijnVoor(p, matchMode) : null,
         isYou: jouwPuuid !== null && p.puuid === jouwPuuid,
       })),
     };
@@ -1378,10 +1751,13 @@ export class JadeService extends EventEmitter {
    * on every match in the database rather than only on the ones stored from today
    * onwards.
    */
-  private ijklijnVoor(speler: StoredPlayer): SpelerIjklijn | null {
+  private ijklijnVoor(speler: StoredPlayer, mode: CollectedMode): SpelerIjklijn | null {
+    const stats = this.statsVoor(mode);
     const lane =
-      speler.position === "UNKNOWN" ? null : this.stats.baseline(speler.championId, speler.position);
-    const ijk = lane ?? this.stats.championBaseline(speler.championId);
+      speler.position === "UNKNOWN" ? null : stats.baseline(speler.championId, speler.position);
+    // The pooling inside championBaseline() stays within one instance, so it can
+    // never pool a modern lane into a Classic average.
+    const ijk = lane ?? stats.championBaseline(speler.championId);
     if (!ijk || !(ijk.minutes > 0)) return null;
     return {
       games: ijk.games,
@@ -1410,8 +1786,12 @@ export class JadeService extends EventEmitter {
    * on every match in the database rather than only on the ones stored from
    * today onwards.
    */
-  private baselineFor(jij: StoredPlayer, duration: number): PerformanceBaseline | null {
-    const gemiddelde = this.stats.baseline(jij.championId, jij.position);
+  private baselineFor(
+    jij: StoredPlayer,
+    duration: number,
+    mode: CollectedMode,
+  ): PerformanceBaseline | null {
+    const gemiddelde = this.statsVoor(mode).baseline(jij.championId, jij.position);
     if (!gemiddelde) return null;
     // slimGame refuses anything under five minutes, so this only still guards a
     // corrupted record that would otherwise divide by zero.
@@ -1436,7 +1816,9 @@ export class JadeService extends EventEmitter {
       kills: { you: jij.kills, average: gemiddelde.kills },
       deaths: { you: jij.deaths, average: gemiddelde.deaths },
       assists: { you: jij.assists, average: gemiddelde.assists },
-      source: this.communityLoad ? "community" : "local",
+      // Per mode: this game's mode is on the shared aggregate or it is not, and
+      // the other mode's answer says nothing about it.
+      source: this.communityLoad.has(mode) ? "community" : "local",
     };
   }
 
@@ -1447,9 +1829,10 @@ export class JadeService extends EventEmitter {
    * the button would write. Anything else would be a demo rather than a preview.
    */
   masteryPlanFor(championId: number): MasteryPlanSummary | null {
-    const { masteries, jade } = this;
-    if (!masteries || !jade) return null;
-    const champion = jade.champion(championId) ?? null;
+    const { masteries, catalogus } = this;
+    if (!masteries || !catalogus) return null;
+    // Browse mode, same as the runes page: this is a champion off a list.
+    const champion = catalogus.for(this.loadoutModus).champion(championId) ?? null;
     if (!champion) return null;
     const plan = planMasteries(masteries, champion, roleForPosition(null));
     return {
@@ -1474,10 +1857,13 @@ export class JadeService extends EventEmitter {
 
   /** Zelfde verhaal voor masteries: genereren, wegschrijven, activeren. */
   async autoApplyMasteries(championId: number | null, position?: Position | null): Promise<ApplyResult> {
-    const { client, masteries, jade, loadout } = this;
+    const { client, masteries, catalogus, loadout } = this;
     if (!client || !masteries || !loadout) return { ok: false, message: "Not connected to the client yet." };
 
-    const champion = championId ? (jade?.champion(championId) ?? null) : null;
+    // Browse mode: the button that reaches this sits on a champion page.
+    const champion = championId
+      ? (catalogus?.for(this.loadoutModus).champion(championId) ?? null)
+      : null;
     const plan = planMasteries(masteries, champion, roleForPosition(position));
     if (plan.errors.length > 0) {
       return { ok: false, message: `Generated page is invalid: ${plan.errors[0]}` };
@@ -1516,20 +1902,55 @@ export class JadeService extends EventEmitter {
   }
 
   /**
+   * Is this item a pair of boots in this mode?
+   *
+   * The one place the question is answered, for the two screens that ask it: the
+   * champ select plan and the champion detail page. Both split an item list into
+   * core items and boots, and both used to carry their own copy of the rule --
+   * which had already drifted, the planner still holding the Classic id while the
+   * detail page chose per mode.
+   *
+   * Reads the catalogue for the mode being asked about, so an item id that exists
+   * in both id spaces is looked up in the right one. No catalogue yet means false
+   * for everything, which puts boots in the core list for a moment rather than
+   * hiding a real item -- the wrong answer that costs least.
+   */
+  private zijnSchoenen(mode: CollectedMode, itemId: number): boolean {
+    const wortel = BOOTS_ROOT[mode];
+    const item = this.catalogus?.for(mode).item(itemId);
+    return Boolean(item && (item.buildsFrom.includes(wortel) || item.id === wortel));
+  }
+
+  /**
    * Build-advies voor een champion op een positie. Zonder bekende positie nemen
    * we de positie waarop hij het vaakst gespeeld wordt.
    */
-  private buildPlan(championId: number | null, position: Position | null): ChampionPlan | null {
-    if (!championId) return null;
-    const chosen = position ?? this.stats.positionsFor(championId)[0]?.position ?? null;
+  private buildPlan(
+    championId: number | null,
+    position: Position | null,
+    /**
+     * The mode being played for. Both call sites are champ select, so this is
+     * the lobby's mode and not the browse mode -- a plan is advice for the game
+     * you are about to start, and the tier list you last looked at has nothing
+     * to do with it.
+     *
+     * Null where we hold no games for what is being queued. A plan is entirely
+     * made of averages, so without a mode to average over there is no half of it
+     * worth showing.
+     */
+    mode: CollectedMode | null,
+  ): ChampionPlan | null {
+    if (!championId || !mode) return null;
+    const stats = this.statsVoor(mode);
+    const chosen = position ?? stats.positionsFor(championId)[0]?.position ?? null;
     if (!chosen || chosen === "UNKNOWN") return null;
 
-    const stat = this.stats.championStat(championId, chosen);
-    const allItems = this.stats.itemStats(championId, chosen, 20);
-    const isBoots = (itemId: number): boolean => {
-      const item = this.jade?.item(itemId);
-      return Boolean(item && (item.buildsFrom.includes(771001) || item.jadeId === 771001));
-    };
+    const stat = stats.championStat(championId, chosen);
+    const allItems = stats.itemStats(championId, chosen, 20);
+    // The same rule the detail screen applies, asked in the same place, so the
+    // plan in champ select and the page you open afterwards cannot disagree
+    // about which of a champion's items are its boots.
+    const isBoots = (itemId: number): boolean => this.zijnSchoenen(mode, itemId);
     const toItem = (i: { itemId: number; games: number; winrate: number; pickRate: number }): ItemEntry => ({
       itemId: i.itemId, games: i.games, winrate: i.winrate, pickRate: i.pickRate,
     });
@@ -1541,10 +1962,10 @@ export class JadeService extends EventEmitter {
       games: stat?.games ?? 0,
       items: allItems.filter((i) => !isBoots(i.itemId)).slice(0, 6).map(toItem),
       boots: allItems.filter((i) => isBoots(i.itemId)).slice(0, 2).map(toItem),
-      spells: this.stats.spellStats(championId, chosen, 20).slice(0, 2).map((s) => ({
+      spells: stats.spellStats(championId, chosen, 20).slice(0, 2).map((s) => ({
         spells: s.spells, games: s.games, winrate: s.winrate, pickRate: s.pickRate,
       })),
-      weakAgainst: this.stats.strugglesAgainst(championId, chosen).slice(0, 4).map(toMatchupEntry),
+      weakAgainst: stats.strugglesAgainst(championId, chosen).slice(0, 4).map(toMatchupEntry),
     };
   }
 
@@ -1597,17 +2018,27 @@ export class JadeService extends EventEmitter {
     }
   }
 
-  /** Ranglijst voor een positie, uit onze eigen verzamelde games. */
-  tierList(position: Position, minGames = 25): TierEntry[] {
-    return this.stats.tierList(position, minGames).map(toTierEntry);
+  /**
+   * Ranglijst voor een positie, uit onze eigen verzamelde games.
+   *
+   * The mode is a parameter and not a field, because a tier list is a thing the
+   * reader went looking at: the choice is theirs and it lives in the window that
+   * made it. Passing it on every call is also what makes forgetting it a
+   * compiler error rather than a plausible-looking blend of two games.
+   */
+  tierList(mode: CollectedMode, position: Position, minGames = 25): TierEntry[] {
+    return this.statsVoor(mode).tierList(position, minGames).map(toTierEntry);
   }
 
   /**
    * Alles wat we van een champion weten. Zonder positie kiezen we de positie
    * waarop hij het vaakst gespeeld wordt -- dat is bijna altijd wat je wilt zien.
    */
-  championDetail(championId: number, position?: Position): ChampionDetail {
-    const positions = this.stats.positionsFor(championId);
+  championDetail(mode: CollectedMode, championId: number, position?: Position): ChampionDetail {
+    // The same mode the tier list this page was opened from was drawn in, handed
+    // down by the window rather than read off a field here.
+    const stats = this.statsVoor(mode);
+    const positions = stats.positionsFor(championId);
     const chosen = position ?? positions[0]?.position ?? null;
     if (!chosen) {
       return {
@@ -1616,14 +2047,11 @@ export class JadeService extends EventEmitter {
       };
     }
 
-    const stat = this.stats.championStat(championId, chosen);
-    const allItems = this.stats.itemStats(championId, chosen);
+    const stat = stats.championStat(championId, chosen);
+    const allItems = stats.itemStats(championId, chosen);
     // Schoenen apart: ze bouwen allemaal uit Boots of Speed en horen niet
     // tussen de kernitems, want iedereen koopt er precies één paar.
-    const isBoots = (itemId: number): boolean => {
-      const item = this.jade?.item(itemId);
-      return Boolean(item && (item.buildsFrom.includes(771001) || item.jadeId === 771001));
-    };
+    const isBoots = (itemId: number): boolean => this.zijnSchoenen(mode, itemId);
 
     const toItemEntry = (entry: { itemId: number; games: number; winrate: number; pickRate: number }): ItemEntry => ({
       itemId: entry.itemId,
@@ -1639,14 +2067,14 @@ export class JadeService extends EventEmitter {
       stat: stat ? toTierEntry(stat) : null,
       items: allItems.filter((i) => !isBoots(i.itemId)).slice(0, 8).map(toItemEntry),
       boots: allItems.filter((i) => isBoots(i.itemId)).slice(0, 4).map(toItemEntry),
-      spells: this.stats.spellStats(championId, chosen).slice(0, 4).map((entry) => ({
+      spells: stats.spellStats(championId, chosen).slice(0, 4).map((entry) => ({
         spells: entry.spells,
         games: entry.games,
         winrate: entry.winrate,
         pickRate: entry.pickRate,
       })),
-      strongAgainst: this.stats.strongAgainst(championId, chosen).slice(0, 6).map(toMatchupEntry),
-      weakAgainst: this.stats.strugglesAgainst(championId, chosen).slice(0, 6).map(toMatchupEntry),
+      strongAgainst: stats.strongAgainst(championId, chosen).slice(0, 6).map(toMatchupEntry),
+      weakAgainst: stats.strugglesAgainst(championId, chosen).slice(0, 6).map(toMatchupEntry),
     };
   }
 
@@ -1760,8 +2188,9 @@ const toMatchupEntry = (stat: { opponentId: number; winrate: number; games: numb
 const totalRuneSlots = (): number =>
   Object.values(RUNE_SLOTS).reduce((sum, slot) => sum + slot.count, 0);
 
-const toChampionSummary = (champion: JadeChampion): ChampionSummary => ({
-  jadeId: champion.jadeId,
+const toChampionSummary = (champion: CatalogChampion, mode: ModeId): ChampionSummary => ({
+  id: champion.id,
+  mode,
   name: champion.name,
   alias: champion.alias,
   iconPath: champion.iconPath,
@@ -1769,6 +2198,45 @@ const toChampionSummary = (champion: JadeChampion): ChampionSummary => ({
   tilePath: champion.tilePath,
   roles: champion.roles,
 });
+
+/**
+ * The catalogue as the window gets it: every collected mode's rows in one array,
+ * each row saying which mode it came from.
+ *
+ * One array rather than one per mode because the snapshot is replaced wholesale
+ * and these are the three biggest fields in it. The mode on the row is what
+ * keeps the spaces apart, and it sits on the row exactly so that no screen can
+ * index them without first deciding which mode it is drawing -- which is the
+ * failure this rebuild is about: id 75 is a nameless leftover in one space and
+ * Clairvoyance in the other, and a single map over both silently keeps one.
+ */
+function schermCatalogus(
+  catalogus: GameCatalog,
+): Pick<AppSnapshot, "champions" | "items" | "spells"> {
+  const champions: ChampionSummary[] = [];
+  const items: ItemSummary[] = [];
+  const spells: SpellSummary[] = [];
+  for (const mode of COLLECTED_MODES) {
+    const view = catalogus.for(mode);
+    for (const champion of view.champions.values()) champions.push(toChampionSummary(champion, mode));
+    for (const item of view.items.values()) {
+      items.push({
+        id: item.id,
+        mode,
+        name: item.name,
+        iconPath: item.iconPath,
+        // The catalogue has had this all along and kept it to itself, which is
+        // why the renderer could draw a build but never say what it cost.
+        price: item.price,
+        buildsFrom: item.buildsFrom,
+      });
+    }
+    for (const spell of view.spells.values()) {
+      spells.push({ id: spell.id, mode, name: spell.name, iconPath: spell.iconPath });
+    }
+  }
+  return { champions, items, spells };
+}
 
 function toRecentGame(game: Game, puuid: string): RecentGameSummary {
   const found = participantOf(game, puuid);
@@ -1778,6 +2246,10 @@ function toRecentGame(game: Game, puuid: string): RecentGameSummary {
     createdAt: game.gameCreation,
     durationSeconds: game.gameDuration,
     queueId: game.queueId,
+    // Settled here because this is the last place the map and the mode string
+    // still exist: the row that crosses to the window keeps only the queue id,
+    // and a queue id alone is the weakest of the three signals.
+    modus: modeOfGame(game),
     win: stats?.win ?? false,
     championId: found?.participant.championId ?? 0,
     kills: stats?.kills ?? 0,

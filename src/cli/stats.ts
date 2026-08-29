@@ -7,7 +7,7 @@
  */
 import { join } from "node:path";
 import { LcuClient, LcuNotRunningError } from "../core/lcu/connector";
-import { JadeCatalog } from "../core/jade/catalog";
+import { GameCatalog, type CatalogView } from "../core/jade/catalog";
 import { MatchStore, defaultStorePath, type Position } from "../core/services/matchStore";
 import { JadeStats } from "../core/services/stats";
 
@@ -39,11 +39,13 @@ async function main(): Promise<void> {
   }
 
   // Werkt ook met de client dicht: dan lezen we de championnamen uit de cache.
-  const catalog = await JadeCatalog.loadOrCached(
+  const catalogus = await GameCatalog.loadOrCached(
     () => LcuClient.connect(),
     join(process.cwd(), "data", "catalog.json"),
   );
-  const stats = JadeStats.from(store.all());
+  // These are Classic tallies, so this reads the Classic names for them.
+  const catalog = catalogus.for("lol:jade");
+  const stats = JadeStats.from(store.all(), "lol:jade");
   const coverage = stats.coverage();
 
   console.log(`\n${c.bold}Database${c.reset}`);
@@ -78,7 +80,7 @@ async function main(): Promise<void> {
   }
 }
 
-function championReport(catalog: JadeCatalog, stats: JadeStats, name: string): void {
+function championReport(catalog: CatalogView, stats: JadeStats, name: string): void {
   const champion = [...catalog.champions.values()].find(
     (ch) => ch.alias.toLowerCase() === name.toLowerCase() || ch.name.toLowerCase() === name.toLowerCase(),
   );
@@ -90,14 +92,14 @@ function championReport(catalog: JadeCatalog, stats: JadeStats, name: string): v
 
   console.log(`${c.bold}${champion.name}${c.reset}\n`);
   for (const position of POSITIONS) {
-    const stat = stats.championStat(champion.jadeId, position);
+    const stat = stats.championStat(champion.id, position);
     if (!stat || stat.games < 5) continue;
     console.log(
       `${c.cyan}${position}${c.reset}  ${tone(stat.winrate)}${(stat.winrate * 100).toFixed(0)}%${c.reset} ` +
         `${c.dim}over ${stat.games} games, pick ${(stat.pickRate * 100).toFixed(1)}%${c.reset}`,
     );
 
-    const counters = stats.countersFor(champion.jadeId, position).filter((m) => m.winrate > 0.5);
+    const counters = stats.countersFor(champion.id, position).filter((m) => m.winrate > 0.5);
     if (counters.length > 0) {
       console.log(`   ${c.dim}verliest van:${c.reset}`);
       for (const counter of counters.slice(0, 5)) {

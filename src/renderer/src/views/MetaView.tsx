@@ -1,16 +1,21 @@
 /**
- * Tier lists, matchups and item builds — all computed from the games we collect
- * ourselves, because no public source has this mode.
+ * Tier lists, matchups and item builds for one mode at a time.
  *
  * Every number is shown with the games behind it. A 70% winrate over 9 games and
- * a 54% over 400 look nothing alike once you can see the sample.
+ * a 54% over 400 look nothing alike once you can see the sample -- and a number
+ * from the wrong mode looks exactly like a right one, which is why the mode is
+ * named on the switch above the list and passed on every call below it.
  */
 import { useEffect, useState } from "react";
 import type {
   AppSnapshot, ChampionDetail, ChampionSummary, ItemEntry, Position, SpellEntry, TierEntry,
 } from "../../../shared/types";
+import type { CollectedMode } from "../../../core/modes/registry";
+import { COLLECTED_MODES, modeCrawls, modeLabel } from "../../../core/modes/registry";
+import { ModusKeuze, ModusLeeg } from "../modus";
 import {
-  asset, ChampionIcon, EmptyState, Panel, PositionIcon, POSITION_LABELS, SectionTitle, Spinner,
+  asset, catalogusIndex, ChampionIcon, EmptyState, Panel, PositionIcon, POSITION_LABELS,
+  SectionTitle, Spinner,
 } from "../ui";
 
 const POSITIONS: Position[] = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "SUPPORT"];
@@ -22,15 +27,37 @@ function winrateTone(winrate: number): string {
   return winrate >= 0.55 ? "text-jade-400" : winrate <= 0.45 ? "text-loss-400" : "text-ink-300";
 }
 
-export function MetaView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
+export function MetaView({
+  snapshot,
+  modus,
+  onKiesModus,
+}: {
+  snapshot: AppSnapshot;
+  /** The browse mode: a choice the reader made, held by the window. */
+  modus: CollectedMode;
+  onKiesModus: (mode: CollectedMode) => void;
+}): JSX.Element {
   const [position, setPosition] = useState<Position>("MIDDLE");
   const [tier, setTier] = useState<TierEntry[] | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [detail, setDetail] = useState<ChampionDetail | null>(null);
 
-  const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
-  const items = new Map(snapshot.items.map((i) => [i.jadeId, i]));
-  const spells = new Map(snapshot.spells.map((s) => [s.jadeId, s]));
+  const champions = catalogusIndex(snapshot.champions, modus);
+  const items = catalogusIndex(snapshot.items, modus);
+  const spells = catalogusIndex(snapshot.spells, modus);
+
+  // This mode's figures, not the app's totals: the sentence under the switch
+  // reports the pool the list beside it was actually computed from.
+  const cijfers = snapshot.database.perModus[modus];
+  const spelen = cijfers ? (cijfers.community?.games ?? cijfers.matches) : 0;
+
+  // The other mode, offered only when it has something to offer. Pointing at a
+  // second empty screen is worse than saying nothing.
+  const ander =
+    COLLECTED_MODES.find((entry) => {
+      const anderCijfers = snapshot.database.perModus[entry];
+      return entry !== modus && (anderCijfers?.community?.games ?? anderCijfers?.matches ?? 0) > 0;
+    }) ?? null;
 
   // Deliberately not gated on the client being connected. The tier list is
   // computed from the local database -- community data plus whatever has been
@@ -40,17 +67,19 @@ export function MetaView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
     setTier(null);
     setSelected(null);
     setDetail(null);
-    void window.jade.getTierList(position, MIN_GAMES).then(setTier);
-  }, [position, snapshot.database.matches, snapshot.database.community?.games]);
+    void window.jade.getTierList(modus, position, MIN_GAMES).then(setTier);
+  }, [modus, position, spelen]);
 
   useEffect(() => {
     if (selected === null) return;
     setDetail(null);
-    void window.jade.getChampionDetail(selected, position).then(setDetail);
-  }, [selected, position]);
+    void window.jade.getChampionDetail(modus, selected, position).then(setDetail);
+  }, [modus, selected, position]);
 
   return (
     <div className="animate-rise space-y-5">
+      <ModusKeuze modus={modus} onKies={onKiesModus} snapshot={snapshot} />
+
       <div className="flex items-center justify-between">
         <div className="flex gap-1.5">
           {POSITIONS.map((entry) => (
@@ -68,11 +97,24 @@ export function MetaView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
             </button>
           ))}
         </div>
+        {/* Named, because the number and the mode have to travel together. A
+            count on its own beside a tier list is read as the app's size, and
+            the app's size is not what these bands were computed from. */}
         <span className="num text-[11px] text-ink-700">
-          from{" "}
-          {(snapshot.database.community?.games ?? snapshot.database.matches).toLocaleString("en-US")}{" "}
-          {snapshot.database.community ? "shared games" : "collected games"}
-          {snapshot.database.crawling ? " · syncing" : ""}
+          from {spelen.toLocaleString("en-US")}{" "}
+          {cijfers?.community ? "shared" : "collected"} {modeLabel(modus)} games
+          {/* Why the total is smaller than the file it was read from, on the one
+              run in a thousand where the app had to leave records out. Absent
+              otherwise. It belongs in this sentence and nowhere else: this is
+              the only place the number itself is printed, and a count that
+              quietly dropped is indistinguishable from a database that grew
+              slowly. Plain text in the span that is already here -- nothing new
+              to look at, just the rest of the sentence. */}
+          {cijfers?.probleem ? ` · ${cijfers.probleem}` : ""}
+          {/* Only where the crawler is actually working. It runs in one mode, so
+              "syncing" beside the other mode's total says something is filling
+              up that is not. */}
+          {snapshot.database.crawling && modeCrawls(modus) ? " · syncing" : ""}
         </span>
       </div>
 
@@ -88,10 +130,18 @@ export function MetaView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
             </Panel>
           ) : tier.length === 0 ? (
             <Panel className="p-6">
-              <EmptyState
-                title="Not enough games for this lane yet"
-                hint="The database keeps growing in the background while you play."
-              />
+              {/* Two different emptinesses, and they used to share one sentence.
+                  A mode with games but a thin lane really does fill in while you
+                  play; a mode with no games at all may never, and saying the
+                  first about the second is a promise nobody can keep. */}
+              {spelen === 0 ? (
+                <ModusLeeg modus={modus} ander={ander} onKies={onKiesModus} />
+              ) : (
+                <EmptyState
+                  title={`Not enough ${modeLabel(modus)} games for this lane yet`}
+                  hint="Other lanes may already have enough. This one keeps filling in while you play."
+                />
+              )}
             </Panel>
           ) : (
             <TierBanden

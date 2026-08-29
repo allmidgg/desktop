@@ -10,7 +10,7 @@
  * De verdeling volgt de klassieke 21/9: net genoeg punten per rij om de
  * volgende te openen, en wat overblijft in de diepste rij die je haalt.
  */
-import type { JadeChampion } from "../jade/catalog";
+import type { CatalogChampion } from "../jade/catalog";
 import type { MasteryCatalog, MasteryPoints, MasteryTree, MasteryTreeType } from "../jade/masteries";
 import { MASTERY_POINTS_TOTAL } from "../jade/masteries";
 
@@ -75,7 +75,7 @@ export interface MasteryPlan {
   errors: string[];
 }
 
-function resolveRole(champion: JadeChampion | null, override?: string): string {
+function resolveRole(champion: CatalogChampion | null, override?: string): string {
   if (override && TREES_BY_ROLE[override]) return override;
   for (const role of champion?.roles ?? []) {
     if (TREES_BY_ROLE[role]) return role;
@@ -196,7 +196,7 @@ function fillRemaining(catalog: MasteryCatalog, points: MasteryPoints, budget: n
 
 export function planMasteries(
   catalog: MasteryCatalog,
-  champion: JadeChampion | null,
+  champion: CatalogChampion | null,
   roleOverride?: string,
 ): MasteryPlan {
   const role = resolveRole(champion, roleOverride);
@@ -223,7 +223,7 @@ export function planMasteries(
   }
 
   return {
-    championId: champion?.jadeId ?? null,
+    championId: champion?.id ?? null,
     championName: champion?.name ?? null,
     role,
     points,

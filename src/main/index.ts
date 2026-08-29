@@ -14,6 +14,8 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { JadeService } from "./service";
 import type { RuneKind } from "../core/jade/runes";
+import { modeCollects } from "../core/modes/registry";
+import type { ModeId } from "../core/modes/types";
 import type { AppSnapshot, Settings } from "../shared/types";
 
 let service: JadeService | null = null;
@@ -318,7 +320,7 @@ function zetOverlayVergrendeld(vergrendeld: boolean): void {
  * between matches is the kind of thing people uninstall an app over.
  */
 function syncOverlayWindow(snapshot: AppSnapshot): void {
-  const wil = Boolean(snapshot.liveGame?.isClassic) && snapshot.settings.overlay;
+  const wil = Boolean(snapshot.liveGame?.isJade) && snapshot.settings.overlay;
   if (wil) {
     overlayWindow ??= createOverlayWindow();
     if (!overlayWindow.isVisible()) {
@@ -394,7 +396,7 @@ function pasOpstartToe(aan: boolean): void {
  * in een game zit wil niet lezen dat de database 125.000 games heeft.
  */
 function trayStand(snapshot: AppSnapshot): string {
-  if (snapshot.liveGame?.isClassic) return "In a Classic game";
+  if (snapshot.liveGame?.isJade) return "In a Classic game";
   if (snapshot.champSelect) return "Champion select";
   if (snapshot.connection !== "connected") return "Waiting for the League client...";
   return "Connected -- waiting for a game";
@@ -503,15 +505,22 @@ function registerIpc(): void {
   ipcMain.handle("masteries:auto", (_event, championId: number | null) =>
     service?.autoApplyMasteries(championId),
   );
+  // The mode arrives over IPC, so it arrives as whatever the renderer sent and
+  // the compiler's guarantee stops at the bridge. modeCollects is that guarantee
+  // restated at runtime: it narrows the id to a mode that actually has a bucket,
+  // and refusing here answers "nothing" rather than letting statsVoor throw --
+  // a rejected promise would leave the panel spinning instead of saying so.
   ipcMain.handle(
     "stats:tierList",
-    (_event, position: string, minGames?: number) =>
-      service?.tierList(position as never, minGames) ?? [],
+    (_event, mode: ModeId, position: string, minGames?: number) =>
+      modeCollects(mode) ? (service?.tierList(mode, position as never, minGames) ?? []) : [],
   );
   ipcMain.handle(
     "stats:champion",
-    (_event, championId: number, position?: string) =>
-      service?.championDetail(championId, position as never) ?? null,
+    (_event, mode: ModeId, championId: number, position?: string) =>
+      modeCollects(mode)
+        ? (service?.championDetail(mode, championId, position as never) ?? null)
+        : null,
   );
   ipcMain.handle(
     "player:lookup",

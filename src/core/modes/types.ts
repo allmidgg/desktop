@@ -48,6 +48,22 @@ export interface ModeDescriptor {
    * nowhere to put it. "unknown" should mean we do not know.
    */
   readonly collect: boolean;
+  /**
+   * Whether the crawler may walk strangers' match histories for this mode.
+   *
+   * The distinction `collect` cannot make on its own, and the empty tier list
+   * depends on it. A mode can be collected -- have a store, a tally, a place in
+   * the status bar -- and still have no way to fill that tally, because the
+   * shared numbers come from the crawler and the crawler is only allowed into
+   * one mode. So an empty Classic tier list means "keep playing" while an empty
+   * modern one means "there is no route to these numbers yet", and a screen that
+   * cannot tell the two apart promises data that is never coming.
+   *
+   * The rule itself is Riot's, not ours: MATCH-V5 documents the way into the
+   * modern game, so taking it out of the client instead would be collecting over
+   * an undocumented endpoint what we are meant to fetch legally.
+   */
+  readonly crawl: boolean;
 }
 
 /**

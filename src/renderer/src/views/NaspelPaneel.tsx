@@ -19,6 +19,7 @@ import { Tijdlijnpaneel } from "./Tijdlijn";
 import { OmslagPaneel } from "./Omslag";
 import { IjkBlok } from "./IjkBlok";
 import { MINIMALE_GAMEDUUR_SECONDEN } from "../../../shared/types";
+import { modeCollects, modeCrawls } from "../../../core/modes/registry";
 import type {
   AppSnapshot, ChampionSummary, GameDetail, ItemSummary, RecentGameSummary, SpellSummary,
 } from "../../../shared/types";
@@ -27,8 +28,8 @@ import { leesNaspel, NASPEL_FACTOREN } from "../../../shared/naspel";
 import { leesOordeel } from "../../../shared/oordeel";
 import { leesOmslag } from "../../../shared/omslag";
 import {
-  ChampionIcon, GeenDetail, ItemRow, POSITION_LABELS, PositionIcon, SpellPair, Spinner,
-  type GeenDetailReden,
+  catalogusIndex, ChampionIcon, GeenDetail, ItemRow, POSITION_LABELS, PositionIcon, SpellPair,
+  Spinner, type GeenDetailReden,
 } from "../ui";
 
 /** mm:ss, because a game is a length and not a decimal. */
@@ -39,7 +40,7 @@ const duurTekst = (seconden: number): string =>
 const kort = (n: number): string => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n)));
 
 /**
- * Which of the three absences this is.
+ * Which of the four absences this is.
  *
  * Read off fields the row already holds, so deciding costs no second round trip.
  * The duration decides "never", and it is the store's own floor rather than a
@@ -47,9 +48,27 @@ const kort = (n: number): string => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : S
  * ends at roughly createdAt + duration, and ten minutes past that is longer than
  * any client has been seen to take to publish a match. Nothing is drawn from it
  * beyond the choice of sentence.
+ *
+ * The mode is asked before either clock, because for a mode the crawler is not
+ * allowed into, waiting is not the answer at any age -- gameDetail reads the
+ * Classic store alone, so a modern game answers null whether it ended a minute
+ * ago or last spring. Putting the question after "nog-niet" would offer a "Look
+ * again" button that cannot work, which is the same false promise in a control
+ * rather than in a sentence.
+ *
+ * Length still comes first, and it is the one test that holds in every mode:
+ * slimGame drops anything under the floor before the mode is even consulted, so
+ * a remake is genuinely nowhere rather than merely unreadable from here.
+ *
+ * Both halves of the question are asked. `modeCollects` is what makes the
+ * sentence's "your own games are stored" true, and `!modeCrawls` is what makes
+ * "and nobody else's ever will be" true. A row we could not place answers false
+ * to the first and falls through to the clock, where the old sentences are no
+ * worse than they were.
  */
 function geenDetailReden(game: RecentGameSummary): GeenDetailReden {
   if (game.durationSeconds < MINIMALE_GAMEDUUR_SECONDEN) return "te-kort";
+  if (modeCollects(game.modus) && !modeCrawls(game.modus)) return "modus-zonder-detail";
   if (Date.now() - game.createdAt < (game.durationSeconds + 600) * 1000) return "nog-niet";
   return "niet-gecrawld";
 }
@@ -131,12 +150,18 @@ export function NaspelPaneel({
   // and this panel re-renders every time the snapshot ticks. Keying them to the
   // arrays themselves rebuilds them when the client actually delivers new
   // assets and never merely because a timer moved.
+  // The aftermath panel takes the mode of the GAME it is showing, never the mode
+  // the window happens to be browsing: reading back a game from one mode while
+  // queued for another is the ordinary case here, not the edge case. It comes
+  // off the row rather than being worked out again here, so that the icons under
+  // a row and the label on it can never end up describing different games.
+  const modus = game.modus;
   const champions = useMemo(
-    () => new Map(snapshot.champions.map((c) => [c.jadeId, c])),
-    [snapshot.champions],
+    () => catalogusIndex(snapshot.champions, modus),
+    [snapshot.champions, modus],
   );
-  const items = useMemo(() => new Map(snapshot.items.map((i) => [i.jadeId, i])), [snapshot.items]);
-  const spells = useMemo(() => new Map(snapshot.spells.map((s) => [s.jadeId, s])), [snapshot.spells]);
+  const items = useMemo(() => catalogusIndex(snapshot.items, modus), [snapshot.items, modus]);
+  const spells = useMemo(() => catalogusIndex(snapshot.spells, modus), [snapshot.spells, modus]);
 
   const naspel = useMemo(() => (detail ? leesNaspel(detail) : null), [detail]);
 
@@ -216,6 +241,7 @@ export function NaspelPaneel({
       <div className="px-4 py-5">
         <GeenDetail
           reden={geenDetailReden(game)}
+          modus={game.modus}
           minimumSeconden={MINIMALE_GAMEDUUR_SECONDEN}
           onOpnieuw={() => setPoging((n) => n + 1)}
         />

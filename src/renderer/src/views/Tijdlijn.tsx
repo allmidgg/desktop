@@ -1268,7 +1268,7 @@ export function Tijdlijn({
                   <span>{EVENT_LABEL[g.soort]}</span>
                   {/* Alleen het draketype is een woord. De inhibitor-detail is
                       de eigen mapnaam van de engine ("Barracks_T1_C1"), die de
-                      inzichtenbalk op LiveView.tsx:997 al wegfiltert en die het
+                      Inzichtenbalk in LiveView.tsx al wegfiltert en die het
                       commentaar bij SOORT_VAN zelf "not information" noemt. */}
                   {g.detail && g.soort === "dragon" ? (
                     <span className="tijdlijn-detail">{g.detail}</span>

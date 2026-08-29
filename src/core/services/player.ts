@@ -1,5 +1,5 @@
 /**
- * Speleranalyse voor League Classic.
+ * Speleranalyse: één speler, per modus apart gehouden.
  *
  * Alles komt uit de lokale client: die mag namens de ingelogde speler de publieke
  * matchhistorie en ranked-gegevens van willekeurige spelers opvragen. Daardoor
@@ -8,7 +8,10 @@
  */
 import type { LcuClient } from "../lcu/connector";
 import type { Game, MatchHistoryResponse, RankedStats, Summoner } from "../lcu/types";
-import { JADE_RANKED_QUEUE_TYPE, isJadeGame } from "../jade/ids";
+import { JADE_RANKED_QUEUE_TYPE } from "../jade/ids";
+import { modeOf } from "../modes/detect";
+import { modeCollects, type CollectedMode } from "../modes/registry";
+import type { ModeId } from "../modes/types";
 
 /**
  * De client levert per opvraag maximaal twintig games.
@@ -38,7 +41,8 @@ export interface RankedSummary {
   label: string;
 }
 
-export interface JadeSummary {
+/** One mode's worth of a player's recent games. Never two modes' worth. */
+export interface ModusSamenvatting {
   games: number;
   wins: number;
   winrate: number;
@@ -58,8 +62,25 @@ export interface PlayerProfile {
   riotId: string;
   summonerLevel: number;
   profileIconId: number;
+  /**
+   * The Classic ranked ladder, and only that one.
+   *
+   * Classic ranked and modern solo queue are unrelated ladders that share
+   * nothing but their tier names, so this figure is meaningless anywhere else. A
+   * screen must therefore go through `rangVoor()` rather than read this field,
+   * which is what keeps a Gold pill from appearing under a heading naming the
+   * other game -- a wrong fact stated with a full emblem behind it.
+   */
   rank: RankedSummary | null;
-  jade: JadeSummary;
+  /**
+   * One summary per mode the player actually has games in.
+   *
+   * A mode with no games is absent rather than present-and-zero, because those
+   * are different sentences: "no data" is honest and "0 games, 0.00 KDA" reads
+   * as a measurement. Nothing fills a missing mode in from another one; see
+   * `samenvatting()` in the renderer for why the hole is deliberate.
+   */
+  perModus: Partial<Record<CollectedMode, ModusSamenvatting>>;
 }
 
 export async function fetchCurrentSummoner(client: LcuClient): Promise<Summoner> {
@@ -90,14 +111,35 @@ export async function fetchSummonerByRiotId(
 }
 
 /**
- * Haalt de Classic-games van een speler op.
+ * The mode of a game as it comes out of the match list.
+ *
+ * Exported so that the filter below and every label drawn on one of these rows
+ * ask the same question of the same fields. Two callers resolving a mode from
+ * two different subsets of the signals is how a game gets kept by one rule and
+ * described by another, and that disagreement shows up as a plausible label
+ * rather than as an error.
+ *
+ * Note the list form of a game carries exactly one participant -- you -- so the
+ * champion veto here only ever sees your own pick. That is enough for it to do
+ * its job, which is to refuse rather than to decide.
+ */
+export const modeOfGame = (game: Game): ModeId =>
+  modeOf({
+    queueId: game.queueId,
+    mapId: game.mapId,
+    gameMode: game.gameMode,
+    championIds: game.participants.map((p) => p.championId),
+  });
+
+/**
+ * Haalt de recente games van een speler op.
  *
  * We vragen door zolang er nieuwe games bij komen, maar stoppen zodra een
  * opvraag niets nieuws oplevert -- wat meteen gebeurt, omdat het endpoint niet
  * bladert. Zonder die controle stapelden dezelfde twintig games zich op en
  * telde een speler met twintig games er dertig.
  */
-export async function fetchJadeGames(
+export async function fetchRecentGames(
   client: LcuClient,
   puuid: string,
   limit = 20,
@@ -118,7 +160,15 @@ export async function fetchJadeGames(
     for (const game of page) {
       if (seen.has(game.gameId)) continue;
       seen.add(game.gameId);
-      if (isJadeGame(game)) {
+      // Your own history, so the mode filter comes off here -- and only here.
+      // Reading back the games you played is what every companion app does;
+      // walking the match histories of strangers into a shared aggregate is the
+      // thing Riot's policy is about, and that filter stays shut in crawler.ts.
+      //
+      // Games in a mode we do not collect are still skipped: their numbers have
+      // no tally to enter, so putting them beside averages they were never part
+      // of would be worse than leaving them out.
+      if (modeCollects(modeOfGame(game))) {
         found.push(game);
         added++;
       }
@@ -153,8 +203,14 @@ export function participantOf(game: Game, puuid: string) {
   return participant ? { participant, identity } : null;
 }
 
-/** Vat de JADE-games van een speler samen tot de cijfers die je in champ select wilt zien. */
-export function summarizeJadeGames(games: Game[], puuid: string): JadeSummary {
+/**
+ * Vat een lijst games samen tot de cijfers die je in champ select wilt zien.
+ *
+ * The caller decides what the list is. This function averages whatever it gets,
+ * which is exactly why it must never be handed two modes at once: it has no way
+ * to notice, and the result would look like an ordinary set of numbers.
+ */
+export function summarizeGames(games: Game[], puuid: string): ModusSamenvatting {
   const perChampion = new Map<number, ChampionRecord>();
   const results: boolean[] = [];
   let wins = 0;
@@ -207,6 +263,31 @@ export function summarizeJadeGames(games: Game[], puuid: string): JadeSummary {
   };
 }
 
+/**
+ * Splits a match list by mode and summarises each half separately.
+ *
+ * The split happens before any arithmetic, and that order is the whole point: a
+ * single average over both modes is not a number about anything. A player with
+ * Classic and modern games gets two summaries; a player with one mode gets one,
+ * and the other mode is absent rather than zero.
+ */
+export function summarizePerMode(
+  games: Game[],
+  puuid: string,
+): Partial<Record<CollectedMode, ModusSamenvatting>> {
+  const perMode = new Map<CollectedMode, Game[]>();
+  for (const game of games) {
+    const mode = modeOfGame(game);
+    if (!modeCollects(mode)) continue;
+    const list = perMode.get(mode);
+    if (list) list.push(game);
+    else perMode.set(mode, [game]);
+  }
+  const result: Partial<Record<CollectedMode, ModusSamenvatting>> = {};
+  for (const [mode, list] of perMode) result[mode] = summarizeGames(list, puuid);
+  return result;
+}
+
 /** Telt de reeks vanaf de meest recente game: 3 = drie op rij gewonnen, -2 = twee verloren. */
 function currentStreak(results: boolean[]): number {
   const first = results[0];
@@ -227,7 +308,7 @@ export async function buildPlayerProfile(
   const [summoner, rank, games] = await Promise.all([
     client.tryGet<Summoner>(`/lol-summoner/v2/summoners/puuid/${puuid}`),
     fetchJadeRank(client, puuid),
-    fetchJadeGames(client, puuid, gamesToScan),
+    fetchRecentGames(client, puuid, gamesToScan),
   ]);
   return {
     puuid,
@@ -235,7 +316,7 @@ export async function buildPlayerProfile(
     summonerLevel: summoner?.summonerLevel ?? 0,
     profileIconId: summoner?.profileIconId ?? 0,
     rank,
-    jade: summarizeJadeGames(games, puuid),
+    perModus: summarizePerMode(games, puuid),
   };
 }
 

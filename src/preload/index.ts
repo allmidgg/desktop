@@ -12,6 +12,7 @@ import type {
   RunePlanSummary, Settings, TierEntry,
 } from "../shared/types";
 import type { RuneKind } from "../core/jade/runes";
+import type { CollectedMode } from "../core/modes/registry";
 import type { PlayerProfile } from "../core/services/player";
 
 const api = {
@@ -60,10 +61,31 @@ const api = {
   checkUpdate: (): Promise<void> => ipcRenderer.invoke("update:check"),
   lookupPlayer: (riotId: string): Promise<PlayerProfile | null> =>
     ipcRenderer.invoke("player:lookup", riotId),
-  getTierList: (position: Position, minGames?: number): Promise<TierEntry[]> =>
-    ipcRenderer.invoke("stats:tierList", position, minGames),
-  getChampionDetail: (championId: number, position?: Position): Promise<ChampionDetail | null> =>
-    ipcRenderer.invoke("stats:champion", championId, position),
+  /**
+   * Mode first, and required.
+   *
+   * Not an optional trailing parameter with a sensible default, on purpose. An
+   * optional mode is a mode somebody eventually forgets to pass, and a forgotten
+   * mode does not fail -- it answers with a tier list built out of two games'
+   * worth of different items, runes and map timers, which looks entirely
+   * plausible and which nobody catches. Required and first is the one place the
+   * compiler can enforce the rule the rest of the app can only promise.
+   *
+   * CollectedMode rather than ModeId for the same reason: a mode with no bucket
+   * has no tier list, and that is a sentence a screen should print rather than a
+   * request it should be able to make.
+   */
+  getTierList: (
+    mode: CollectedMode,
+    position: Position,
+    minGames?: number,
+  ): Promise<TierEntry[]> => ipcRenderer.invoke("stats:tierList", mode, position, minGames),
+  getChampionDetail: (
+    mode: CollectedMode,
+    championId: number,
+    position?: Position,
+  ): Promise<ChampionDetail | null> =>
+    ipcRenderer.invoke("stats:champion", mode, championId, position),
 
   /** Abonneert op statuswijzigingen; geeft een opzegfunctie terug. */
   onSnapshot: (handler: (snapshot: AppSnapshot) => void): (() => void) => {

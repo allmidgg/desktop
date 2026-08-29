@@ -27,7 +27,7 @@ export function OverlayView({ snapshot }: { snapshot: AppSnapshot | null }): JSX
   useEffect(() => window.jade.onOverlayLocked(setVergrendeld), []);
 
   const live = snapshot?.liveGame;
-  if (!live || !live.isClassic) return null;
+  if (!live || !live.isJade) return null;
 
   const jij = live.players.find((p) => p.isYou) ?? null;
   const objectieven = live.inzichten?.objectieven ?? [];

@@ -18,6 +18,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { modeOfStored } from "../modes/detect";
 import type { MatchStore, StoredMatch, StoredPlayer } from "./matchStore";
 
 /** Hoeveel games we per verzoek meesturen; de server weigert grotere pakketten. */
@@ -230,8 +231,30 @@ export class MatchUploader {
    * dat moment bevestigd heeft blijft afgevinkt, de rest staat gewoon weer in
    * de wachtrij bij de volgende ronde.
    */
+  /**
+   * Offer everything not yet sent -- League Classic only.
+   *
+   * Two reasons pointing the same way. The hard one: while nothing but Classic
+   * leaves this machine, the shared aggregate cannot mix by construction, which
+   * is a stronger guarantee than any check on the receiving end.
+   *
+   * The other is Riot's developer policy, and it is the reason not to "just
+   * generalise this" later. This database exists because there is no dataset
+   * about Classic anywhere; it is built from the LCU's undocumented match
+   * history. For the modern game a dataset already exists and there is a
+   * documented way to it -- MATCH-V5, which src/core/riot/api.ts already speaks,
+   * throttle and 429 handling included. Building a second scraped corpus for a
+   * game that has one is effort spent to acquire a risk.
+   *
+   * Note also what happens without this filter: server/index.ts rejects a whole
+   * game on one modern champion id, and sync() checks rejected games off
+   * permanently ("hij heeft ze gezien en beoordeeld"). Every modern game would
+   * cross the wire once, be discarded, and be recorded as sent forever.
+   */
   async sync(onProgress?: (uploaded: number, total: number) => void): Promise<UploadResult> {
-    const pending = this.store.all().filter((match) => !this.uploaded.has(match.gameId));
+    const pending = this.store
+      .all()
+      .filter((match) => modeOfStored(match) === "lol:jade" && !this.uploaded.has(match.gameId));
     const result: UploadResult = { checked: pending.length, uploaded: 0, rejected: 0, serverTotal: null };
     if (pending.length === 0) return result;
 

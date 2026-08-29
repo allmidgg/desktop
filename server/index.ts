@@ -18,6 +18,8 @@
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { join } from "node:path";
+import { isJadeItemId } from "../src/core/jade/ids";
+import { modeOfStored } from "../src/core/modes/detect";
 import { MatchStore, defaultStorePath, type StoredMatch } from "../src/core/services/matchStore";
 import { JadeStats } from "../src/core/services/stats";
 import { SiteRefresher } from "./siteRefresh";
@@ -61,10 +63,18 @@ const MAX_IDS_PER_REQUEST = 2_000;
 const RATE_LIMIT = 600;
 const RATE_WINDOW_MS = 60_000;
 
-const DATABASE = defaultStorePath(DATA_ROOT);
+/** Which mode this server counts. The shared pool has held nothing else, ever. */
+const POOL_MODE = "lol:jade" as const;
+
+// The mode is spelled out rather than left to the default, because this one file
+// is the shared pool: a server pointed at a different mode's file would keep
+// answering /stats in the same shape while the numbers behind it changed
+// families, and no client could tell.
+const DATABASE = defaultStorePath(DATA_ROOT, POOL_MODE);
 
 const store = new MatchStore(DATABASE);
-let stats = new JadeStats();
+
+let stats = new JadeStats(POOL_MODE);
 let statsCache: string | null = null;
 let uploadsSinceRebuild = 0;
 
@@ -127,13 +137,31 @@ function isValidMatch(value: unknown): value is StoredMatch {
   return m.players.every((p) => {
     if (!p || typeof p !== "object") return false;
     if (typeof p.puuid !== "string" || p.puuid.length < 8 || p.puuid.length > 128) return false;
+    // This bound is the only thing keeping the shared aggregate single-mode, and
+    // it reads like a sanity check rather than the mode gate it actually is.
+    // Named here so whoever widens it for the modern game sees what else has to
+    // change first: app-stats.json carries a modus field that refresh.mjs writes
+    // and JadeStats.fromAggregate checks, the id shift on both sides of that file
+    // is conditional on the mode, and positionTotals is counted per mode. Widen
+    // this line alone and every installation downloads a mixed aggregate at once,
+    // with no way to split it apart again.
     if (typeof p.championId !== "number" || p.championId < 60_000 || p.championId > 70_000) return false;
+    // A record whose champions and items come from different id spaces is not a
+    // Classic game however it was labelled. Queue 2450 (gameMode KIWI_JADE, Jade
+    // content on the ARAM map) produces exactly that shape: modern champion ids
+    // beside items in the 770000 range. Game 7953675289 is one. The champion
+    // bound above already turns that direction away; this closes the mirror
+    // image, a Jade champion holding modern items. Measured over the whole
+    // 130,197-game store the item ids run 771001 to 773504, so this refuses
+    // nothing that exists.
+    if (!Array.isArray(p.items)) return false;
+    if (p.items.some((id) => typeof id === "number" && id > 0 && !isJadeItemId(id))) return false;
     if (typeof p.win !== "boolean") return false;
     for (const key of ["kills", "deaths", "assists", "cs", "gold"] as const) {
       const n = p[key];
       if (typeof n !== "number" || n < 0 || n > 100_000) return false;
     }
-    return Array.isArray(p.items) && Array.isArray(p.spells);
+    return Array.isArray(p.spells);
   });
 }
 
@@ -159,7 +187,25 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
 }
 
 function rebuildStats(): void {
-  stats = JadeStats.from(store.all());
+  /**
+   * Sorted before counting, and here that is not belt and braces.
+   *
+   * JadeStats.ingest() throws on a record from another mode, which is right in
+   * the app: there every match came off this machine, so a mismatch is a bug and
+   * should be loud. Here every match came from a stranger. A single upload whose
+   * queue id we cannot place would otherwise throw on every rebuild from then on
+   * -- 400 to the uploader who tripped it, a dead process on the next restart,
+   * and an aggregate frozen at whatever it held before. One unrecognised queue
+   * is not worth the shared pool.
+   *
+   * So the boundary decides what goes in and the guard stays a guard. This does
+   * not widen anything: isValidMatch() is still the only door, and its champion
+   * range still turns modern uploads away before they are stored at all.
+   */
+  const own = store.all().filter((match) => modeOfStored(match) === POOL_MODE);
+  const foreign = store.size - own.length;
+  if (foreign > 0) console.warn(`[allmid] ${foreign} games buiten ${POOL_MODE} niet meegeteld`);
+  stats = JadeStats.from(own, POOL_MODE);
   statsCache = null;
   uploadsSinceRebuild = 0;
 }

@@ -1,19 +1,35 @@
-/** Your own Classic profile: rank, form, and which champions work for you. */
+/** Your own profile in one mode: rank, form, and which champions work for you. */
 import { useState } from "react";
 import type { AppSnapshot } from "../../../shared/types";
 import type { PlayerProfile } from "../../../core/services/player";
+import type { CollectedMode } from "../../../core/modes/registry";
+import { describeMode, modeLabel } from "../../../core/modes/registry";
+import { rangVoor, samenvatting } from "../modus";
 import {
-  asset, ChampionIcon, EmptyState, FormDots, Panel, RankPill, SectionTitle, Spinner, Streak,
-  Winrate, WinrateRing,
+  asset, catalogusIndex, ChampionIcon, EmptyState, FormDots, Panel, RankPill, SectionTitle,
+  Spinner, Streak, Winrate, WinrateRing,
 } from "../ui";
 
-export function ProfileView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
+export function ProfileView({
+  snapshot,
+  modus,
+}: {
+  snapshot: AppSnapshot;
+  /** The mode the window is browsing. Every figure on this page is that mode's. */
+  modus: CollectedMode;
+}): JSX.Element {
   const [query, setQuery] = useState("");
   const [lookup, setLookup] = useState<PlayerProfile | null>(null);
   const [busy, setBusy] = useState(false);
   const [melding, setMelding] = useState<string | null>(null);
 
-  const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
+  // One mode, named out loud, and the same one for every figure on the page.
+  // The champion ids in a summary are that mode's ids, so the catalogue index
+  // has to be built from the same choice -- indexing Classic ids against the
+  // modern catalogue draws no icons and no names, which reads as missing art
+  // rather than as the wrong lookup it is.
+  const modusNaam = describeMode(modus)?.shortLabel ?? modeLabel(modus);
+  const champions = catalogusIndex(snapshot.champions, modus);
   const profile = lookup ?? snapshot.profile;
 
   /**
@@ -51,7 +67,13 @@ export function ProfileView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elemen
     );
   }
 
-  const { jade } = profile;
+  // Null when this player has no games in this mode, and that is what the page
+  // says. There is deliberately no fall back to the other mode's figures: a
+  // Classic winrate under a heading naming the modern game would be the exact
+  // merge this rebuild exists to prevent, and it would arrive looking like an
+  // ordinary number.
+  const stats = samenvatting(profile, modus);
+  const rang = rangVoor(profile, modus);
 
   return (
     <div className="animate-rise space-y-6">
@@ -100,11 +122,15 @@ export function ProfileView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elemen
             </span>
             <div>
             <p className="text-2xl font-semibold tracking-tight">{profile.riotId}</p>
+            {/* No pill at all where we read no ladder, rather than an
+                "Unranked" one: Classic ranked and modern solo queue are
+                separate ladders, and both a tier and the word unranked are
+                claims about a specific one of them. */}
             <div className="mt-2 flex items-center gap-2">
-              <RankPill rank={profile.rank} />
-              {profile.rank ? (
+              {rang === undefined ? null : <RankPill rank={rang} />}
+              {rang ? (
                 <span className="num text-[11px] text-ink-500">
-                  {profile.rank.wins}W / {profile.rank.losses}L in ranked Classic
+                  {rang.wins}W / {rang.losses}L in ranked {modusNaam}
                 </span>
               ) : null}
             </div>
@@ -112,37 +138,51 @@ export function ProfileView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elemen
           </div>
           {/* Eén hoofdgetal en twee die het ondersteunen. Drie gelijke kolommen
               lieten de lezer zelf uitzoeken wat het belangrijkste was. */}
-          <div className="flex items-center gap-6">
-            <WinrateRing winrate={jade.winrate} games={jade.games} maat={92} />
-            <div className="flex gap-7 text-right">
-              <Stat label="KDA" value={jade.games ? jade.kda.toFixed(2) : "-"} />
-              <Stat label="Games" value={String(jade.games)} />
+          {stats ? (
+            <div className="flex items-center gap-6">
+              <WinrateRing winrate={stats.winrate} games={stats.games} maat={92} />
+              <div className="flex gap-7 text-right">
+                <Stat label="KDA" value={stats.games ? stats.kda.toFixed(2) : "-"} />
+                <Stat label="Games" value={String(stats.games)} />
+              </div>
             </div>
-          </div>
+          ) : (
+            <span className="self-center text-xs text-ink-500">
+              No {modusNaam} games in this player's last 30.
+            </span>
+          )}
         </div>
 
-        <div className="mt-5 flex items-center gap-3 border-t border-line pt-4">
-          <span className="text-xs text-ink-500">Recent form</span>
-          <FormDots results={jade.recentResults} />
-          <Streak streak={jade.streak} />
-          {jade.games > 0 ? (
-            <span className="num ml-auto text-xs text-ink-500">
-              avg {jade.avgKills.toFixed(1)} / {jade.avgDeaths.toFixed(1)} /{" "}
-              {jade.avgAssists.toFixed(1)}
-            </span>
-          ) : null}
-        </div>
+        {stats ? (
+          <div className="mt-5 flex items-center gap-3 border-t border-line pt-4">
+            <span className="text-xs text-ink-500">Recent form</span>
+            <FormDots results={stats.recentResults} />
+            <Streak streak={stats.streak} />
+            {stats.games > 0 ? (
+              <span className="num ml-auto text-xs text-ink-500">
+                avg {stats.avgKills.toFixed(1)} / {stats.avgDeaths.toFixed(1)} /{" "}
+                {stats.avgAssists.toFixed(1)}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </Panel>
 
       <div>
-        <SectionTitle hint="based on your last 30 Classic games">Your champions</SectionTitle>
-        {jade.topChampions.length === 0 ? (
+        {/* "the X games among the last 30" and not "the last 30 X games": the
+            scan is thirty games of whatever you played, so with two modes in
+            the history the count behind these figures is smaller than thirty
+            and the sentence has to admit it. */}
+        <SectionTitle hint={`based on the ${modusNaam} games in the last 30`}>
+          Your champions
+        </SectionTitle>
+        {!stats || stats.topChampions.length === 0 ? (
           <Panel className="p-6">
-            <EmptyState title="No Classic games to analyse yet" />
+            <EmptyState title={`No ${modusNaam} games to analyse yet`} />
           </Panel>
         ) : (
           <div className="grid grid-cols-2 gap-2">
-            {jade.topChampions.map((record) => {
+            {stats.topChampions.map((record) => {
               const champion = champions.get(record.championId);
               const kda =
                 record.deaths === 0

@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import type { AppSnapshot, MasteryPlanSummary, MasteryTreeInfo } from "../../../shared/types";
 import { asset, ChampionIcon, Panel, SectionTitle, Spinner, SplashBackdrop } from "../ui";
+import { describeMode } from "../../../core/modes/registry";
 
 const TREE_STYLE: Record<string, { text: string; ring: string; bar: string }> = {
   offense: { text: "text-loss-400", ring: "border-loss-500/30", bar: "bg-loss-500" },
@@ -58,11 +59,16 @@ export function MasteriesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elem
     : new Map(shownPage?.points ?? []);
   const perTree = plan?.perTree ?? shownPage?.perTree;
 
-  const champions = [...snapshot.champions].sort((a, b) => a.name.localeCompare(b.name));
+  // Filtered on the browse mode before anything else: the snapshot carries both
+  // id spaces, and both name the same champions, so an unfiltered picker would
+  // list Ashe twice and send whichever one you happened to click.
+  const champions = snapshot.champions
+    .filter((c) => c.mode === snapshot.loadoutModus)
+    .sort((a, b) => a.name.localeCompare(b.name));
   const gefilterd = zoek.trim()
     ? champions.filter((c) => c.name.toLowerCase().includes(zoek.trim().toLowerCase()))
     : champions;
-  const gekozenChampion = champion === null ? undefined : snapshot.champions.find((c) => c.jadeId === champion);
+  const gekozenChampion = champion === null ? undefined : champions.find((c) => c.id === champion);
 
   async function activate(index: number): Promise<void> {
     const result = await window.jade.activateMasteryPage(index);
@@ -96,7 +102,19 @@ export function MasteriesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elem
             )
           }
         >
-          {gekozenChampion ? `Recommended for ${gekozenChampion.name}` : "Every Classic champion"}
+          {/* The heading names the mode the list below it was filtered by, off
+              the same field the filter reads. It used to say "Classic" in fixed
+              type, which was true of the only mode there was and becomes a
+              false claim the moment loadoutModus is anything else -- the list
+              would change under a heading that did not. Falls back to no mode
+              at all rather than to a name, because a mode this build cannot
+              describe is one it also has no champions for, and the grid under
+              this heading is then empty. */}
+          {gekozenChampion
+            ? `Recommended for ${gekozenChampion.name}`
+            : describeMode(snapshot.loadoutModus)
+              ? `Every ${describeMode(snapshot.loadoutModus)?.label} champion`
+              : "Every champion"}
         </SectionTitle>
 
         {gekozenChampion ? (
@@ -113,7 +131,7 @@ export function MasteriesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elem
               </div>
               <button
                 onClick={() => {
-                  void window.jade.autoMasteries(gekozenChampion.jadeId).then((r) => setStatus(r.message));
+                  void window.jade.autoMasteries(gekozenChampion.id).then((r) => setStatus(r.message));
                 }}
                 className="ml-auto rounded-xl border border-gold-400/30 bg-gold-400/10 px-3.5 py-2 text-[12px] font-medium text-gold-300 transition-colors hover:bg-gold-400/20"
               >
@@ -125,8 +143,8 @@ export function MasteriesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Elem
           <div className="flex flex-wrap gap-1.5">
             {gefilterd.map((c) => (
               <button
-                key={c.jadeId}
-                onClick={() => setChampion(c.jadeId)}
+                key={c.id}
+                onClick={() => setChampion(c.id)}
                 title={c.name}
                 className="rounded-lg border border-transparent transition-colors hover:border-gold-400/50"
               >

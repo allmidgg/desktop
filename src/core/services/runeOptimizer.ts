@@ -10,7 +10,7 @@
  * we genoeg Classic-matches hebben verzameld, vervangen we die door winrates per
  * rune -- data die op dit moment nergens ter wereld bestaat.
  */
-import type { JadeChampion } from "../jade/catalog";
+import type { CatalogChampion } from "../jade/catalog";
 import { RUNE_SLOTS, type OwnedRune, type Rune, type RuneCatalog, type RuneKind } from "../jade/runes";
 
 /**
@@ -126,7 +126,7 @@ export interface RuneKindPlan {
 }
 
 export interface RunePlan {
-  champion: JadeChampion | null;
+  champion: CatalogChampion | null;
   role: string;
   kinds: RuneKindPlan[];
   /** Per soort de rune-ID's per slot, klaar om als pagina weggeschreven te worden. */
@@ -136,7 +136,7 @@ export interface RunePlan {
 }
 
 /** Kiest de rol waarvan we de wegingen gebruiken. */
-export function resolveRole(champion: JadeChampion | null, override?: string): string {
+export function resolveRole(champion: CatalogChampion | null, override?: string): string {
   if (override && ROLE_MULTIPLIERS[override]) return override;
   for (const role of champion?.roles ?? []) {
     if (ROLE_MULTIPLIERS[role]) return role;
@@ -171,7 +171,7 @@ export const restVoorRol = (role: string): number => REST_MULTIPLIER[role] ?? 1;
  */
 export function planRunes(
   catalog: RuneCatalog,
-  champion: JadeChampion | null,
+  champion: CatalogChampion | null,
   roleOverride?: string,
 ): RunePlan {
   const role = resolveRole(champion, roleOverride);

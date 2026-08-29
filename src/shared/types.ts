@@ -7,6 +7,7 @@
 import type { PlayerProfile } from "../core/services/player";
 import type { RuneKind } from "../core/jade/runes";
 import type { Position } from "../core/services/matchStore";
+import type { ModeId } from "../core/modes/types";
 // Type-only, and circular on paper: matchtijdlijn.ts imports Position back out
 // of this file. Both sides are erased at compile time, so nothing circular
 // survives to runtime -- the same argument the MINIMALE_GAMEDUUR_SECONDEN block
@@ -23,8 +24,22 @@ export type GameflowPhase =
   | "GameStart" | "InProgress" | "WaitingForStats" | "PreEndOfGame" | "EndOfGame"
   | "Reconnect" | "TerminatedInError";
 
-export interface ChampionSummary {
-  jadeId: number;
+/**
+ * One catalogue row, on its way to the interface.
+ *
+ * The snapshot carries both id spaces in one array, so every row says which mode
+ * it belongs to and no screen may index one without filtering on that first. Id
+ * 75 is a real collision, not a hypothetical: the client publishes it as both a
+ * nameless leftover and as Clairvoyance, and a single `new Map(...)` over the
+ * lot lets whichever came last decide what gets drawn.
+ */
+interface CatalogRowSummary {
+  /** ID zoals de game het gebruikt: 60022 in Classic, 22 in het moderne spel. */
+  id: number;
+  mode: ModeId;
+}
+
+export interface ChampionSummary extends CatalogRowSummary {
   name: string;
   alias: string;
   iconPath: string;
@@ -98,6 +113,17 @@ export interface ChampionPlan {
 export interface ChampSelectSnapshot {
   phase: string;
   /**
+   * The mode this lobby is queueing for.
+   *
+   * Null while nothing has said yet: the gameflow session had no queue and
+   * nobody has hovered a champion. "unknown" means it did say and we could not
+   * place it. In both cases, and in any mode we hold no games for, everything
+   * below that is advice -- lanes, matchups, the plan -- comes back empty on
+   * purpose. There is no honest way to fill it, and filling it from the other
+   * mode is the exact mistake this field exists to prevent.
+   */
+  mode: ModeId | null;
+  /**
    * What the client said was left, at the moment it said it.
    *
    * A checkpoint, not a clock. The LCU only pushes an event when something
@@ -118,8 +144,7 @@ export interface ChampSelectSnapshot {
   localPlan: ChampionPlan | null;
 }
 
-export interface ItemSummary {
-  jadeId: number;
+export interface ItemSummary extends CatalogRowSummary {
   name: string;
   iconPath: string;
   /**
@@ -133,7 +158,7 @@ export interface ItemSummary {
    */
   price: number;
   /**
-   * The components this is built out of, as Jade ids.
+   * The components this is built out of, in this row's own id space.
    *
    * Needed to read a purchase list as a build: a Long Sword followed by a
    * Vampiric Scepter followed by a Bilgewater Cutlass is one item being
@@ -142,25 +167,72 @@ export interface ItemSummary {
   buildsFrom: number[];
 }
 
-export interface SpellSummary {
-  jadeId: number;
+export interface SpellSummary extends CatalogRowSummary {
   name: string;
   iconPath: string;
 }
 
-/** Stand van de zelfgebouwde matchdatabase. */
-export interface DatabaseStatus {
-  /** Games this machine crawled itself. Your own history. */
+/**
+ * What one mode's numbers add up to.
+ *
+ * Split off per mode because a single total beside advice drawn from one pool
+ * reads as a bug -- the same failure the `community` field below was added to
+ * fix, at the size two modes make it: a bar announcing 130,197 games while every
+ * modern screen says there are not enough games to say anything yet.
+ */
+export interface DatabaseModusStatus {
+  /** Games counted in this mode: the shared aggregate when there is one. */
   matches: number;
-  players: number;
   usableMatchups: number;
-  crawling: boolean;
   /**
-   * The shared dataset the advice is drawn from, or null when the app is falling
-   * back to locally crawled games. These are not added to `matches`: everything
+   * The shared dataset this mode's advice is drawn from, or null when it is
+   * falling back to locally crawled games. Not added to `matches`: everything
    * crawled here is uploaded, so it is already counted in there.
    */
   community: { games: number; players: number; newestGame: string } | null;
+  /**
+   * Why this mode's count is lower than the file it was read from, or null.
+   *
+   * Non-null only when building the tally hit records that do not belong to this
+   * mode: they are left out and this sentence says how many. It exists because
+   * the alternative was a number that quietly shrank -- the meta screen prints
+   * "from N collected X games" whatever happens, and a reader has no way to tell
+   * a database that grew slowly from one that dropped a thousand games this
+   * morning. Written as a whole sentence in English because it is shown to the
+   * user unchanged.
+   */
+  probleem: string | null;
+}
+
+/** Stand van de zelfgebouwde matchdatabase. */
+export interface DatabaseStatus {
+  /**
+   * Classic's figures, kept only because publishDatabaseStatus still writes
+   * them.
+   *
+   * Nothing reads them any more. Every screen that used to -- the title bar, the
+   * meta screen, the tier column on Live -- now goes through `perModus` and
+   * names the mode it is showing, which is what step 10 did. They are named
+   * here as what they are rather than left looking like the app's totals,
+   * because the next person to reach for `database.matches` beside a modern
+   * heading would be printing Classic's count under it with nothing on screen to
+   * give that away. Read `perModus[mode]` instead; `crawling` below is the one
+   * field here that is still live, and it is a flag rather than a figure.
+   */
+  matches: number;
+  players: number;
+  /** Whether the crawler is running. Mode-independent: it works in one mode. */
+  crawling: boolean;
+  /** Classic's shared dataset. Dead alongside `matches`; see the note above. */
+  community: { games: number; players: number; newestGame: string } | null;
+  /**
+   * The same figures again, one entry per mode we collect, and the ones every
+   * screen actually reads.
+   *
+   * Partial on purpose: only collected modes get an entry, so a reader has to
+   * handle a mode being absent instead of assuming every mode has a bucket.
+   */
+  perModus: Partial<Record<ModeId, DatabaseModusStatus>>;
 }
 
 export interface MasteryPageSummary {
@@ -769,6 +841,19 @@ export interface RecentGameSummary {
   createdAt: number;
   durationSeconds: number;
   queueId: number;
+  /**
+   * The mode this game was played in, settled once where the client's answer is
+   * still complete.
+   *
+   * The row travels with it rather than the screens working it out again,
+   * because a history list is the one place where two modes sit under each
+   * other and everything below a row -- the aftermath panel, the timeline, the
+   * champion and item lookups -- has to follow the row and not the window. It
+   * can be `unknown`: a game we cannot place is still yours and still shown,
+   * labelled as unplaced instead of quietly filed under whichever mode the app
+   * happens to be pointed at.
+   */
+  modus: ModeId;
   win: boolean;
   championId: number;
   kills: number;
@@ -788,6 +873,22 @@ export interface AppSnapshot {
   summoner: { riotId: string; summonerLevel: number; profileIconId: number; puuid: string } | null;
   profile: PlayerProfile | null;
   champSelect: ChampSelectSnapshot | null;
+  /**
+   * The mode the rune and mastery screens work in.
+   *
+   * It used to be the window's browse mode as well, and it no longer is: the
+   * window keeps that choice itself and hands it to every call that reads
+   * statistics, so nothing has to be mirrored here and the two can no longer
+   * disagree. What is left is loadout, and loadout is Classic by construction --
+   * the modern game has no mastery trees and no Jade rune shop, so a champion
+   * list that followed the reader's browse choice would offer pages that cannot
+   * be written.
+   *
+   * A screen showing one particular GAME takes that game's mode instead --
+   * reading back a Classic game while queued for something else is the ordinary
+   * case, not the edge case.
+   */
+  loadoutModus: ModeId;
   champions: ChampionSummary[];
   items: ItemSummary[];
   spells: SpellSummary[];
@@ -865,11 +966,35 @@ export interface BuildStep {
 
 
 export interface LiveGameSnapshot {
-  /** What the client calls the mode. JADE for Classic. */
-  mode: string;
+  /**
+   * Which mode is being played, resolved from the map number and the mode string.
+   *
+   * The one field a screen should index a catalogue by while a game is running:
+   * the running game carries its own mode and owes nothing to whatever the
+   * window is browsing. May be "unknown", and that is an answer -- never a
+   * reason to fall back to Classic.
+   */
+  mode: ModeId;
+  /**
+   * What the client calls the mode, verbatim. JADE for Classic.
+   *
+   * Kept beside the resolved mode rather than instead of it, because the two
+   * disagree in the one place it matters: the modern Summoner's Rift reports the
+   * string "CLASSIC". Only ever shown, never compared against.
+   */
+  gameMode: string;
   mapNumber: number;
-  /** False when a game is running but it is not Classic; we show it, we do not count it. */
-  isClassic: boolean;
+  /**
+   * True only for League Classic. What gets recorded, and what the overlay draws over.
+   *
+   * Named after the mode id and not after the word Classic, because `gameMode`
+   * three lines up holds the string "CLASSIC" for the modern Summoner's Rift. An
+   * `isClassic` sitting next to it would read as shorthand for
+   * `gameMode === "CLASSIC"` while meaning the exact opposite of it in every
+   * modern game, and nothing about either name would show the reader the
+   * contradiction.
+   */
+  isJade: boolean;
   gameTimeSeconds: number;
   players: LiveGamePlayer[];
   /**

@@ -11,8 +11,8 @@
 import { UNKNOWN_MODE, type KnownModeId, type ModeDescriptor, type ModeId, type QueueKind } from "./types";
 
 export const MODES: readonly ModeDescriptor[] = [
-  { id: "lol:sr", label: "League of Legends", shortLabel: "LoL", collect: true },
-  { id: "lol:jade", label: "League Classic", shortLabel: "Classic", collect: true },
+  { id: "lol:sr", label: "League of Legends", shortLabel: "LoL", collect: true, crawl: false },
+  { id: "lol:jade", label: "League Classic", shortLabel: "Classic", collect: true, crawl: true },
   {
     // Jade content on the Howling Abyss, and the single clearest reason this
     // module models more than a Classic/modern flag. Game 7953675289 is real:
@@ -28,16 +28,63 @@ export const MODES: readonly ModeDescriptor[] = [
     label: "ARAM: Mayhem (Classic)",
     shortLabel: "Mayhem",
     collect: false,
+    crawl: false,
   },
 ];
 
 const byId = new Map<KnownModeId, ModeDescriptor>(MODES.map((m) => [m.id, m]));
 
+/**
+ * The modes that get a store, a tally and a place in the status bar.
+ *
+ * Written out as a literal rather than derived from MODES, because everything
+ * that loops over it also indexes something keyed by exactly these two ids --
+ * the match stores, the statistics buckets, the per-mode figures in the title
+ * bar. A `.filter()` result is typed as "some KnownModeId", which would push
+ * every one of those lookups into a runtime check for a case that cannot occur.
+ *
+ * The assertion below is what keeps the literal honest: add a mode with
+ * `collect: true` and forget this line, and the app refuses to start rather than
+ * quietly counting nothing for it.
+ */
+export const COLLECTED_MODES = ["lol:sr", "lol:jade"] as const satisfies readonly KnownModeId[];
+export type CollectedMode = (typeof COLLECTED_MODES)[number];
+
+{
+  const uitTabel = MODES.filter((m) => m.collect).map((m) => m.id);
+  const ontbreekt = uitTabel.filter((id) => !(COLLECTED_MODES as readonly ModeId[]).includes(id));
+  if (ontbreekt.length > 0) {
+    throw new Error(
+      `COLLECTED_MODES is missing ${ontbreekt.join(", ")}; a collected mode without a bucket ` +
+        `counts nothing and says nothing about it`,
+    );
+  }
+}
+
 export const describeMode = (id: ModeId): ModeDescriptor | null =>
   id === UNKNOWN_MODE ? null : (byId.get(id) ?? null);
 export const modeLabel = (id: ModeId): string => describeMode(id)?.label ?? "Unknown mode";
-/** Whether this mode is stored and counted at all. False for kiwi-jade and unknown. */
-export const modeCollects = (id: ModeId): boolean => describeMode(id)?.collect ?? false;
+/**
+ * Whether this mode is stored and counted at all. False for kiwi-jade and unknown.
+ *
+ * Written as a type guard so the answer survives the `if`. Everything reached
+ * through a true branch -- a store, a statistics bucket, a per-mode figure -- is
+ * keyed by exactly the two collected ids, and without the guard each of those
+ * lookups would need a cast at the point where the check has already been made.
+ * A cast there is precisely the kind of silent assertion this module exists to
+ * avoid.
+ */
+export const modeCollects = (id: ModeId): id is CollectedMode =>
+  describeMode(id)?.collect ?? false;
+
+/**
+ * Whether the crawler is allowed to gather other people's games in this mode.
+ *
+ * The one place the answer lives, so the crawler's filter and the sentence the
+ * empty tier list prints cannot drift apart. They are the same rule seen from
+ * two ends: what we may fetch, and what we may therefore promise.
+ */
+export const modeCrawls = (id: ModeId): boolean => describeMode(id)?.crawl ?? false;
 
 export interface QueueRow {
   readonly mode: KnownModeId;

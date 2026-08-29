@@ -12,6 +12,9 @@
  */
 import type { LiveGameData, LivePlayer } from "../lcu/liveClient";
 import { SkillOrderRecorder } from "../lcu/liveClient";
+import { resolveMode } from "../modes/detect";
+import { modeCollects, modeLabel } from "../modes/registry";
+import type { ModeId } from "../modes/types";
 import { berekenInzichten, gebeurtenissenVan, spelerSleutel, trinketLeeg } from "./liveInzichten";
 import type {
   BuildStep, LiveGamePlayer, LiveGameSnapshot, OpnameRecord, OpnameSpeler, Position,
@@ -134,8 +137,16 @@ export const teamVan = (team: string): LiveGamePlayer["team"] =>
 export type BuildOrderRecord = OpnameRecord;
 
 export interface ChampionZoeker {
-  /** Jade champion id for a display name or alias, or null. */
-  (naam: string): number | null;
+  /**
+   * The champion id a display name or alias stands for, in one mode's id space.
+   *
+   * The mode is a parameter and not a choice the lookup was built with, because
+   * the running game is what says which mode it is and that is only known once a
+   * poll has been read. Both spaces name the same 63 champions, so a lookup
+   * spanning them would answer "Ashe" with whichever row was written last --
+   * right by accident in one mode and wrong by accident in the other.
+   */
+  (naam: string, mode: ModeId): number | null;
 }
 
 /**
@@ -186,8 +197,15 @@ export class LiveGameWatcher {
 
   constructor(
     private readonly zoekChampion: ChampionZoeker,
-    /** Item prices, for the value a player is carrying. Unknown counts as zero. */
-    private readonly prijsVan: (itemId: number) => number = () => 0,
+    /**
+     * Item prices, for the value a player is carrying. Unknown counts as zero.
+     *
+     * Takes the mode for the same reason the champion lookup does: the two id
+     * spaces number the same item differently, and a price looked up in the
+     * wrong one is not a wrong number but no number at all -- every item comes
+     * back zero and the whole gold column quietly reads nought.
+     */
+    private readonly prijsVan: (itemId: number, mode: ModeId) => number = () => 0,
   ) {}
 
   /**
@@ -371,7 +389,7 @@ export class LiveGameWatcher {
    */
   oogst(minimaalSeconden = 120): OpnameRecord | null {
     const laatste = this.laatsteSnapshot;
-    if (!laatste || !laatste.isClassic) return null;
+    if (!laatste || !laatste.isJade) return null;
     if (laatste.gameTimeSeconds < minimaalSeconden) return null;
 
     // Everyone is kept, including a seat that bought nothing. A timeline with a
@@ -405,7 +423,7 @@ export class LiveGameWatcher {
 
     return {
       recordedAt: Date.now(),
-      gameMode: laatste.mode,
+      gameMode: laatste.gameMode,
       mapNumber: laatste.mapNumber,
       gameLengthSeconds: laatste.gameTimeSeconds,
       spelers,
@@ -414,20 +432,33 @@ export class LiveGameWatcher {
     };
   }
 
-  verwerk(data: LiveGameData, jouwNaam: string | null, mapId: number): LiveGameSnapshot {
+  verwerk(data: LiveGameData, jouwNaam: string | null): LiveGameSnapshot {
     const gameTime = Math.max(0, Math.round(data.gameData?.gameTime ?? 0));
     this.misschienNieuweGame(gameTime);
     this.recorder.observe(data.activePlayer?.abilities);
 
     const mapNumber = data.gameData?.mapNumber ?? 0;
-    const mode = data.gameData?.gameMode ?? "";
-    // Two independent signals, and we want both to agree. The mode string is the
-    // one Riot documents; the map number is the one that cannot be renamed.
-    const isClassic = mapNumber === mapId || mode.toUpperCase() === "JADE";
+    const gameMode = data.gameData?.gameMode ?? "";
+    // The live endpoint gives a map number and a mode string and nothing else,
+    // which is exactly the pair the resolver is strongest on. Testing the map
+    // number against one constant handed in from outside gave the right answer
+    // only because 453 happens to carry a single mode: read out of the running
+    // client on 2026-08-29, its 88 queues spread over 22 (map, mode) pairs, and
+    // map 11 alone carries twelve different mode strings while map 12 carries
+    // three. Either half on its own therefore narrows rather than decides, and
+    // the old test could say nothing at all about what a game was when it was
+    // not Classic -- which is now the question being asked.
+    const mode = resolveMode({ mapId: mapNumber, gameMode }).mode;
+    // Named after the mode id: `gameMode` on the line above is the literal string
+    // "CLASSIC" for a modern Summoner's Rift game, so an `isClassic` here would be
+    // false in exactly the games whose mode string reads CLASSIC. The two live
+    // eleven lines apart, which is close enough for the wrong one to be reached
+    // for and far enough that nobody would notice.
+    const isJade = mode === "lol:jade";
 
     const jij = jouwNaam ? normaliseerNaam(jouwNaam) : null;
     const rauw = data.allPlayers ?? [];
-    const spelers = rauw.map((p) => this.speler(p, jij, gameTime));
+    const spelers = rauw.map((p) => this.speler(p, jij, gameTime, mode));
 
     // The event feed speaks in names; the record we keep must not. Both the Riot
     // ID and the older summoner name are indexed because the feed is not
@@ -444,9 +475,24 @@ export class LiveGameWatcher {
     const zoekStoel = (naam: string | undefined): number | null =>
       naam ? (stoel.get(normaliseerNaam(naam)) ?? null) : null;
 
+    // Saying which mode this is NOT was the useful half only while the app was
+    // Classic and everything else was the exception. Reversed, the useful half
+    // is which mode it IS and whether we keep it, and those are three different
+    // answers rather than two: a mode we recognise but never collect is not the
+    // same fact as a mode we cannot place at all, and neither is the same as a
+    // mode we do collect but do not record live.
     let note: string | null = null;
-    if (!isClassic) {
-      note = `This is ${mode || "another mode"}, not Classic. Shown for convenience; nothing here is recorded.`;
+    if (!modeCollects(mode)) {
+      note =
+        mode === "unknown"
+          ? `We cannot tell which mode this is${gameMode ? ` (the client says "${gameMode}")` : ""}. ` +
+            `Shown for convenience; nothing here is recorded, because there is no mode to record it under.`
+          : `This is ${modeLabel(mode)}. Shown for convenience; its games are not collected, ` +
+            `so nothing here is recorded and no averages are drawn from it.`;
+    } else if (!isJade) {
+      // Tied to the same flag that gates the recorder below, so the sentence
+      // cannot outlive the behaviour it describes.
+      note = `This is ${modeLabel(mode)}. Shown live, but the build recorder only writes Classic games, so nothing here is kept.`;
     } else if (spelers.some((s) => s.championId === null)) {
       const onbekend = spelers.filter((s) => s.championId === null).map((s) => s.championName);
       note = `No stats for ${onbekend.join(", ")} -- the client reports a name we do not recognise.`;
@@ -455,7 +501,7 @@ export class LiveGameWatcher {
     // Derived numbers need every player read first, so they land here rather
     // than inside the per-player mapping.
     const events = data.events?.Events ?? [];
-    const inzichten = berekenInzichten(spelers, events, gameTime, this.prijsVan);
+    const inzichten = berekenInzichten(spelers, events, gameTime, (id) => this.prijsVan(id, mode));
     for (const p of spelers) {
       const sleutel = spelerSleutel(p);
       p.itemWaarde = inzichten.itemWaarde.get(sleutel) ?? 0;
@@ -473,12 +519,13 @@ export class LiveGameWatcher {
     // Only Classic games are ever harvested, so only Classic games are worth
     // measuring; sampling another mode would fill memory for a record oogst()
     // will refuse to return anyway.
-    if (isClassic) this.bemonster(gameTime, spelers, this.laatsteGoud);
+    if (isJade) this.bemonster(gameTime, spelers, this.laatsteGoud);
 
     this.laatsteSnapshot = {
       mode,
+      gameMode,
       mapNumber,
-      isClassic,
+      isJade,
       gameTimeSeconds: gameTime,
       players: spelers,
       skillOrder: this.recorder.skillOrder,
@@ -494,13 +541,19 @@ export class LiveGameWatcher {
     return this.laatsteSnapshot;
   }
 
-  private speler(p: LivePlayer, jouwGenormaliseerdeNaam: string | null, gameTime: number): LiveGamePlayer {
+  private speler(
+    p: LivePlayer,
+    jouwGenormaliseerdeNaam: string | null,
+    gameTime: number,
+    /** The mode this poll turned out to be, so the name lands in the right space. */
+    mode: ModeId,
+  ): LiveGamePlayer {
     const naam = p.riotId || p.summonerName || "";
     const items = itemsVan(p);
     const sleutel = naam || `${p.team}|${p.championName}`;
     return {
       build: this.noteerAankopen(sleutel, items, gameTime),
-      championId: this.zoekChampion(p.championName ?? ""),
+      championId: this.zoekChampion(p.championName ?? "", mode),
       championName: p.championName ?? "",
       riotId: naam || null,
       team: teamVan(p.team ?? ""),
@@ -527,9 +580,10 @@ export class LiveGameWatcher {
 /**
  * The six build slots, as the ids the client itself reports.
  *
- * Left as Jade ids on purpose: everything the renderer shows looks items up by
- * jadeId, the same as recent games do, so converting here would only mean
- * converting back one layer up.
+ * Passed through untouched on purpose: the renderer looks items up in the index
+ * for the mode being shown, the same as recent games do, so translating here
+ * would only mean translating back one layer up -- and there is no longer a
+ * function that would do it.
  *
  * Slot 6 is the trinket and is dropped, the same rule the match counting uses,
  * so a live build and a finished one mean the same thing.
@@ -541,12 +595,25 @@ export function itemsVan(p: LivePlayer): number[] {
     .map((i) => i.itemID);
 }
 
-/** Builds the name lookup from the champion list the app already holds. */
-export function championZoeker(champions: Array<{ jadeId: number; name: string; alias: string }>): ChampionZoeker {
-  const perNaam = new Map<string, number>();
+/**
+ * Builds the name lookup from the champion list the app already holds.
+ *
+ * One index per mode, never one over the lot. Both spaces name the same 63
+ * champions, so a single map would answer "Ashe" with whichever row happened to
+ * be written last -- right by accident today, wrong by accident tomorrow, and
+ * never visibly either. Keeping them apart here rather than filtering at the
+ * call site is what makes the mode a question the caller has to answer instead
+ * of one it can forget to ask.
+ */
+export function championZoeker(
+  champions: Array<{ id: number; name: string; alias: string; mode: ModeId }>,
+): ChampionZoeker {
+  const perModus = new Map<ModeId, Map<string, number>>();
   for (const c of champions) {
-    perNaam.set(normaliseerNaam(c.name), c.jadeId);
-    perNaam.set(normaliseerNaam(c.alias), c.jadeId);
+    let perNaam = perModus.get(c.mode);
+    if (!perNaam) perModus.set(c.mode, (perNaam = new Map()));
+    perNaam.set(normaliseerNaam(c.name), c.id);
+    perNaam.set(normaliseerNaam(c.alias), c.id);
   }
-  return (naam: string) => perNaam.get(normaliseerNaam(naam)) ?? null;
+  return (naam, mode) => perModus.get(mode)?.get(normaliseerNaam(naam)) ?? null;
 }

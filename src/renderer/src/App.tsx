@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { AppSnapshot, Settings, UploadStatus } from "../../shared/types";
+import type { CollectedMode } from "../../core/modes/registry";
+import { modeCollects, modeCrawls } from "../../core/modes/registry";
+import { kiesStartModus, ModusMerk } from "./modus";
 import { MerkGeslepen } from "./merk";
 import { LiveView } from "./views/LiveView";
 import { ProfileView } from "./views/ProfileView";
@@ -47,6 +50,14 @@ export function App(): JSX.Element {
  */
 function ChampSelectWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
   const database = snapshot?.database;
+  // The figures for the mode being picked, not the app's totals. This window is
+  // advice about one lobby, so a count drawn from the other mode standing next
+  // to that advice is the same "412 games beside numbers from 128,628" that the
+  // per-mode figures were added to end -- at the size two modes make it.
+  const lobbyModus = snapshot?.champSelect?.mode;
+  const cijfers =
+    lobbyModus && modeCollects(lobbyModus) ? database?.perModus[lobbyModus] : undefined;
+  const spelen = cijfers ? (cijfers.community?.games ?? cijfers.matches) : null;
   return (
     <div className="app-backdrop relative flex h-full flex-col">
       <header className="drag flex h-10 shrink-0 items-center justify-between border-b border-line pr-1 pl-4">
@@ -57,10 +68,11 @@ function ChampSelectWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.
           <span className="text-[10px] tracking-[0.16em] text-ink-700 uppercase">
             Champion Select
           </span>
-          {database?.community || (database && database.matches > 0) ? (
+          <ModusMerk snapshot={snapshot} />
+          {spelen !== null && spelen > 0 ? (
             <span className="num text-[10px] text-ink-700">
-              {(database.community?.games ?? database.matches).toLocaleString("en-US")} games
-              {database.crawling ? " · syncing" : ""}
+              {spelen.toLocaleString("en-US")} games
+              {database?.crawling && lobbyModus && modeCrawls(lobbyModus) ? " · syncing" : ""}
             </span>
           ) : null}
         </div>
@@ -103,6 +115,22 @@ function MainWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element
   const [tab, setTab] = useState<Tab>("live");
   const inChampSelect = Boolean(snapshot?.champSelect);
 
+  /**
+   * Which mode the champion screens are showing, and it lives here.
+   *
+   * Here rather than in the main process because it is a property of this
+   * window: two people reading two windows may reasonably be reading two modes,
+   * and every call that reads statistics carries the mode along with it now, so
+   * there is nothing left to keep in step. Null until the first snapshot lands,
+   * because the honest starting mode depends on which mode actually has games
+   * and there is no way to know that before the figures arrive.
+   */
+  const [gekozenModus, setGekozenModus] = useState<CollectedMode | null>(null);
+  const database = snapshot?.database;
+  useEffect(() => {
+    if (database) setGekozenModus((huidig) => huidig ?? kiesStartModus(database));
+  }, [database]);
+
   // Champion select is almost always what you want to look at.
   useEffect(() => {
     if (inChampSelect) setTab("live");
@@ -118,12 +146,12 @@ function MainWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element
               boom af en zet een nieuwe neer, en dan speelt de animatie opnieuw
               af. Zonder key blijft het dezelfde node en gebeurt er niets. */}
           <div key={tab} className="tabwissel">
-          {!snapshot ? null : tab === "live" ? (
-            <LiveView snapshot={snapshot} onNavigate={setTab} />
+          {!snapshot || !gekozenModus ? null : tab === "live" ? (
+            <LiveView snapshot={snapshot} modus={gekozenModus} onNavigate={setTab} />
           ) : tab === "meta" ? (
-            <MetaView snapshot={snapshot} />
+            <MetaView snapshot={snapshot} modus={gekozenModus} onKiesModus={setGekozenModus} />
           ) : tab === "profile" ? (
-            <ProfileView snapshot={snapshot} />
+            <ProfileView snapshot={snapshot} modus={gekozenModus} />
           ) : tab === "runes" ? (
             <RunesView snapshot={snapshot} />
           ) : (
@@ -149,13 +177,28 @@ function TitleBar({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element {
         <MerkGeslepen size={46} />
       </div>
 
-      {/* The lockup: name above, mode below, both gold. Colouring only MID made
+      {/* The lockup: name above, game below, both gold. Colouring only MID made
           the eye split one name into two words, and the design wants a single
-          object sitting on the rail. */}
+          object sitting on the rail.
+
+          The second line names the game and stays put. It deliberately does not
+          swap to "LEAGUE CLASSIC" when you are in Classic: this bar was cut from
+          nine things to seven to lose the two that never stopped changing, and a
+          wordmark that changes width every time a game starts puts that mistake
+          back into the brand itself. The mode gets its own marker beside this
+          lockup instead, where it can come and go without moving anything. */}
       <div className="flex flex-col justify-center pl-1">
         <span className="woordmerk">ALLMID</span>
-        <span className="woordmerk-sub">League Classic</span>
+        <span className="woordmerk-sub">League of Legends</span>
       </div>
+
+      {/* Beside the lockup, and not over in the cluster on the right, because
+          this is the one thing in the bar that comes and goes. Here it grows
+          into empty space and nothing moves; among the badges on the right it
+          would shove the update notice, the sharing pill, the gear and the Riot
+          ID sideways every time a game started -- which is the same restlessness
+          the subline above was just kept out of. */}
+      <ModusMerk snapshot={snapshot} className="ml-4" />
 
       {/* Pinned to the top of the bar rather than centred in it. The bar grew
           to hold the emblem, but the drawing keeps this cluster where a window's

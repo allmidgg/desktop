@@ -34,7 +34,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { LcuClient, LcuHttpError, LcuNotRunningError } from "../core/lcu/connector";
 import type { Game } from "../core/lcu/types";
-import { fetchCurrentSummoner, fetchJadeGames } from "../core/services/player";
+import { fetchCurrentSummoner, fetchRecentGames } from "../core/services/player";
 
 const c = {
   reset: "\x1b[0m", dim: "\x1b[2m", bold: "\x1b[1m",
@@ -219,7 +219,7 @@ async function main(): Promise<void> {
   let gameId: number | null = Number.isFinite(argGameId) && argGameId > 0 ? argGameId : null;
   let ownGame = false;
   if (gameId === null) {
-    const [recent] = await fetchJadeGames(client, me.puuid, 1);
+    const [recent] = await fetchRecentGames(client, me.puuid, 1);
     if (recent) {
       gameId = recent.gameId;
       ownGame = true;

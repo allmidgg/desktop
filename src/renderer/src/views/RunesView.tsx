@@ -37,15 +37,24 @@ export function RunesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element 
     setStatus(null);
   }, [championId, snapshot.connection]);
 
+  // The browse mode comes first, before the search box: the snapshot carries
+  // both id spaces and both name the same champions, so an unfiltered list would
+  // show Ashe twice and pick whichever row was written last.
+  const inModus = useMemo(
+    () => snapshot.champions.filter((c) => c.mode === snapshot.loadoutModus),
+    [snapshot.champions, snapshot.loadoutModus],
+  );
   const champions = useMemo(
     () =>
-      [...snapshot.champions]
+      inModus
         .filter((c) => c.name.toLowerCase().includes(search.trim().toLowerCase()))
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [snapshot.champions, search],
+    [inModus, search],
   );
 
-  const selected = snapshot.champions.find((c) => c.jadeId === championId) ?? null;
+  // Off the unsearched list on purpose: typing in the box narrows what is
+  // offered, it does not unpick what you already chose.
+  const selected = inModus.find((c) => c.id === championId) ?? null;
   // Prefer an empty page so nothing of yours is lost.
   const targetPage = snapshot.runePages.find((p) => p.isEmpty) ?? snapshot.runePages[0];
 
@@ -77,10 +86,10 @@ export function RunesView({ snapshot }: { snapshot: AppSnapshot }): JSX.Element 
         <div className="max-h-[calc(100vh-220px)] space-y-1 overflow-y-auto pr-1">
           {champions.map((champion) => (
             <button
-              key={champion.jadeId}
-              onClick={() => setChampionId(champion.jadeId)}
+              key={champion.id}
+              onClick={() => setChampionId(champion.id)}
               className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors ${
-                championId === champion.jadeId ? "bg-gold-400/12 text-gold-300" : "hover:bg-white/5"
+                championId === champion.id ? "bg-gold-400/12 text-gold-300" : "hover:bg-white/5"
               }`}
             >
               <ChampionIcon iconPath={champion.iconPath} name={champion.name} size={30} />

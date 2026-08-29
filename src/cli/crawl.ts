@@ -9,8 +9,8 @@
  */
 import { join } from "node:path";
 import { LcuClient, LcuNotRunningError } from "../core/lcu/connector";
-import { JadeCatalog } from "../core/jade/catalog";
-import { MatchStore, defaultStorePath } from "../core/services/matchStore";
+import { GameCatalog } from "../core/jade/catalog";
+import { MatchStores } from "../core/services/matchStore";
 import { MatchCrawler } from "../core/services/crawler";
 import { JadeStats, MIN_MATCHUP_GAMES } from "../core/services/stats";
 import { fetchCurrentSummoner } from "../core/services/player";
@@ -22,11 +22,19 @@ async function main(): Promise<void> {
   const maxPlayers = arg ? Number(arg) : Number.POSITIVE_INFINITY;
 
   const client = await LcuClient.connect();
-  const catalog = await JadeCatalog.load(client);
-  await catalog.save(join(process.cwd(), "data", "catalog.json"));
+  const catalogus = await GameCatalog.load(client);
+  await catalogus.save(join(process.cwd(), "data", "catalog.json"));
+  // A Classic crawler reads Classic names. Said out loud rather than left to
+  // whichever index a shared lookup would have reached first.
+  const catalog = catalogus.for("lol:jade");
 
-  const store = new MatchStore(defaultStorePath(process.cwd()));
-  await store.load();
+  // The router, and only the Classic file opened. The crawler writes through
+  // MatchStores now, which is what decides where a game goes; loading Classic
+  // alone is still right here because that is the only mode it may crawl, and
+  // MatchStores.add() opens any other store itself before writing to it.
+  const stores = new MatchStores(process.cwd());
+  await stores.load("lol:jade");
+  const store = stores.for("lol:jade");
 
   console.log(`\n${c.bold}AllMid crawler${c.reset}`);
   console.log(`${c.dim}database: ${store.size} games, ${store.knownPuuids.length} spelers bekend${c.reset}`);
@@ -39,7 +47,7 @@ async function main(): Promise<void> {
   const me = await fetchCurrentSummoner(client);
   const crawler = new MatchCrawler(
     client,
-    store,
+    stores,
     (progress) => {
       process.stdout.write(
         `\r  ${progress.visitedPlayers} spelers bezocht, ${progress.queuedPlayers} in de rij` +
@@ -71,7 +79,7 @@ async function main(): Promise<void> {
   await crawler.run(maxPlayers);
   console.log("\n");
 
-  const stats = JadeStats.from(store.all());
+  const stats = JadeStats.from(store.all(), "lol:jade");
   const coverage = stats.coverage();
   console.log(`${c.bold}Database${c.reset}`);
   console.log(`  ${stats.totalMatches} games`);

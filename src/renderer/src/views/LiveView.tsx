@@ -2,7 +2,7 @@
  * The screen that follows whatever you are doing in the client.
  *
  * During champion select it hands over to the scout; the rest of the time it
- * shows your recent Classic games.
+ * shows your recent games, each one labelled with the mode it was played in.
  */
 import { bouwPad } from "../../../shared/build";
 import type {
@@ -16,9 +16,13 @@ import { LiveTijdlijnpaneel } from "./Tijdlijn";
 import { MerkGeslepen } from "../merk";
 import { Fragment, useEffect, useState } from "react";
 import {
-  asset, ChampionIcon, EmptyState, FormDots, ItemRow, Panel, RankPill, SectionTitle, SkillGrid,
-  SpellPair, SplashBackdrop, Winrate, WinrateRing,
+  asset, catalogusIndex, ChampionIcon, EmptyState, FormDots, ItemRow, Panel, RankPill,
+  SectionTitle, SkillGrid, SpellPair, SplashBackdrop, Winrate, WinrateRing,
 } from "../ui";
+import { COLLECTED_MODES, describeMode, modeLabel } from "../../../core/modes/registry";
+import type { CollectedMode } from "../../../core/modes/registry";
+import type { ModeId } from "../../../core/modes/types";
+import { ModusLeeg, rangVoor, samenvatting } from "../modus";
 
 const PHASE_LABELS: Record<string, string> = {
   None: "Not in a lobby",
@@ -34,12 +38,51 @@ const PHASE_LABELS: Record<string, string> = {
   Reconnect: "Reconnecting",
 };
 
-const QUEUE_LABELS: Record<number, string> = {
-  3260: "Normal",
-  3262: "Normal",
-  4310: "Ranked Solo",
-  4320: "Co-op vs AI",
+/**
+ * What a queue is called, per mode.
+ *
+ * Nested by mode rather than one flat table, because a queue id only means
+ * something inside a mode: nothing stops Riot from numbering a modern queue the
+ * way a Classic one is numbered, and a flat table would then quietly answer for
+ * the wrong game. The names are the client's own, from
+ * /lol-game-queues/v1/queues, so a row here can be checked against the thing it
+ * describes rather than against somebody's memory.
+ *
+ * Not exhaustive and not meant to be: the eighty-eight queues the client
+ * publishes are its business, and a queue missing here falls back to naming the
+ * mode, which is still true.
+ */
+const QUEUE_LABELS: Partial<Record<ModeId, Record<number, string>>> = {
+  "lol:jade": {
+    3260: "Normal",
+    3262: "Normal",
+    4310: "Ranked Solo",
+    4320: "Co-op vs AI",
+  },
+  "lol:sr": {
+    400: "Draft Pick",
+    420: "Ranked Solo/Duo",
+    430: "Blind Pick",
+    440: "Ranked Flex",
+    830: "Co-op vs AI",
+    840: "Co-op vs AI",
+    850: "Co-op vs AI",
+  },
 };
+
+/**
+ * The one line under a match row that says what you played.
+ *
+ * The mode comes first and is never left out, because with two modes in one
+ * list the queue name alone stops being an answer: "Ranked Solo" is true of
+ * both games and identifies neither. Unplaced games say so instead of borrowing
+ * a name.
+ */
+function modusTag(mode: ModeId, queueId: number): string {
+  const naam = describeMode(mode)?.shortLabel ?? modeLabel(mode);
+  const queue = QUEUE_LABELS[mode]?.[queueId];
+  return queue ? `${naam} · ${queue}` : naam;
+}
 
 /**
  * Where this screen can send you.
@@ -51,15 +94,24 @@ export type SnelnavDoel = "meta" | "profile" | "runes" | "masteries";
 
 export function LiveView({
   snapshot,
+  modus,
   onNavigate,
 }: {
   snapshot: AppSnapshot;
+  /**
+   * The mode the window is browsing.
+   *
+   * It reaches the tier list and the champion panel beside it, which are things
+   * you went and opened. It does not reach the live panel or champion select:
+   * those are about one particular game, and a game carries its own mode.
+   */
+  modus: CollectedMode;
   /** The tab strip lives in the shell, so the view cannot switch it itself. */
   onNavigate: (tab: SnelnavDoel) => void;
 }): JSX.Element {
   if (snapshot.connection !== "connected") return <GeenGame snapshot={snapshot} />;
   if (snapshot.champSelect) return <ChampSelectView snapshot={snapshot} />;
-  return <LiveInhoud snapshot={snapshot} onNavigate={onNavigate} />;
+  return <LiveInhoud snapshot={snapshot} modus={modus} onNavigate={onNavigate} />;
 }
 
 /**
@@ -68,8 +120,13 @@ export function LiveView({
  * Een lijst en geen vaste tekst, omdat er een tweede bij komt. Wat er niet in
  * staat zijn games die we nog niet doen -- een rij grijze logo's is een belofte,
  * en die maken we hier niet.
+ *
+ * The second one has come. Built from COLLECTED_MODES rather than written out,
+ * so this list cannot go on naming Classic alone once a mode is added; the row
+ * used to carry a hardcoded "Classic" tag beside the game's name, which was true
+ * of the only mode there was and is a false claim now that there are two.
  */
-const GEVOLGDE_GAMES = [{ naam: "League of Legends", modus: "Classic", actief: true }];
+const GEVOLGDE_GAMES = COLLECTED_MODES.map((mode) => ({ mode, naam: modeLabel(mode) }));
 
 /**
  * Wat je ziet als er niets draait.
@@ -98,7 +155,7 @@ function GeenGame({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
         <div className="mb-6 space-y-1.5">
           {GEVOLGDE_GAMES.map((g) => (
             <div
-              key={g.naam}
+              key={g.mode}
               className="flex items-center justify-between rounded-lg border border-line bg-white/[0.02] px-3.5 py-2.5 text-left"
             >
               <span className="flex items-center gap-2.5">
@@ -108,7 +165,6 @@ function GeenGame({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
                   }`}
                 />
                 <span className="text-[13px] font-medium text-ink-200">{g.naam}</span>
-                <span className="text-[11px] tracking-[0.1em] text-ink-600 uppercase">{g.modus}</span>
               </span>
               <span className="num text-[11px] text-ink-600">
                 {clientAan ? "watching" : "client closed"}
@@ -131,9 +187,11 @@ function GeenGame({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
 
 function LiveInhoud({
   snapshot,
+  modus,
   onNavigate,
 }: {
   snapshot: AppSnapshot;
+  modus: CollectedMode;
   onNavigate: (tab: SnelnavDoel) => void;
 }): JSX.Element {
   const [geopend, setGeopend] = useState<number | null>(null);
@@ -152,17 +210,32 @@ function LiveInhoud({
           is de context ernaast en blijft smal. */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-5">
-          <StatusBalk snapshot={snapshot} />
+          <StatusBalk snapshot={snapshot} modus={modus} />
 
           <div>
-            <SectionTitle hint={`${snapshot.recentGames.length} games`}>
-              Recent Classic games
-            </SectionTitle>
+            {/* The heading names no mode, because the list under it holds every
+                mode AllMid collects: fetchRecentGames filters on modeCollects,
+                not on Classic. It said "Recent Classic games" over a count that
+                was the total of both, so nine Classic games and six modern ones
+                read as fifteen Classic games -- the one place in the window
+                where a figure spanned two modes and claimed one. The mode is not
+                lost by dropping it from here: every row states it beside its own
+                result, off the game's own record, through modusTag.
+
+                Not the browse mode either. This list is your history and does
+                not filter, so heading it with the mode the window happens to be
+                pointed at would make the same false claim about the same
+                unchanged rows. */}
+            <SectionTitle hint={`${snapshot.recentGames.length} games`}>Recent games</SectionTitle>
             {snapshot.recentGames.length === 0 ? (
               <Panel className="p-6">
                 <EmptyState
-                  title="No Classic games yet"
-                  hint="Games appear here after you play one. AllMid reads them from your own client."
+                  title="No games yet"
+                  hint={
+                    `Games appear here after you play one in ` +
+                    `${COLLECTED_MODES.map((mode) => modeLabel(mode)).join(" or ")}.` +
+                    ` AllMid reads them from your own client.`
+                  }
                 />
               </Panel>
             ) : (
@@ -186,12 +259,13 @@ function LiveInhoud({
         <div className="space-y-5">
           <TierKolom
             snapshot={snapshot}
+            modus={modus}
             gekozen={gekozen}
             onKies={setGekozen}
             onNavigate={onNavigate}
           />
-          <ChampionKolom snapshot={snapshot} championId={gekozen} />
-          <JouwStats snapshot={snapshot} />
+          <ChampionKolom snapshot={snapshot} modus={modus} championId={gekozen} />
+          <JouwStats snapshot={snapshot} modus={modus} />
         </div>
       </div>
     </div>
@@ -299,7 +373,19 @@ function Snelnav({ onNavigate }: { onNavigate: (tab: SnelnavDoel) => void }): JS
 }
 
 /** De statusbalk: waar je nu bent, en je rang ernaast. */
-function StatusBalk({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
+function StatusBalk({
+  snapshot,
+  modus,
+}: {
+  snapshot: AppSnapshot;
+  modus: CollectedMode;
+}): JSX.Element {
+  // The mode the window is pointed at, so the pill and the winrate beside it
+  // are about the same game. Both drop out rather than fall back when that mode
+  // has nothing: a form line borrowed from the other mode would look exactly
+  // like a form line that was measured.
+  const stats = samenvatting(snapshot.profile, modus);
+  const rang = rangVoor(snapshot.profile, modus);
   return (
     <Panel className="flex items-center justify-between gap-6 p-5">
       <div>
@@ -318,11 +404,24 @@ function StatusBalk({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
       </div>
       {snapshot.profile ? (
         <div className="status-rang flex flex-col items-end gap-2">
-          <RankPill rank={snapshot.profile.rank} />
-          <div className="flex items-center gap-3">
-            <Winrate winrate={snapshot.profile.jade.winrate} games={snapshot.profile.jade.games} />
-            <FormDots results={snapshot.profile.jade.recentResults} />
-          </div>
+          {rang === undefined ? null : <RankPill rank={rang} />}
+          {stats ? (
+            <div className="flex items-center gap-3">
+              {/* Which game these three things describe. Everything in this
+                  column -- the pill above, this winrate, these dots -- belongs
+                  to `modus`, and `modus` is set on the Meta tab, which is not
+                  this one: a reader can arrive here with the switch flipped and
+                  nothing on this screen said so. The Meta screen names its pool
+                  in the line beside its lane buttons and JouwStats puts it in
+                  its heading; this is the same sentence in the row that is
+                  already here, so the panel gains a word and not a line. */}
+              <span className="text-[11px] text-ink-300">
+                {describeMode(modus)?.shortLabel ?? modeLabel(modus)}
+              </span>
+              <Winrate winrate={stats.winrate} games={stats.games} />
+              <FormDots results={stats.recentResults} />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </Panel>
@@ -383,27 +482,43 @@ const TIER_REGEL = "S 55%+ · A 52%+ · B 49%+ · C 46%+ · D below";
  */
 function TierKolom({
   snapshot,
+  modus,
   gekozen,
   onKies,
   onNavigate,
 }: {
   snapshot: AppSnapshot;
+  modus: CollectedMode;
   gekozen: number | null;
   onKies: (id: number) => void;
   onNavigate: (tab: SnelnavDoel) => void;
 }): JSX.Element {
   const [rijen, setRijen] = useState<TierEntry[] | null>(null);
-  const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
+  // A tier list is browsed, so it takes the browse mode.
+  const champions = catalogusIndex(snapshot.champions, modus);
+  // This mode's pool, so the list refetches when its own figures move and not
+  // when the other mode's do.
+  const cijfers = snapshot.database.perModus[modus];
+  const spelen = cijfers ? (cijfers.community?.games ?? cijfers.matches) : 0;
 
   useEffect(() => {
-    void window.jade.getTierList("MIDDLE", 25).then(setRijen);
-  }, [snapshot.database.matches, snapshot.database.community?.games]);
+    void window.jade.getTierList(modus, "MIDDLE", 25).then(setRijen);
+  }, [modus, spelen]);
 
   return (
     <Panel className="p-4">
       <div className="mb-4 flex items-baseline justify-between">
         <p className="sectiekop">Mid tier list</p>
-        <span className="text-[11px] text-ink-300">at least 25 games</span>
+        {/* The mode belongs in this line for the same reason the Meta screen
+            prints it under its own tier list: a band of winrates with no game
+            named beside it is read as the app's opinion rather than one mode's,
+            and the switch that decides which mode this is lives on another tab.
+            The short label rather than the full one -- this column is 360px at
+            the xl breakpoint and "at least 25 games" is already sharing the
+            line with the heading. */}
+        <span className="text-[11px] text-ink-300">
+          {describeMode(modus)?.shortLabel ?? modeLabel(modus)} · at least 25 games
+        </span>
       </div>
 
       {!rijen ? (
@@ -415,7 +530,21 @@ function TierKolom({
           ))}
         </div>
       ) : rijen.length === 0 ? (
-        <EmptyState title="Not enough games yet" hint="The database grows while you play." />
+        // Same two absences the Meta screen distinguishes, and for the same
+        // reason: "the database grows while you play" is a promise about a mode
+        // the crawler is allowed into, and saying it about one it is not sends
+        // the reader back tomorrow for numbers that are not coming. No switch
+        // offered here -- this column has none, and flipping the whole window
+        // from a corner of the Live screen would move a choice out from under
+        // whoever made it.
+        spelen === 0 ? (
+          <ModusLeeg modus={modus} />
+        ) : (
+          <EmptyState
+            title="Not enough games yet"
+            hint={`This lane fills in as more ${modeLabel(modus)} games come in.`}
+          />
+        )
       ) : (
         <>
           <div className="grid grid-cols-6 gap-1.5 pt-1">
@@ -478,15 +607,18 @@ const CHAMPION_ITEMS = 7;
 /** Wat er bekend is over de champion die je aanklikte. */
 function ChampionKolom({
   snapshot,
+  modus,
   championId,
 }: {
   snapshot: AppSnapshot;
+  modus: CollectedMode;
   championId: number | null;
 }): JSX.Element {
   const [detail, setDetail] = useState<ChampionDetail | null>(null);
   const [alles, setAlles] = useState(false);
-  const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
-  const items = new Map(snapshot.items.map((i) => [i.jadeId, i]));
+  // Opened off the tier list beside it, so the same browse mode.
+  const champions = catalogusIndex(snapshot.champions, modus);
+  const items = catalogusIndex(snapshot.items, modus);
 
   useEffect(() => {
     // An expanded build row belongs to the champion it was opened on, so it
@@ -497,8 +629,8 @@ function ChampionKolom({
       return;
     }
     setDetail(null);
-    void window.jade.getChampionDetail(championId, "MIDDLE").then(setDetail);
-  }, [championId]);
+    void window.jade.getChampionDetail(modus, championId, "MIDDLE").then(setDetail);
+  }, [modus, championId]);
 
   const champ = championId === null ? null : champions.get(championId);
 
@@ -626,33 +758,43 @@ function ChampionKolom({
  * is not a token in @theme, so Tailwind never generated the class and every one
  * of these labels inherited ink-100 and came out near white.
  */
-function JouwStats({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
-  const jade = snapshot.profile?.jade;
+function JouwStats({
+  snapshot,
+  modus,
+}: {
+  snapshot: AppSnapshot;
+  modus: CollectedMode;
+}): JSX.Element {
+  // One mode's numbers, and the heading says which. It used to say "(Classic)"
+  // in fixed type, which was true of the only mode there was; the mode now
+  // names itself, so the heading cannot go on claiming Classic about figures
+  // that are not.
+  const stats = samenvatting(snapshot.profile, modus);
   return (
     <Panel className="p-4">
       <div className="mb-3 flex items-baseline justify-between">
-        <p className="sectiekop">Your stats (Classic)</p>
+        <p className="sectiekop">Your stats ({describeMode(modus)?.shortLabel ?? modeLabel(modus)})</p>
         {/* The window is not a guess: src/main/service.ts asks
             buildPlayerProfile for thirty games. Saying which thirty beats
             leaving the reader to work out what "your stats" averages over. */}
         <span className="text-[10px] text-ink-300">Last 30 games</span>
       </div>
-      {!jade || jade.games === 0 ? (
+      {!stats || stats.games === 0 ? (
         <EmptyState title="No games recorded" hint="Your own numbers appear once you have played." />
       ) : (
         <>
           <div className="stats-kader">
             <div className="stats-ring">
-              <WinrateRing winrate={jade.winrate} games={jade.games} />
+              <WinrateRing winrate={stats.winrate} games={stats.games} />
             </div>
             <div className="stats-cel">
               <p className="num text-[24px] leading-none font-bold text-gold-400">
-                {jade.kda.toFixed(2)}
+                {stats.kda.toFixed(2)}
               </p>
               <p className="mt-1.5 text-[10px] tracking-[0.1em] text-ink-300 uppercase">KDA</p>
             </div>
             <div className="stats-cel">
-              <p className="num text-[24px] leading-none font-bold text-gold-400">{jade.games}</p>
+              <p className="num text-[24px] leading-none font-bold text-gold-400">{stats.games}</p>
               <p className="mt-1.5 text-[10px] tracking-[0.1em] text-ink-300 uppercase">Games</p>
             </div>
           </div>
@@ -660,18 +802,18 @@ function JouwStats({ snapshot }: { snapshot: AppSnapshot }): JSX.Element {
           {/* No rule of its own: the bottom edge of the frame above is already
               the line the mock-up separates these two rows with. */}
           <div className="mt-3.5 flex items-center justify-between gap-3">
-            {jade.recentResults.length > 0 ? (
+            {stats.recentResults.length > 0 ? (
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-ink-300">Recent form</span>
-                <FormDots results={jade.recentResults} />
+                <FormDots results={stats.recentResults} />
               </div>
             ) : (
               <div />
             )}
             <div className="text-right">
               <p className="num text-[14px] text-ink-100">
-                {jade.avgKills.toFixed(1)} / {jade.avgDeaths.toFixed(1)} /{" "}
-                {jade.avgAssists.toFixed(1)}
+                {stats.avgKills.toFixed(1)} / {stats.avgDeaths.toFixed(1)} /{" "}
+                {stats.avgAssists.toFixed(1)}
               </p>
               <p className="text-[11px] text-ink-300">avg KDA</p>
             </div>
@@ -738,8 +880,11 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
   // Everything on this screen that counts down reads off these two rather than
   // off the snapshot, so the clocks keep moving between polls.
   const { nu, sindsPoll } = useSpeelklok(live.gameTimeSeconds);
-  const items = new Map(snapshot.items.map((i) => [i.jadeId, i]));
-  const champions = new Map(snapshot.champions.map((c) => [c.jadeId, c]));
+  // The running game's mode, not the browse mode: what you are looking at here
+  // is a game, and a game carries its own. It now says so itself, resolved from
+  // the map number and the mode string the live endpoint reports.
+  const items = catalogusIndex(snapshot.items, live.mode);
+  const champions = catalogusIndex(snapshot.champions, live.mode);
   const jij = live.players.find((p) => p.isYou) ?? null;
   const orde = live.players.filter((p) => p.team === "ORDER");
   const chaos = live.players.filter((p) => p.team === "CHAOS");
@@ -751,7 +896,13 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
         hint={
           <span className="num">
             {klok(nu)}
-            {live.isClassic ? "" : ` · ${live.mode}`}
+            {/* Our own name for the mode where we have one, and the client's raw
+                string where we do not. Printing the raw string always would put
+                "CLASSIC" beside a modern game, which is Riot's word for the
+                opposite of what this app calls Classic. */}
+            {live.isJade
+              ? ""
+              : ` · ${live.mode === "unknown" ? live.gameMode || "unknown mode" : modeLabel(live.mode)}`}
           </span>
         }
       >
@@ -767,11 +918,12 @@ function LiveGamePanel({ live, snapshot }: { live: LiveGameSnapshot; snapshot: A
       {/* The one thing a finished Classic match can never give back. Drawn here
           while it is still being recorded, so what you watch build up during the
           game is exactly what you get to read back afterwards. */}
-      {/* Dezelfde poort als oogst() gebruikt (liveGame.ts:187). Zonder deze
+      {/* Dezelfde poort als LiveGameWatcher.oogst() gebruikt, dat een snapshot
+          zonder isJade weigert te oogsten. Zonder deze
           voorwaarde belooft het paneel "Being recorded now ... written to
           buildorders.jsonl" op precies het scherm waar de note erboven zegt
           "nothing here is recorded". */}
-      {live.isClassic ? (
+      {live.isJade ? (
         <LiveTijdlijnpaneel live={live} items={items} champions={champions} />
       ) : null}
 
@@ -1168,9 +1320,14 @@ function GameRow({
   open: boolean;
   onToggle: () => void;
 }): JSX.Element {
-  const champion = snapshot.champions.find((c) => c.jadeId === game.championId);
-  const items = new Map(snapshot.items.map((i) => [i.jadeId, i]));
-  const spells = new Map(snapshot.spells.map((s) => [s.jadeId, s]));
+  // The mode of THIS game, settled in the main process from the map and the
+  // mode string as well as the queue -- never the browse mode. Reading back a
+  // game played in one mode while the window is pointed at another is the
+  // ordinary case in a history list, not the edge case.
+  const modus = game.modus;
+  const champion = snapshot.champions.find((c) => c.mode === modus && c.id === game.championId);
+  const items = catalogusIndex(snapshot.items, modus);
+  const spells = catalogusIndex(snapshot.spells, modus);
 
   const minutes = game.durationSeconds / 60;
   const kda = game.deaths === 0 ? game.kills + game.assists : (game.kills + game.assists) / game.deaths;
@@ -1216,8 +1373,12 @@ function GameRow({
           className={`truncate text-[11px] font-semibold ${game.win ? "text-jade-400" : "text-loss-400"}`}
         >
           {game.win ? "Victory" : "Defeat"}
+          {/* The game's own mode, never the running one. The old fallback
+              labelled every unrecognised queue "Classic", which was harmless
+              while there was one mode and becomes a quiet lie the moment there
+              are two -- and it is a lie the reader cannot check by looking. */}
           <span className="ml-1.5 font-normal text-ink-500">
-            {QUEUE_LABELS[game.queueId] ?? "Classic"}
+            {modusTag(modus, game.queueId)}
           </span>
         </p>
       </div>

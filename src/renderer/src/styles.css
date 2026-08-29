@@ -812,22 +812,48 @@ body::after {
   color: var(--color-gold-300);
 }
 
-/* 0.16em, not 0.22em. "LEAGUE CLASSIC" measures 104 CSS wide at a 7px cap, so
-   10px with about a sixth of an em between the letters; at 0.22em the line came
-   out 118 and overhung the wordmark above it, and the two lines stopped reading
-   as one lockup. gold-500 because that is literally what is on the pixels:
-   (186,145,80) against the token's (184,156,74). The old `text-ink-600` was
-   worse than wrong, it was nothing -- that token is not in @theme, so the class
-   was never generated and the line inherited ink-100 and came out near white. */
+/* 0.11em, down from 0.16em, because the string got longer.
+   The line says "LEAGUE OF LEGENDS" now and it says it whatever mode you are
+   in -- the mode gets its own marker beside the lockup instead of swapping this
+   text, so the wordmark is never a thing that changes width while you look at
+   it. That is three characters more than "LEAGUE CLASSIC", and the note this
+   replaces was already tracking the width: at 0.22em the old line came out 118
+   and overhung the wordmark above it, and the two lines stopped reading as one
+   lockup.
+   Measured rather than guessed, because there is no Inter in this build -- no
+   @font-face, no font file, nothing in index.html -- so --font-sans falls
+   through to Segoe UI on Windows 10, and the advance widths below are that
+   font's own hmtx table at these exact sizes. "ALLMID" at 20px/0.06em is 78.8
+   CSS. The old subline was 97.0; at 0.16em the new one would be 121.6, and at
+   0.11em it is 113.1. So the tracking cannot hold the old measure and keep the
+   treatment: matching 97.0 exactly needs 0.015em, which is not tracked
+   uppercase any more, it is cramped uppercase. 0.11em keeps the letterform and
+   lands between the width that was accepted and the one that was rejected.
+   gold-500 because that is literally what is on the pixels: (186,145,80)
+   against the token's (184,156,74). The old `text-ink-600` was worse than
+   wrong, it was nothing -- that token is not in @theme, so the class was never
+   generated and the line inherited ink-100 and came out near white. */
 .woordmerk-sub {
   margin-top: 4px;
   font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.11em;
   line-height: 1;
   text-transform: uppercase;
   color: var(--color-gold-500);
 }
+
+/* The mode marker has no rule here. It is `badge badge-goud`, the utility six
+   hundred lines above, wearing the muted step of the same gold on its second
+   word. There was a .modusmerk rule in this spot that rebuilt that utility --
+   same --radius-xs, a gold edge, a ten-percent gold wash -- and the only thing
+   it bought was a 22px height to match .deelpil below. The pill lives in the
+   top-aligned cluster at the far right of the bar while the marker stands beside
+   the lockup in a row that centres its children, so there was no shared edge for
+   that height to hold: at the badge's own 19.7px (0.66rem over 1.25, plus 0.14rem
+   of padding and a 1px border, twice) it still centres in the same place, and the
+   tier chips on the champion panel are already this shape. One definition of a
+   shape is one shape; two is two shapes waiting to drift apart. */
 
 /* The sharing pill carries its tint at rest instead of only under the cursor.
    It is the one control in the bar that is always doing something, and the

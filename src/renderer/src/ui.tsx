@@ -1,10 +1,31 @@
 /** Small building blocks shared by every view. */
 import { Fragment, type ReactNode } from "react";
 import type { RankedSummary } from "../../core/services/player";
+import type { ModeId } from "../../core/modes/types";
+import { modeLabel } from "../../core/modes/registry";
 import { MerkWapen } from "./merk";
 
 /** Client assets are proxied through the jade:// protocol in the main process. */
 export const asset = (path: string): string => (path ? `jade://asset${path}` : "");
+
+/**
+ * The catalogue rows for one mode, keyed by id.
+ *
+ * A filter and not merely an index, because the snapshot carries both id spaces
+ * in one array. Indexing the lot hands the same key to two different rows: the
+ * client publishes summoner spell 75 twice -- once as a nameless leftover and
+ * once as Clairvoyance -- and `new Map(...)` silently keeps whichever came last.
+ * That happened to be the right one while the app was Classic-only and stops
+ * being so the moment it is not, and a wrong icon is not something anyone
+ * reports as a bug.
+ *
+ * Callers pass the mode of what they are DRAWING. A tier list takes the browse
+ * mode; a row about one particular game takes that game's mode.
+ */
+export const catalogusIndex = <T extends { id: number; mode: ModeId }>(
+  rows: readonly T[],
+  mode: ModeId,
+): Map<number, T> => new Map(rows.filter((row) => row.mode === mode).map((row) => [row.id, row]));
 
 export function Panel({
   children,
@@ -482,20 +503,49 @@ export function EmptyState({
  * you finished thirty seconds ago it is false the other way: nothing needs
  * crawling, the client has simply not published the match yet, and one more look
  * would have it.
+ *
+ * The fourth is the same mistake at the size two modes make it. Every one of the
+ * three above assumes the crawler is allowed into the mode the row was played
+ * in, and for the modern game it is not: modeCrawls("lol:sr") is false, and it
+ * is false because gathering strangers' modern games into a shared aggregate is
+ * exactly what the developer policy is about. So a modern game opened here got
+ * "the crawler has not come across it. This one does fill in over time", which
+ * is wrong three times over -- the game IS in the database, the crawler is not
+ * coming for it, and nothing fills in. Getting a fact wrong is bad; getting it
+ * wrong in the confident sentence written to correct two earlier wrong ones is
+ * worse, because it teaches the reader that this panel knows what it is talking
+ * about.
+ *
+ * What the honest sentence says is tied to gameDetail: it reads the Classic
+ * store alone, so a modern game comes back null however new or old it is, and
+ * the answer cannot depend on the clock the way the other three do. If that
+ * lookup ever takes the mode of the row, this branch stops being reachable for
+ * a stored game and its wording has to be revisited rather than left standing.
  */
-export type GeenDetailReden = "te-kort" | "nog-niet" | "niet-gecrawld";
+export type GeenDetailReden = "te-kort" | "nog-niet" | "niet-gecrawld" | "modus-zonder-detail";
 
 export function GeenDetail({
   reden,
+  modus,
   minimumSeconden,
   onOpnieuw,
 }: {
   reden: GeenDetailReden;
+  /**
+   * The mode of the GAME, so the sentence can name it.
+   *
+   * Not the mode the window is browsing: reading back a game from one mode
+   * while pointed at the other is the ordinary case on this screen, and a
+   * sentence that named the browse mode here would explain the absence of one
+   * game by describing a different one.
+   */
+  modus: ModeId;
   /** The floor the store applies, quoted rather than restated. */
   minimumSeconden: number;
   /** Only ever used for "nog-niet", where looking again is the actual fix. */
   onOpnieuw?: () => void;
 }): JSX.Element {
+  const naam = modeLabel(modus);
   const teksten: Record<GeenDetailReden, { titel: string; hint: string }> = {
     "te-kort": {
       titel: "This game was too short to be kept",
@@ -515,6 +565,14 @@ export function GeenDetail({
       hint:
         "It was played before AllMid began keeping your own games, and the crawler has not come" +
         " across it. This one does fill in over time.",
+    },
+    "modus-zonder-detail": {
+      titel: `AllMid cannot open a ${naam} game yet`,
+      hint:
+        `Your own ${naam} games are stored and counted -- they are on this list and in the` +
+        ` figures on Live and Profile -- but the scorecard behind a row is read from the Classic` +
+        ` database only. AllMid also never gathers anyone else's ${naam} games, so unlike a` +
+        ` missing Classic game this one will not appear by waiting.`,
     },
   };
   const { titel, hint } = teksten[reden];

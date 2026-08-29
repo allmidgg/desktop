@@ -138,31 +138,99 @@ function zoekDatabase(opgegeven) {
  * data/catalog.json; welke 63 champions de site kent staat in het beeldmanifest,
  * en dat is ook precies de lijst waarop build.mjs stukloopt als er een mist.
  */
-const catalogus = JSON.parse(readFileSync(join(REPO, "data", "catalog.json"), "utf8"));
+const catalogusBestand = JSON.parse(readFileSync(join(REPO, "data", "catalog.json"), "utf8"));
+if (catalogusBestand.version !== 2) {
+  fout("data/catalog.json is van een oudere vorm. Start de app een keer zodat hij hem opnieuw ophaalt.");
+}
+/**
+ * Alleen de Classic-helft.
+ *
+ * De catalogus draagt sinds de modusomslag beide ID-ruimtes in dezelfde arrays,
+ * met een `space` per regel. Dit script telt Classic-games, dus het leest de
+ * Classic-regels; de andere helft er ongefilterd bij nemen zou champion 22 naast
+ * champion 60022 zetten en spell 4 naast spell 74.
+ */
+const catalogus = {
+  champions: catalogusBestand.champions.filter((c) => c.space === "jade"),
+  items: catalogusBestand.items.filter((i) => i.space === "jade"),
+  spells: catalogusBestand.spells.filter((s) => s.space === "jade"),
+};
 const roster = JSON.parse(readFileSync(join(REPO, "site", "img", "champions", "manifest.json"), "utf8")).champions;
 
 const CHAMPION_OFFSET = 60000;
 const ITEM_OFFSET = 770000;
 
-const championNaam = new Map(catalogus.champions.map((c) => [c.baseId, c.name]));
+/**
+ * De modus waarvan dit script telt, en de queues die erbij horen.
+ *
+ * Everything below subtracts CHAMPION_OFFSET and ITEM_OFFSET from every id it
+ * sees, which is only true of a League Classic game. Let a modern one through
+ * and it produces keys like "TOP|-59978" that disappear straight into the
+ * published file with nothing to show for it -- no error, no missing file, just
+ * rows nobody can look up.
+ *
+ * Deliberately spelled out here rather than imported: dit script draait met
+ * plain node over een JSON-log en kent src/ verder niet. De lijst is dezelfde
+ * als QUEUES in src/core/modes/registry.ts voor lol:jade -- 4310 ranked, 4320
+ * bots, 3260 en 3262 customs -- en de modusnaam eronder is dezelfde string die
+ * JadeStats.fromAggregate straks tegen deze uitvoer houdt.
+ *
+ * Gemeten over de hele winkel weigert dit vandaag niets: 126.331 games op 4310,
+ * 3.852 op 4320 en 5 op 3262, en geen enkele regel daarbuiten. Hij staat er voor
+ * de dag dat dat verandert.
+ */
+const JADE_QUEUES = new Set([4310, 4320, 3260, 3262]);
+
+/**
+ * Which of those queues a tally is actually allowed to count.
+ *
+ * This is queueCounts() from src/core/modes/registry.ts written out for a script
+ * that cannot import it: a queue counts when its kind is "ranked" or "normal", and
+ * for League Classic that leaves 4310 on its own. Bots are not trying and customs
+ * are arranged rather than matched, so both distort every average they touch.
+ *
+ * The two sides have to agree, because the app puts them side by side: what this
+ * script publishes ends up in app-stats.json, and JadeStats.fromAggregate reads it
+ * next to games the app counted itself through queueCounts(). Until this set
+ * existed only the bot queue was dropped here, so the 5 games on 3262 -- 50 player
+ * slots, 40 of them with a known position -- were inside the published totals and
+ * outside every locally counted one. Five games in 126 thousand changes no ranking,
+ * but it is one number that meant two different things depending on where you read
+ * it, and that is the failure this whole module is written to prevent.
+ */
+const JADE_TELT = new Set([4310]);
+const MODUS = "lol:jade";
+
+/**
+ * Welke vorm dit bestand heeft. 2 is de eerste die zijn eigen modus opschrijft.
+ * Zie AGGREGATE_SCHEMA_VERSION in src/core/services/stats.ts: een lezer die dit
+ * getal niet kent weigert het bestand in plaats van het verkeerd te lezen.
+ */
+const APP_STATS_SCHEMA = 2;
+
+/**
+ * Van Classic-ID naar de sleutel die het aggregaat gebruikt: dat is het ID min de
+ * verschuiving, en niet de counterpartId die de catalogus nu draagt. Die twee
+ * zijn niet hetzelfde: Heart of Gold heeft geen moderne tegenhanger en dus geen
+ * counterpartId, maar staat in het aggregaat wel gewoon onder 3028.
+ */
+const championNaam = new Map(catalogus.champions.map((c) => [c.id - CHAMPION_OFFSET, c.name]));
 for (const c of roster) if (!championNaam.has(c.baseId)) championNaam.set(c.baseId, c.name);
 const ROSTER = [...roster].map((c) => c.baseId).sort((a, b) => a - b);
 
-const itemPerBase = new Map(catalogus.items.map((i) => [i.baseId, i]));
+const itemPerBase = new Map(catalogus.items.map((i) => [i.id - ITEM_OFFSET, i]));
 
 /**
- * Vier spells (705, 709, 716, 720) staan in de catalogus onder baseId in plaats
- * van jadeId -- Fortify, Rally, Surge en Promote. De matchdata gebruikt het getal
- * dat bij die vier de baseId is, dus we zoeken op exacte jadeId en vallen daarna
- * terug op baseId. Andersom zoeken zou 74 (Flash) op baseId 74 laten stuklopen.
+ * Spells rechtstreeks op hun eigen ID, zonder terugval.
  *
- * Een lege naam telt als niet gevonden. Dat is geen kosmetiek: jadeId 75 is een
- * naamloze restregel, terwijl 75 als baseId Clairvoyance is -- precies de spell
- * die de matchdata bedoelt.
+ * De terugval die hier stond bestond omdat de catalogus beide ID-ruimtes in één
+ * map gooide: 75 was daar zowel een naamloze restregel als Clairvoyance, en
+ * welke van de twee je kreeg hing af van de volgorde in het bestand. Nu de
+ * Classic-regels apart staan is 75 gewoon Clairvoyance en heeft de terugval
+ * niets meer te repareren.
  */
-const spellPerJade = new Map(catalogus.spells.map((s) => [s.jadeId, s.name]));
-const spellPerBase = new Map(catalogus.spells.map((s) => [s.baseId, s.name]));
-const spellNaam = (id) => spellPerJade.get(id) || spellPerBase.get(id) || String(id);
+const spellPerId = new Map(catalogus.spells.map((s) => [s.id, s.name]));
+const spellNaam = (id) => spellPerId.get(id) || String(id);
 
 /**
  * Consumables en trinkets zeggen niets over een build: iedereen koopt potions, en
@@ -186,10 +254,10 @@ const LAARZEN = (() => {
   while (gegroeid) {
     gegroeid = false;
     for (const item of catalogus.items) {
-      if (uit.has(item.baseId)) continue;
+      if (uit.has(item.id - ITEM_OFFSET)) continue;
       const bouwtUit = (item.buildsFrom ?? []).map((id) => id - ITEM_OFFSET);
       if (bouwtUit.some((id) => uit.has(id))) {
-        uit.add(item.baseId);
+        uit.add(item.id - ITEM_OFFSET);
         gegroeid = true;
       }
     }
@@ -204,8 +272,14 @@ const LAARZEN = (() => {
  */
 const STARTITEMS = new Set(
   catalogus.items
-    .filter((i) => (i.buildsFrom ?? []).length === 0 && i.price >= 1 && i.price <= 500 && !CONSUMABLES.has(i.baseId))
-    .map((i) => i.baseId),
+    .filter(
+      (i) =>
+        (i.buildsFrom ?? []).length === 0 &&
+        i.price >= 1 &&
+        i.price <= 500 &&
+        !CONSUMABLES.has(i.id - ITEM_OFFSET),
+    )
+    .map((i) => i.id - ITEM_OFFSET),
 );
 
 const teltMeeAlsItem = (baseId) =>
@@ -331,6 +405,8 @@ function pak(kaart, sleutel, maak) {
 function tellen(pad, grens, maxRegels) {
   const t = {
     bots: 0,
+    customs: 0,
+    andereModus: 0,
     regels: 0,
     onleesbaar: 0,
     dubbel: 0,
@@ -369,12 +445,21 @@ function tellen(pad, grens, maxRegels) {
       t.dubbel++;
       return;
     }
+    // Een game uit een andere modus telt hier nergens in mee. Zie JADE_QUEUES
+    // hierboven voor wat er anders stilletjes gebeurt met de ids.
+    if (!JADE_QUEUES.has(match.queueId)) {
+      t.andereModus++;
+      return;
+    }
     // Co-op vs AI hoort niet in een tierlijst: daar speel je tegen bots, niet
     // tegen mensen. Gemeten scheelt het maar 0,06 procentpunt gemiddeld, want de
     // meeste botgames hebben helemaal geen positie en telden dus al niet mee --
-    // maar meetellen wat niet tegen mensen gespeeld is blijft fout.
-    if (match.queueId === 4320) {
-      t.bots++;
+    // maar meetellen wat niet tegen mensen gespeeld is blijft fout. A custom is
+    // arranged rather than matched, which is the same objection, so JADE_TELT
+    // turns both away and the two counters below say which was which.
+    if (!JADE_TELT.has(match.queueId)) {
+      if (match.queueId === 4320) t.bots++;
+      else t.customs++;
       return;
     }
     t.gameIds.add(match.gameId);
@@ -1038,6 +1123,14 @@ function appStats(t) {
     return uit;
   };
   return {
+    // Which mode every tally below was counted over, and the shape it is written
+    // in. The app defaults a missing modus to lol:jade -- correct for every file
+    // published before this line existed -- and refuses a file whose mode is not
+    // the one it asked for. So this field is what keeps two aggregates apart,
+    // and the offsets subtracted throughout this script are the other half of
+    // the same decision: change one and the other changes in the same commit.
+    modus: MODUS,
+    schemaVersion: APP_STATS_SCHEMA,
     // Two different questions, so two fields. newestGame is what tells you how
     // fresh the advice is; generatedAt only says when the counting ran.
     generatedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
@@ -1378,6 +1471,11 @@ console.log(
     `[refresh] klaar in ${((Date.now() - start) / 1000).toFixed(1)}s`,
     `          regels gelezen        ${nl(t.regels)}`,
     `          games                 ${nl(t.games)} (${nl(t.dubbel)} dubbele gameIds overgeslagen, ${nl(t.onleesbaar)} onleesbare regels)`,
+    `          buiten ${MODUS}      ${nl(t.andereModus)} games niet meegeteld`,
+    // Printed because these two are the difference between what this script
+    // publishes and what the app counts locally; a silent counter is how they
+    // drifted apart in the first place.
+    `          niet-tellende queues  ${nl(t.bots)} bots en ${nl(t.customs)} customs overgeslagen`,
     `          spelersloten          ${nl(t.sloten)}, waarvan ${nl(t.slotenZonderPositie)} zonder positie`,
     `          unieke spelers        ${nl(t.spelers.size)}`,
     `          champions             ${Object.keys(champions.champions).length} in champions.json, ${Object.keys(builds.champions).length} in builds.json`,

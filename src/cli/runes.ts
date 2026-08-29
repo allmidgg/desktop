@@ -7,7 +7,7 @@
  * Schrijft niets. Het toepassen zit in de app, achter een bevestiging.
  */
 import { LcuClient, LcuNotRunningError } from "../core/lcu/connector";
-import { JadeCatalog } from "../core/jade/catalog";
+import { GameCatalog } from "../core/jade/catalog";
 import { RuneCatalog, RUNE_SLOTS } from "../core/jade/runes";
 import { planRunes } from "../core/services/runeOptimizer";
 
@@ -19,7 +19,9 @@ const c = {
 async function main(): Promise<void> {
   const [championName, roleOverride] = process.argv.slice(2);
   const client = await LcuClient.connect();
-  const [jade, runes] = await Promise.all([JadeCatalog.load(client), RuneCatalog.load(client)]);
+  const [catalogus, runes] = await Promise.all([GameCatalog.load(client), RuneCatalog.load(client)]);
+  // Classic runes, so Classic champions.
+  const jade = catalogus.for("lol:jade");
 
   const champion = championName
     ? ([...jade.champions.values()].find(

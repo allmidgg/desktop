@@ -22,6 +22,7 @@
  * game as a Rift game, which is the merge this module exists to prevent.
  */
 import { isJadeChampionId, isJadeItemId } from "../jade/ids";
+import { MODE_SPACES } from "../ids/space";
 import { modeForPair, queueRow } from "./registry";
 import {
   UNKNOWN_MODE,
@@ -61,14 +62,6 @@ function observedSpace(ids: readonly number[], isJade: (id: number) => boolean):
   if (base > 0) return "base";
   return null;
 }
-
-/** What each mode's champions and items are numbered in, where we have seen one. */
-const EXPECTED: Record<KnownModeId, { champion: "base" | "jade"; item: "base" | "jade" }> = {
-  "lol:jade": { champion: "jade", item: "jade" },
-  "lol:sr": { champion: "base", item: "base" },
-  // Measured, not assumed: base champions with Jade items in the same game.
-  "lol:kiwi-jade": { champion: "base", item: "jade" },
-};
 
 /**
  * Works out the mode, and says how sure it is and what disagreed.
@@ -117,7 +110,10 @@ export function resolveMode(signals: ModeSignals): ModeVerdict {
   }
 
   // The id ranges are the veto. They cannot choose a mode; they can refuse one.
-  const expect = EXPECTED[decided];
+  // The same table the catalogue picks its indexes from, and deliberately not a
+  // second copy of it: a mode vetoed here on one numbering while its names are
+  // looked up under another is a disagreement no screen would show.
+  const expect = MODE_SPACES[decided];
   const champSpace = signals.championIds?.length
     ? observedSpace(signals.championIds, isJadeChampionId)
     : null;

@@ -23,8 +23,8 @@ import { createReadStream, createWriteStream, existsSync } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { dirname, join } from "node:path";
 import type { Game } from "../lcu/types";
-import { isJadeGame } from "../jade/ids";
-import { modeOf } from "../modes/detect";
+import { modeOf, modeOfStored } from "../modes/detect";
+import { modeCollects } from "../modes/registry";
 import type { ModeId } from "../modes/types";
 import { withFileLock } from "./fileLock";
 import { MINIMALE_GAMEDUUR_SECONDEN } from "../../shared/types";
@@ -98,6 +98,24 @@ export interface StoredPlayer {
 
 export interface StoredMatch {
   gameId: number;
+  /**
+   * Which shard the game was played on, as the client reports it ("EUW1").
+   *
+   * Here because a gameId is only unique within one platform: Riot's counters
+   * run per shard, so two regions can hand out the same number for two entirely
+   * different games. The index below is keyed on the id alone, which is exactly
+   * right while every record comes from the local client -- and stops being
+   * right the moment the modern side arrives over the official API, which is
+   * regional by design.
+   *
+   * Absent on the 130,197 records written before this field existed. Within one
+   * file that absence is not ambiguity: they were all crawled through one
+   * client, so they are all one region. Measured on the running client rather
+   * than assumed -- GET /lol-match-history/v1/games/7965097532 carries a
+   * top-level `platformId` of "EUW1" -- and interned like every other repeated
+   * label, so the whole database costs one string.
+   */
+  platformId?: string;
   /** Of de game met een surrender eindigde. Ontbreekt op oudere records. */
   surrendered?: boolean;
   createdAt: number;
@@ -152,11 +170,31 @@ export function toPosition(lane: string | undefined, role: string | undefined): 
   }
 }
 
+/**
+ * Note that this no longer rejects anything for being the wrong mode.
+ *
+ * It used to open with `if (!isJadeGame(game)) return null;`, which is what made
+ * the app able to hold one mode and only one. Slimming a game and deciding where
+ * it belongs are two different jobs: this one records the mode the client
+ * reported, and the caller routes on it. Every caller must therefore route -- a
+ * caller that appends whatever comes back into the Classic store mixes the two
+ * families, and nothing downstream will say so. `MatchStores.add()` is that
+ * router, and it is the reason it exists.
+ *
+ * What it still refuses is a game it cannot place, or one belonging to a mode we
+ * do not collect. An unresolved mode would have to be counted as something, and
+ * there is no answer to that question that is not a guess sitting inside a
+ * statistic. Classic on the Howling Abyss (KIWI_JADE, queue 2450) is the live
+ * example: real games, real players, and no tally they may enter.
+ */
 export function slimGame(game: Game): StoredMatch | null {
-  // The gate is unchanged for now: this step only makes the record remember what
-  // it already knew. Step 5 replaces this line with routing, and by then every
-  // record written since today can answer for itself.
-  if (!isJadeGame(game)) return null;
+  const mode = modeOf({
+    queueId: game.queueId,
+    mapId: game.mapId,
+    gameMode: game.gameMode,
+    championIds: game.participants.map((p) => p.championId),
+  });
+  if (!modeCollects(mode)) return null;
   // Remakes en vroege surrenders vertekenen elke statistiek.
   //
   // The threshold lives in shared/types, and not because it looks better there:
@@ -202,15 +240,21 @@ export function slimGame(game: Game): StoredMatch | null {
 
   return {
     gameId: game.gameId,
+    // Copied while the client still has it. The id alone is only unique within
+    // one shard, and there is no way to work out afterwards which shard a stored
+    // game came from.
+    platformId: game.platformId,
     createdAt: game.gameCreation,
     duration: game.gameDuration,
     // Een opgegeven game telt anders dan een uitgespeelde: hij eindigt eerder
     // en de cijfers erin zijn navenant lager.
     surrendered: game.participants[0]?.stats?.gameEndedInSurrender,
     queueId: game.queueId,
-    // Decided here and nowhere else, while the client's own answer is still in
-    // hand. Below this line gameMode and mapId only exist because we copied them.
-    mode: modeOf({ queueId: game.queueId, mapId: game.mapId, gameMode: game.gameMode }),
+    // Decided at the top of this function and nowhere else, while the client's
+    // own answer is still in hand -- the same verdict the gate above used, so a
+    // record can never carry a mode the gate would have refused. Below this line
+    // gameMode and mapId only exist because we copied them.
+    mode,
     gameMode: game.gameMode,
     mapId: game.mapId,
     patch: game.gameVersion.split(".").slice(0, 2).join("."),
@@ -425,6 +469,26 @@ function* serialize(matches: readonly StoredMatch[]): Generator<string, void, vo
   }
   if (block.length > 0) yield block;
 }
+
+/**
+ * Whether a stored record really is the game the caller is asking about.
+ *
+ * The index is keyed on the bare gameId, and that key is one shard short of
+ * being an identity: Riot's game counters run per platform, so EUW1 and NA1 can
+ * both mint the number 7,953,675,289 for two different games. Nothing in this
+ * app could have told them apart -- `platformId` appeared nowhere in src/ -- so
+ * the second one to arrive would have been quietly filed as a duplicate of the
+ * first, and `has()` would have kept saying yes about a game we do not hold.
+ *
+ * Undefined on either side means "not recorded", and that is treated as a match
+ * rather than as a mismatch. It is the honest reading: the records that predate
+ * the field were all crawled through one client, and each store owns one file,
+ * so within a file there is only ever one region to be wrong about. The day that
+ * stops being true is the day the modern side arrives over the official API, and
+ * by then every record in that file will carry its platform.
+ */
+const sameGame = (known: StoredMatch, platformId?: string): boolean =>
+  platformId === undefined || known.platformId === undefined || known.platformId === platformId;
 
 export class MatchStore {
   private readonly matches = new Map<number, StoredMatch>();
@@ -691,8 +755,19 @@ export class MatchStore {
     this.knownSize = tail.size + (await appendDurably(this.path, "\n", this.syncMode === "append"));
   }
 
-  has(gameId: number): boolean {
-    return this.matches.has(gameId);
+  /**
+   * Do we already have this game?
+   *
+   * The platform is optional and answers a sharper question when it is given: a
+   * stored game from another shard is not this game, however equal the numbers
+   * look. A record without a platform predates the field and is taken as a
+   * match, because within one file those records all came through one client and
+   * are therefore all one region -- pretending otherwise would tell the crawler
+   * it has none of its own 130,197 games and send it to fetch every one again.
+   */
+  has(gameId: number, platformId?: string): boolean {
+    const known = this.matches.get(gameId);
+    return known !== undefined && sameGame(known, platformId);
   }
 
   /**
@@ -705,8 +780,9 @@ export class MatchStore {
    * here. Small beside a 200 ms timeline fetch, which is exactly why it would
    * never have been noticed and never have been fixed.
    */
-  get(gameId: number): StoredMatch | null {
-    return this.matches.get(gameId) ?? null;
+  get(gameId: number, platformId?: string): StoredMatch | null {
+    const known = this.matches.get(gameId);
+    return known !== undefined && sameGame(known, platformId) ? known : null;
   }
 
   /**
@@ -728,6 +804,12 @@ export class MatchStore {
 
   private index(match: StoredMatch): void {
     match.patch = MatchStore.intern(this.labels, match.patch);
+    // One shard name for the whole database rather than one per record: there
+    // are as many distinct values as there are regions the client has been
+    // logged into, which is normally one.
+    if (match.platformId !== undefined) {
+      match.platformId = MatchStore.intern(this.labels, match.platformId);
+    }
     for (const player of match.players) {
       player.puuid = MatchStore.intern(this.puuids, player.puuid);
       player.position = MatchStore.intern(this.labels, player.position);
@@ -769,7 +851,26 @@ export class MatchStore {
       const tail = await this.detectExternalChange();
       await this.closeTruncatedLine(tail);
 
-      const fresh = incoming.filter((match) => !this.matches.has(match.gameId));
+      // Not `!this.matches.has(id)`, because "we already have that number" and
+      // "we already have that game" are the same sentence only while every
+      // record comes from one shard. A game that collides with a stored game
+      // from a different platform is a different game, and the index has no room
+      // for both -- so it is refused out loud instead of being counted as a
+      // duplicate and forgotten. One game lost with a line in the log beats a
+      // lookup answered with another region's game, which nobody would ever see.
+      const fresh: StoredMatch[] = [];
+      for (const match of incoming) {
+        const known = this.matches.get(match.gameId);
+        if (known === undefined) {
+          fresh.push(match);
+        } else if (!sameGame(known, match.platformId)) {
+          console.warn(
+            `[matchStore] Game ${match.gameId} on ${match.platformId} collides with a stored game on` +
+              ` ${known.platformId ?? "an unrecorded platform"}; it was not stored. The index is keyed on` +
+              ` the game id alone, which stops being unique across shards`,
+          );
+        }
+      }
       if (fresh.length === 0) return 0;
 
       const body = `${fresh.map((match) => JSON.stringify(match)).join("\n")}\n`;
@@ -873,4 +974,154 @@ export class MatchStore {
   }
 }
 
-export const defaultStorePath = (root: string): string => join(root, "data", "matches.jsonl");
+/**
+ * The modes that have a file of their own.
+ *
+ * Deliberately narrower than ModeId. A mode we do not collect has no file to be
+ * written to, and "unknown" least of all -- a store keyed by ModeId would let a
+ * caller ask for the unknown store and get one, which is how games nobody could
+ * place end up in a file somebody later treats as data.
+ */
+export type StoredMode = "lol:jade" | "lol:sr";
+
+/**
+ * Where each mode's games live.
+ *
+ * Classic keeps the path it has always had, so the 130,197 games already there
+ * are not migrated, not rewritten and not reclassified -- their file simply IS
+ * the Classic file. That is both the cheapest correct answer and the only one a
+ * bug cannot get wrong. The second argument is defaulted so all six existing
+ * call sites compile unchanged and still point at the same file.
+ */
+const STORE_FILES: Readonly<Record<StoredMode, string>> = {
+  "lol:jade": "matches.jsonl",
+  "lol:sr": "matches-modern.jsonl",
+};
+
+export const defaultStorePath = (root: string, mode: StoredMode = "lol:jade"): string =>
+  join(root, "data", STORE_FILES[mode]);
+
+/**
+ * The two stores, and the one decision that picks between them.
+ *
+ * Deliberately not a mode-aware MatchStore. Everything that makes MatchStore
+ * safe -- the cross-process file lock, the write chain, knownSize,
+ * closeTruncatedLine(), compact() -- assumes the instance owns exactly one file,
+ * and it is right to assume that. Two instances keep all of it for free. One
+ * instance holding two files would have to re-derive every guarantee, and along
+ * the way a modern crawl would take the lock a Classic write is waiting on, and
+ * compact() on one mode would rewrite the other mode's 326 MB.
+ *
+ * Speed is the weaker half of the argument and is written down as such. Measured
+ * on the real database, 130,188 games in 326 MB of JSONL load in about 1.4
+ * seconds and hold about 483 MB of heap; a single mixed file with a text filter
+ * ahead of the parse would come close to that, since the cost is the parse and
+ * not the read. What it would not survive is the day Classic stops being the
+ * larger half -- which is the point of this whole change -- because then every
+ * screen that wants one mode pays for both.
+ */
+export class MatchStores {
+  private readonly stores: Readonly<Record<StoredMode, MatchStore>>;
+
+  constructor(root: string, options: MatchStoreOptions = {}) {
+    this.stores = {
+      "lol:jade": new MatchStore(defaultStorePath(root, "lol:jade"), options),
+      "lol:sr": new MatchStore(defaultStorePath(root, "lol:sr"), options),
+    };
+  }
+
+  for(mode: StoredMode): MatchStore {
+    return this.stores[mode];
+  }
+
+  /**
+   * Loads only the modes the caller is going to read.
+   *
+   * Not an optimisation the crawler may skip: has() is what stops it fetching
+   * details for games it already owns, and a store that was never loaded answers
+   * false to everything -- so it would re-fetch every game of the unloaded mode
+   * on every pass, forever, with the rate-limit backoff hiding it as slowness
+   * rather than as error. Screens that show one mode should pass only that one;
+   * that is where the second and a half of loading is won.
+   */
+  async load(...modes: ReadonlyArray<StoredMode>): Promise<void> {
+    await Promise.all(modes.map((mode) => this.stores[mode].load()));
+  }
+
+  /**
+   * Files a batch, each game into its own store.
+   *
+   * This is the router the mode gate in slimGame() used to be. Sorted first and
+   * then one add() per store, not one add() per game: add() takes the file lock
+   * and fsyncs once per call, so a per-game loop would pay both tens of thousands
+   * of times over a crawl instead of twice. The two calls run together safely
+   * because they are two files and therefore two locks.
+   *
+   * The two counts are named after the mode ids they belong to, `lol:jade` and
+   * `lol:sr`, rather than after Classic and modern. A field called `classic` in
+   * this codebase sits one careless reading away from the client's own gameMode
+   * string "CLASSIC", which the modern Summoner's Rift reports and League Classic
+   * does not; the ids cannot be misread that way.
+   */
+  async add(matches: readonly StoredMatch[]): Promise<{ jade: number; sr: number }> {
+    const jade: StoredMatch[] = [];
+    const sr: StoredMatch[] = [];
+    for (const match of matches) {
+      const mode = modeOfStored(match);
+      if (mode === "lol:jade") jade.push(match);
+      else if (mode === "lol:sr") sr.push(match);
+      // Anything else was already refused by slimGame(); reaching here means a
+      // record was built by hand, and silently dropping it is the safe answer.
+    }
+    // A store is loaded before it is written to, and this is where that gets
+    // enforced rather than left to the caller. A screen may load one mode and
+    // skip the other -- that is the point of load() taking a list -- but the
+    // store this batch lands in is not optional: an unloaded store has an empty
+    // index, so it would answer "new" to a game already sitting in its file and
+    // append it a second time. load() returns immediately once it has run, so
+    // the store the caller already opened pays nothing here.
+    const [jadeGeschreven, srGeschreven] = await Promise.all([
+      jade.length > 0 ? this.write("lol:jade", jade) : 0,
+      sr.length > 0 ? this.write("lol:sr", sr) : 0,
+    ]);
+    return { jade: jadeGeschreven, sr: srGeschreven };
+  }
+
+  private async write(mode: StoredMode, matches: StoredMatch[]): Promise<number> {
+    const store = this.stores[mode];
+    await store.load();
+    return store.add(matches);
+  }
+
+  /**
+   * Does either store already hold this game?
+   *
+   * Across both on purpose: the caller asks before spending a request on the
+   * full record, and at that moment it has only the id -- the mode is in the
+   * detail it has not fetched yet. The platform is passed through to both, for
+   * the reason `sameGame()` sets out.
+   *
+   * Known hole, left open deliberately, so read this before trusting a "yes".
+   * Because the answer is "either store", a hit in the Classic file makes the
+   * caller skip a game it was about to file as modern -- and skipping means the
+   * game is never stored at all, with no log line to find afterwards. Within one
+   * region that is correct rather than lucky: Riot mints game ids per platform,
+   * so one number there is one game and it cannot be a Classic game in one file
+   * and a different modern game in the other. The hole opens the day modern
+   * records arrive over MATCH-V5 from a shard other than the one the Classic file
+   * was crawled through, because then the same number can name two real games.
+   * `sameGame()` is the guard for exactly that, but it can only answer when the
+   * stored record carries a platform, and measured on 2026-08-29 not one of the
+   * 130,197 records in matches.jsonl does -- the field is newer than the file.
+   * Two things close it, and neither is free: backfill `platformId` onto the
+   * stored records so `sameGame()` has something to compare, or give the caller
+   * the mode before it asks, which today it does not have. Until one of those
+   * happens, the cost of the collision is one lost game, not two mixed ones.
+   */
+  has(gameId: number, platformId?: string): boolean {
+    return (
+      this.stores["lol:jade"].has(gameId, platformId) ||
+      this.stores["lol:sr"].has(gameId, platformId)
+    );
+  }
+}
