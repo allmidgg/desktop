@@ -29,13 +29,14 @@
 import { useMemo, useState } from "react";
 import { aankoopVerloop, bezitOp, bouwPad, goudOp, type Aankoop } from "../../../shared/build";
 import type {
-  BuildStep, ChampionSummary, GameTijdlijn, ItemSummary, LiveGameSnapshot, Position,
-  SpelGebeurtenis, Verloop, VerloopKolommen,
+  BuildStep, ChampionSummary, GameDetailPlayer, GameTijdlijn, HistorieTijdlijn, HistorieUitslag,
+  ItemSummary, LiveGameSnapshot, Position, SpelGebeurtenis, Verloop, VerloopKolommen,
 } from "../../../shared/types";
+import { samenloop, stoelenLangs, stoelenUitChampions } from "../../../shared/samenloop";
 import type { OmslagVenster } from "../../../shared/omslag";
 import { leesDekking, type Dekking } from "../../../shared/dekking";
 import { asset, ChampionIcon, EmptyState, Panel, PositionIcon, SectionTitle } from "../ui";
-import { Duelkromme } from "./Duelkromme";
+import { Duelkromme, Teamgoudkromme } from "./Duelkromme";
 import { Dekkingsregel } from "./Dekkingsregel";
 
 const klok = (s: number): string =>
@@ -777,6 +778,8 @@ export function Tijdlijn({
   champions,
   herkomst,
   verloop,
+  historie,
+  stoelen,
   venster,
   dekking,
 }: {
@@ -788,6 +791,33 @@ export function Tijdlijn({
   herkomst: JSX.Element;
   /** The sampled scorelines, on recordings taken after the sampler landed. */
   verloop?: Verloop;
+  /**
+   * The per-minute timeline match history serves for this game, when the client
+   * was there to be asked.
+   *
+   * The one thing a recording cannot supply and the reason two of the curves
+   * below exist at all: total gold earned for all ten seats, and the map
+   * positions that say who was standing opposite whom. Optional and left out on
+   * the live panel, where the game has no match-history entry yet.
+   */
+  historie?: HistorieTijdlijn | null;
+  /**
+   * Which seat of `sporen` is which seat of `historie`, or null when they agree.
+   *
+   * The two sources do not count their seats the same way and neither of them
+   * promises to. `historie` is indexed by participantId, which is
+   * StoredMatch.players order -- checked exactly on 220 seats. `sporen` on this
+   * panel comes from the recording, whose order is the running client's, and
+   * core/services/liveGame.ts states outright that the client does not promise
+   * it; data/live-sample.json shows the active player hoisted to the front while
+   * the stored match has that same player ninth. Lining the two up by index
+   * would draw one player's gold under another player's name, which is a wrong
+   * chart rather than a missing one, and nothing on screen would look wrong.
+   *
+   * Null when `sporen` was itself built from the match, which is every crawled
+   * game -- then the orders are the same array and there is nothing to map.
+   */
+  stoelen?: Array<number | null> | null;
   /**
    * The stretch named in the panel above, shaded on the chart and on the lane
    * strip. Handed down rather than looked for, so one game has one answer.
@@ -815,6 +845,31 @@ export function Tijdlijn({
    * offering a measurement that was never taken.
    */
   const [grootheid, zetGrootheid] = useState<Grootheid>("goud");
+
+  /**
+   * The two sources on one clock, worked out once for both charts below.
+   *
+   * Built here rather than in each chart so that the team gold curve, the lane
+   * strip and the caption under it can never disagree about which source a
+   * number came from or which seat it belongs to. shared/samenloop.ts holds the
+   * table of who owns which measure and the measurement behind it.
+   */
+  const bron = useMemo(
+    () => samenloop(verloop, historie, stoelen ?? null),
+    [verloop, historie, stoelen],
+  );
+  /**
+   * Where each seat stood, put in the same seat order as everything else.
+   *
+   * Null per seat when the timeline had no counterpart for it, so the lane strip
+   * falls back to the stored label for that seat instead of borrowing the lane
+   * of whoever happened to sit at the same index.
+   */
+  const laanmetingen = useMemo(
+    () => (historie ? stoelenLangs(historie.laanmetingen, stoelen ?? null) : null),
+    [historie, stoelen],
+  );
+
   const data = useTijdlijnData(sporen, items, duur, verloop, grootheid);
   // useTijdlijnData is the one place that knows whether the rows decoded, so it
   // is also the one place that gets to say whether the other series exist.
@@ -916,9 +971,29 @@ export function Tijdlijn({
           cannot drift apart and there is still exactly one time axis on screen.
           It follows the selected track when there is one, so any lane can be
           read this way and not only yours. */}
+      {/* The teams first, then the lane. Same order the question is asked in --
+          did we win, and then what was I doing while we lost -- and the same
+          drawing twice at two scopes rather than two drawings. Renders nothing
+          when there is no history timeline, because the panel that fetched it
+          already says why. */}
+      <Teamgoudkromme
+        bron={bron}
+        sporen={sporen}
+        duur={duur}
+        moment={moment}
+        zetMoment={zetMoment}
+        xVan={(t) => xVan(t, duur)}
+        links={PAD.links}
+        rechts={PAD.rechts}
+        breedte={W}
+        anker={ankerStoel}
+        venster={venster ?? null}
+      />
+
       <Duelkromme
         sporen={sporen}
-        verloop={verloop ?? null}
+        bron={bron}
+        laanmetingen={laanmetingen}
         duur={duur}
         moment={moment}
         zetMoment={zetMoment}
@@ -991,47 +1066,150 @@ export function Tijdlijn({
 
 
 /**
- * The timeline of a finished game, if this machine happened to watch it.
+ * Why there is no per-minute curve, in the words of whichever reason it is.
  *
- * Renders nothing at all when it did not, which is the ordinary case: the
- * crawler collects other people's matches by the ten thousand and nobody was
- * watching any of them. An empty frame promising a graph that will never arrive
- * would be worse than silence.
+ * Four situations wear the same blank space and only one of them is anybody's
+ * fault. "League is closed" is fixable in thirty seconds; "this game has no
+ * timeline" is a permanent fact about one game; "still fetching" resolves on its
+ * own. Collapsing them into "no data" would tell a reader with League closed
+ * that his history is missing, which is both wrong and discouraging.
+ */
+function historieReden(uitslag: HistorieUitslag): string {
+  switch (uitslag.staat) {
+    case "bezig":
+      return "Fetching the per-minute timeline for this game from the client now. It lands in well under a second \u2014 open this game again in a moment.";
+    case "geen-client":
+      return "League is not running. The per-minute curve comes from the client's own match-history endpoint, so with the client closed there is no way to ask for it \u2014 for this game or for any other. Start League, open this game again, and the gold curve, the measured lane and the checkpoints all appear.";
+    case "geen-tijdlijn":
+      return "The client answered that this game has no timeline. That is a fact about this game rather than a failure, and it will not change: nothing writes one after the fact.";
+    case "mislukt":
+      return `The fetch failed: ${uitslag.reden}. Opening this game again is a fresh attempt.`;
+    default:
+      return "There is no per-minute timeline for this game.";
+  }
+}
+
+/**
+ * The timeline of a finished game, from whichever of the two sources exist.
+ *
+ * \u2500\u2500 Why this no longer requires a recording \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+ *
+ * It used to return null unless this machine had watched the game, which is true
+ * of two games out of 130,086. Match history serves a per-minute timeline for
+ * the rest as well, including games belonging entirely to strangers, so this
+ * panel now draws from a recording, from a fetched timeline, or from both. When
+ * it has neither it says which of the reasons that is instead of disappearing,
+ * because for most of those reasons the reader is one action away from having
+ * the whole thing.
+ *
+ * \u2500\u2500 The seat order, which is what can go silently wrong \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+ *
+ * The rows come from the recording when there is one, because only a recording
+ * carries the build and the skill order that the rows draw. The timeline counts
+ * its seats the other way, by participantId, which is the stored match's order.
+ * So the two are lined up on champion here, once, and every chart below is
+ * handed the result -- see stoelenUitChampions. Merging them by index instead
+ * would draw one player's gold under another player's name, and nothing on the
+ * screen would look wrong.
  */
 export function Tijdlijnpaneel({
   tijdlijn,
+  historie,
+  spelers,
   items,
   champions,
   venster,
 }: {
   tijdlijn: GameTijdlijn | null;
+  /** The match-history timeline for the same game, or the reason there is none. */
+  historie: HistorieUitslag;
+  /**
+   * The stored line-up, which is where the rows come from when there is no
+   * recording. Same order as the timeline's seats -- both are the stored match
+   * -- so a crawled game needs no seat mapping at all.
+   */
+  spelers: GameDetailPlayer[];
   items: Map<number, ItemSummary>;
   champions: Map<number, ChampionSummary>;
   /** The stretch the panel above named, shaded on the chart. Never found here. */
   venster?: OmslagVenster | null;
 }): JSX.Element | null {
-  if (!tijdlijn) return null;
-  const { opname, koppeling } = tijdlijn;
+  const gevonden = historie.staat === "gevonden" ? historie.tijdlijn : null;
 
-  const sporen: Spoor[] = opname.spelers.map((s, i) => ({
-    sleutel: `${i}`,
-    championId: s.championId,
-    championName: s.championName,
-    team: s.team,
-    position: s.position,
-    kills: s.kills,
-    deaths: s.deaths,
-    assists: s.assists,
-    cs: s.cs,
-    build: s.build,
-    ...(s.skillOrder ? { skillOrder: s.skillOrder } : {}),
-    // The recording holds no names, so this is the only honest marker there is:
-    // the client reveals nobody else's abilities, so exactly one seat can carry
-    // a skill order, and that seat was the one at the keyboard.
-    isYou: Boolean(s.skillOrder),
-  }));
+  // Neither source has anything. Say which, rather than vanishing.
+  if (!tijdlijn && !gevonden) {
+    return (
+      <div className="space-y-3">
+        <SectionTitle>What happened, over time</SectionTitle>
+        <Panel className="p-4">
+          <EmptyState title="No minute-by-minute reading" hint={historieReden(historie)} />
+        </Panel>
+      </div>
+    );
+  }
 
-  const duur = Math.max(1, opname.gameLengthSeconds);
+  const opname = tijdlijn?.opname ?? null;
+
+  const sporen: Spoor[] = opname
+    ? opname.spelers.map((s, i) => ({
+        sleutel: `${i}`,
+        championId: s.championId,
+        championName: s.championName,
+        team: s.team,
+        position: s.position,
+        kills: s.kills,
+        deaths: s.deaths,
+        assists: s.assists,
+        cs: s.cs,
+        build: s.build,
+        ...(s.skillOrder ? { skillOrder: s.skillOrder } : {}),
+        // The recording holds no names, so this is the only honest marker there
+        // is: the client reveals nobody else's abilities, so exactly one seat
+        // can carry a skill order, and that seat was the one at the keyboard.
+        isYou: Boolean(s.skillOrder),
+      }))
+    : spelers.map((p, i) => ({
+        sleutel: `${i}`,
+        championId: p.championId,
+        championName: champions.get(p.championId)?.name ?? String(p.championId),
+        team: p.team === 100 ? ("ORDER" as const) : ("CHAOS" as const),
+        position: p.position,
+        kills: p.kills,
+        deaths: p.deaths,
+        assists: p.assists,
+        cs: p.cs,
+        // Empty rather than absent, and it is not a gap in the record. Nobody
+        // was watching, and the frames carry no ITEM_PURCHASED event of any kind
+        // -- counted over every event in 120 fetched games -- so no purchase in
+        // this game has a timestamp anywhere and none ever will.
+        build: [],
+        isYou: p.isYou,
+      }));
+
+  // Lined up on champion when both sources exist, and left alone when the rows
+  // already came from the match. See the block above this function.
+  const stoelen =
+    opname && gevonden
+      ? stoelenUitChampions(
+          opname.spelers.map((s) => s.championId),
+          gevonden.verloop.spelers.map((_, i) => spelers[i]?.championId ?? null),
+        )
+      : null;
+
+  /**
+   * How long the game ran.
+   *
+   * The recording's own clock when there is one, because that is what its
+   * purchases and events are stamped against. Otherwise the last frame of the
+   * timeline, which carries the true end of the game rather than a round minute
+   * -- measured within a second of the stored duration on every game checked.
+   */
+  const duur = Math.max(
+    1,
+    opname?.gameLengthSeconds ??
+      gevonden?.verloop.tijden[gevonden.verloop.tijden.length - 1] ??
+      1,
+  );
 
   return (
     <div className="space-y-3">
@@ -1039,13 +1217,29 @@ export function Tijdlijnpaneel({
       <Tijdlijn
         sporen={sporen}
         duur={duur}
-        gebeurtenissen={opname.gebeurtenissen}
+        // A recording is the only source of a stamped event feed for a game it
+        // watched. Without one the frames answer instead, and they carry champion
+        // kills, buildings and elite monsters -- and nothing else, counted over
+        // every event in 120 games.
+        gebeurtenissen={opname?.gebeurtenissen ?? gevonden?.gebeurtenissen ?? []}
         items={items}
         champions={champions}
-        herkomst={<Koppelregel koppeling={koppeling} opname={opname} />}
+        herkomst={
+          tijdlijn ? (
+            <Koppelregel koppeling={tijdlijn.koppeling} opname={tijdlijn.opname} />
+          ) : (
+            <p>
+              Rebuilt from match history, one frame a minute, fetched from the League client the
+              moment you opened this game. Nobody was watching it run, so there are no purchases
+              and no skill order &mdash; those exist only for games this app recorded itself.
+            </p>
+          )
+        }
         // Absent on every recording written before the sampler landed, and the
         // panel draws itself without it rather than substituting an empty curve.
-        verloop={opname.verloop}
+        verloop={opname?.verloop}
+        historie={gevonden}
+        stoelen={stoelen}
         venster={venster ?? null}
         // The joined match knows how long the game really ran, which is the only
         // way to tell "we stopped watching here" from "the game ended here".
@@ -1053,7 +1247,18 @@ export function Tijdlijnpaneel({
         // minus match history's duration, so match history's duration is the
         // recording's own length less that difference. Same two numbers the join
         // was decided on, so this cannot disagree with it.
-        dekking={leesDekking(opname, opname.gameLengthSeconds - koppeling.duurVerschilSeconden)}
+        //
+        // Null without a recording, because coverage is a fact about a recording
+        // and a game that has none has no coverage question to answer. The frames
+        // run from the first minute to the last on every game measured.
+        dekking={
+          tijdlijn
+            ? leesDekking(
+                tijdlijn.opname,
+                tijdlijn.opname.gameLengthSeconds - tijdlijn.koppeling.duurVerschilSeconden,
+              )
+            : null
+        }
       />
     </div>
   );
@@ -1096,8 +1301,20 @@ function Koppelregel({
           <span className="num">
             {koppeling.gelijkeScores}/{koppeling.spelers}
           </span>{" "}
-          scorelines identical. The rest can differ by a kill: the last reading was taken a second or
+          kill lines identical. The rest can differ by a kill: the last reading was taken a second or
           two before the game actually finished.
+        </li>
+        {/* Reported and never required. The client rounds another seat's creep
+            score to whole tens, so this figure can read 1/10 on a join that is
+            exact everywhere else -- which is why it is no longer part of the
+            match key and is shown here as its own number instead. */}
+        <li>
+          <span className="num">
+            {koppeling.gelijkeCs}/{koppeling.spelers}
+          </span>{" "}
+          creep scores identical. Usually far fewer, and that is the client rather than the join: it
+          reports another player&rsquo;s creep score rounded down to a whole ten, so the recording
+          holds a coarse copy of a number match history holds exactly.
         </li>
         <li>
           Live clock ran{" "}

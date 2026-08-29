@@ -15,10 +15,20 @@ import { Agent, fetch as undiciFetch } from "undici";
 const execFileAsync = promisify(execFile);
 
 /** Standaard installatielocaties; de cmdline-fallback vangt afwijkende paden af. */
+// Forward slashes rather than escaped backslashes, because the escaped version
+// is what broke. "C:\Riot Games\..." is not that path in a TypeScript string:
+// \R, \L and \l are not escape sequences, so the backslash is simply dropped and
+// the literal reads "C:Riot GamesLeague of Legendslockfile". All three entries
+// therefore existsSync'd to false on every machine, every time, and the only
+// reason nothing looked broken is that findCredentialsViaProcess quietly picked
+// up the slack by spawning PowerShell on every single connect. Verified on this
+// machine: the real lockfile sits at C:/Riot Games/League of Legends/lockfile
+// and the escaped literal misses it. Node accepts forward slashes on Windows,
+// and they cannot rot this way.
 const DEFAULT_LOCKFILES = [
-  "C:\Riot Games\League of Legends\lockfile",
-  "C:\Program Files\Riot Games\League of Legends\lockfile",
-  "C:\Program Files (x86)\Riot Games\League of Legends\lockfile",
+  "C:/Riot Games/League of Legends/lockfile",
+  "C:/Program Files/Riot Games/League of Legends/lockfile",
+  "C:/Program Files (x86)/Riot Games/League of Legends/lockfile",
 ];
 
 export interface LcuCredentials {

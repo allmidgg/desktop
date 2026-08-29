@@ -50,70 +50,23 @@ import type {
   GameDetail, GameDetailPlayer, GameTijdlijn, PerformanceBaseline, Position,
 } from "./types";
 import type { Naspel, NaspelSpeler } from "./naspel";
+import { leesTijdvak, type NaamVan } from "./tijdvak";
+import {
+  type Band, type OordeelSleutel, type Tier, type Uitspraak, type Zwijgen,
+  heel, klok, komma, procent, tierVan, verschil,
+} from "./uitspraak";
 
-export type OordeelSleutel =
-  | "cs" | "goud" | "gevechten" | "sterven" | "lane" | "schade" | "visie" | "venster";
+/* The vocabulary these verdicts are written in -- Band, Tier, Uitspraak and the
+   rule that turns a gap into one of three tiers -- moved to shared/uitspraak.ts
+   when shared/tijdvak.ts started producing verdicts of its own. Two copies of
+   `tierVan` would have been two definitions of "unusual" on one screen, drifting
+   apart the first time either was touched, with nothing to tell the reader that
+   the block's two halves were being scored by different rules.
 
-/**
- * The two cut points a gap is read against, and the sample behind them.
- *
- * `helft` is the median gap and `staart` the ninetieth percentile, both over the
- * same population the app scores: 1,096,820 player slots in 126,246 non-bot
- * games from matches.jsonl, each measured against its own champion-in-lane
- * baseline under the 30-game floor MIN_BASELINE_GAMES sets. All 315 champion-
- * lane pairs in that file clear the floor, so nothing was dropped for thinness.
- *
- * `maat` travels with the numbers because the four figures below are measured as
- * fractions of a norm and the lane duel is measured in gold, and a cut point
- * whose unit is not on screen is a number the reader has no way to check.
- */
-export interface Band {
-  helft: number;
-  staart: number;
-  maat: string;
-  slots: number;
-  /**
-   * True when the two cut points are fractions of the norm rather than a count.
-   *
-   * The screen has to print 0.174 as "17.4%" and 2,790 as "2,790 gold", and a
-   * renderer deciding that from the key would have to know which keys are which.
-   */
-  ratio: boolean;
-}
-
-/** Where a gap fell relative to its band. Named, because the screen prints it. */
-export type Tier = "binnen" | "buiten" | "ver";
-
-export interface Uitspraak {
-  sleutel: OordeelSleutel;
-  /** The heading the row carries: Farming, Fights, Dying, Lane. */
-  gebied: string;
-  /** Green when this went your way, red when it did not, grey when neither. */
-  toon: "goed" | "slecht" | "vlak";
-  /** The sentence itself, already carrying its own numbers. */
-  zin: string;
-  /** Your figure and the norm, in the units the sentence used. */
-  cijfers: string;
-  /** The gap, in the band's unit. Null for the rows that have no band. */
-  gat: number | null;
-  band: Band | null;
-  tier: Tier | null;
-  /**
-   * Gap divided by the band's median, so figures with different natural spreads
-   * can be ordered against each other. A jungler 0.158 off on CS and one 0.344
-   * off on deaths both come out at 1.0, which is right: each is exactly the gap
-   * an ordinary game produces on that figure in that lane.
-   */
-  luidheid: number | null;
-  /** Where both numbers came from, in one sentence. */
-  grond: string;
-}
-
-/** One thing this game cannot be asked, and the reason it cannot. */
-export interface Zwijgen {
-  onderwerp: string;
-  reden: string;
-}
+   Re-exported from here because IjkBlok.tsx and everything else already import
+   them from this file, and moving a type is not a reason to make every consumer
+   learn a new path. */
+export type { Band, OordeelSleutel, Tier, Uitspraak, Zwijgen };
 
 export interface Oordeel {
   /** Verdicts against the database, loudest first. */
@@ -148,10 +101,22 @@ export interface Oordeel {
  */
 const RATIO_MAAT = "|yours ÷ normal − 1|";
 
+/**
+ * Where every band in this file comes from, in one clause the screen prints.
+ *
+ * On the row beside a cut point because this block now stands beside verdicts
+ * from shared/tijdvak.ts, whose bands rest on a few hundred observations fetched
+ * from the client rather than on a million read off the disk. Both are honest
+ * and they are not the same strength of claim, so each says which it is instead
+ * of letting the reader assume they match.
+ */
+const STORE_HERKOMST = "player slots in 126,246 non-bot games from the local match store";
+const LANE_HERKOMST = "paired lanes in 126,246 non-bot games from the local match store";
+
 type RatioSleutel = "cs" | "goud" | "gevechten" | "sterven";
 
 const ratioBand = (helft: number, staart: number, slots: number): Band => ({
-  helft, staart, maat: RATIO_MAAT, slots, ratio: true,
+  helft, staart, maat: RATIO_MAAT, slots, ratio: true, herkomst: STORE_HERKOMST,
 });
 
 export const BANDEN: Record<string, Record<RatioSleutel, Band>> = {
@@ -200,12 +165,17 @@ export const BANDEN: Record<string, Record<RatioSleutel, Band>> = {
  */
 const GOUD_MAAT = "gold between the two players in the lane";
 
+const laneBand = (
+  helft: number, staart: number, csHelft: number, csStaart: number, slots: number,
+): Band & { csHelft: number; csStaart: number } =>
+  ({ helft, staart, csHelft, csStaart, maat: GOUD_MAAT, slots, ratio: false, herkomst: LANE_HERKOMST });
+
 export const LANE_BANDEN: Record<string, Band & { csHelft: number; csStaart: number }> = {
-  TOP: { helft: 2790, staart: 6187, csHelft: 45, csStaart: 111, maat: GOUD_MAAT, slots: 51_437, ratio: false },
-  JUNGLE: { helft: 2775, staart: 6039, csHelft: 35, csStaart: 88, maat: GOUD_MAAT, slots: 74_539, ratio: false },
-  MIDDLE: { helft: 2698, staart: 5883, csHelft: 38, csStaart: 95, maat: GOUD_MAAT, slots: 76_938, ratio: false },
-  BOTTOM: { helft: 3031, staart: 6540, csHelft: 48, csStaart: 146, maat: GOUD_MAAT, slots: 95_841, ratio: false },
-  SUPPORT: { helft: 2011, staart: 4167, csHelft: 16, csStaart: 53, maat: GOUD_MAAT, slots: 64_538, ratio: false },
+  TOP: laneBand(2790, 6187, 45, 111, 51_437),
+  JUNGLE: laneBand(2775, 6039, 35, 88, 74_539),
+  MIDDLE: laneBand(2698, 5883, 38, 95, 76_938),
+  BOTTOM: laneBand(3031, 6540, 48, 146, 95_841),
+  SUPPORT: laneBand(2011, 4167, 16, 53, 64_538),
 };
 
 /**
@@ -231,29 +201,6 @@ const VENSTER_SECONDEN = 300;
  */
 const VENSTER_FACTOR = 2;
 const VENSTER_MINIMUM = 3;
-
-const heel = (n: number): string => Math.round(Math.abs(n)).toLocaleString("en-GB");
-const komma = (n: number, d: number): string =>
-  n.toLocaleString("en-GB", { minimumFractionDigits: d, maximumFractionDigits: d });
-
-/**
- * A gap, rounded, but never rounded to nothing.
- *
- * A short game against a champion that normally dies four times can clear the
- * band on a difference of half a death, and "0 fewer deaths than normal" is the
- * sentence a rounding bug writes. Under one, the decimal stays.
- */
-const verschil = (n: number): string =>
-  Math.abs(n) >= 1 ? heel(n) : komma(Math.abs(n), 1);
-const procent = (deel: number): string => `${Math.round(deel * 100)}%`;
-const klok = (seconden: number): string =>
-  `${Math.floor(seconden / 60)}:${String(Math.floor(seconden % 60)).padStart(2, "0")}`;
-
-/** Where a gap sits against its band. */
-function tierVan(gat: number, band: Band): Tier {
-  if (gat < band.helft) return "binnen";
-  return gat < band.staart ? "buiten" : "ver";
-}
 
 /**
  * One figure against its norm, turned into a row.
@@ -316,6 +263,16 @@ export function leesOordeel(
   baseline: PerformanceBaseline,
   naam: string,
   laneLabel: string,
+  /**
+   * How a champion id becomes a name, for the sentences that have to name your
+   * lane opponent.
+   *
+   * Optional so every existing caller still compiles, and when it is left out
+   * the timeline verdicts still appear -- they simply say "the enemy in your
+   * lane" where they would have said "Nasus". A missing catalogue is a reason to
+   * word a sentence differently, not a reason to withhold a finding.
+   */
+  naamVan: NaamVan = () => null,
 ): Oordeel {
   const jij = detail.players.find((p) => p.isYou);
   const jijNaspel = naspel.spelers.find((s) => s.speler.isYou);
@@ -414,16 +371,32 @@ export function leesOordeel(
     laneUit,
   ];
 
-  const tegenDatabase = kandidaten
-    .filter((u): u is Uitspraak => u !== null && u.tier !== "binnen")
-    .sort((a, b) => (b.luidheid ?? 0) - (a.luidheid ?? 0));
+  // The verdicts that need a clock. Merged into the same list rather than given
+  // a block of their own, because "you fell behind in the laning phase" and "you
+  // farmed less than normal" are answers to one question and the reader should
+  // see them ranked against each other. Each row already carries the sample
+  // behind its own cut point, so a finding standing on 194 lane slots cannot be
+  // mistaken for one standing on 228,759.
+  const overTijd =
+    detail.historie.staat === "gevonden"
+      ? leesTijdvak(detail.historie.tijdlijn, detail, naamVan)
+      : { uitspraken: [], altijd: [], zwijgt: [tijdlijnZwijgen(detail)] };
 
-  const gewoon = kandidaten
+  const tegenDatabase = [
+    ...[...kandidaten, ...overTijd.uitspraken].filter(
+      (u): u is Uitspraak => u !== null && u.tier !== "binnen",
+    ),
+    // Rows that describe rather than judge, which a band cannot filter -- see
+    // TijdvakUit.altijd for the one case and why it is not a loophole.
+    ...overTijd.altijd,
+  ].sort((a, b) => (b.luidheid ?? 0) - (a.luidheid ?? 0));
+
+  const gewoon = [...kandidaten, ...overTijd.uitspraken]
     .filter((u): u is Uitspraak => u !== null && u.tier === "binnen")
     .map((u) => u.gebied.toLowerCase());
 
   const binnenDezeGame: Uitspraak[] = [];
-  const zwijgt: Zwijgen[] = [];
+  const zwijgt: Zwijgen[] = [...overTijd.zwijgt];
 
   schadeRegel(naspel, jijNaspel, binnenDezeGame, zwijgt);
   visieRegel(naspel, jij, binnenDezeGame, zwijgt);
@@ -438,6 +411,40 @@ export function leesOordeel(
   }
 
   return { tegenDatabase, binnenDezeGame, gewoon, zwijgt };
+}
+
+/**
+ * Why there are no verdicts with a clock on them, in the reason's own words.
+ *
+ * Four genuinely different situations wear the same blank space on screen, and
+ * only one of them is anybody's fault. "League is closed" is a thing the reader
+ * can fix in thirty seconds; "this game has no timeline" is a permanent fact
+ * about that one game; "still fetching" resolves on its own. Collapsing them
+ * into "no data" would tell a reader with League closed that his history is
+ * missing, which is both wrong and discouraging.
+ */
+function tijdlijnZwijgen(detail: GameDetail): Zwijgen {
+  const onderwerp = "The minute-by-minute reading";
+  switch (detail.historie.staat) {
+    case "bezig":
+      return { onderwerp, reden: "The per-minute timeline for this game is being fetched from the client now. Open it again in a moment." };
+    case "geen-client":
+      return {
+        onderwerp,
+        reden:
+          "League is not running. The per-minute timeline comes from the client's own match-history endpoint, so with the client closed there is no way to ask for it — for this game or any other. Start League and open this game again and the laning phase, the peak of the lead and the shape of its fall all appear.",
+      };
+    case "geen-tijdlijn":
+      return {
+        onderwerp,
+        reden:
+          "The client answered that this game has no timeline. That is a fact about this game rather than a failure, and it will not change: nothing will ever write one after the fact.",
+      };
+    case "mislukt":
+      return { onderwerp, reden: `Fetching the per-minute timeline failed: ${detail.historie.reden}. Opening this game again is a fresh attempt.` };
+    default:
+      return { onderwerp, reden: "There is no per-minute timeline for this game." };
+  }
 }
 
 /**
@@ -598,9 +605,9 @@ function vensterRegel(
 ): void {
   if (!tijdlijn) {
     zwijgt.push({
-      onderwerp: "When it went wrong",
+      onderwerp: "Your deaths to the second",
       reden:
-        "This app was not running while this game was played, so no minute of it was written down here. Match history does hold a per-minute timeline for Classic games, which nothing in this app fetches yet -- so this is pending rather than permanent, and it would give minutes rather than the seconds a recording gives.",
+        "This app was not running while this game was played, so nothing here holds the second a death happened on. The per-minute timeline fetched from match history does place your deaths, but to the minute rather than the second — see the rows above, which use it. This one row wants seconds and only a recording has those.",
     });
     return;
   }

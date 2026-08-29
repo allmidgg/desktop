@@ -205,12 +205,25 @@ export function koppel(opname: OpnameRecord, match: StoredMatch): TijdlijnKoppel
   const na = opname.recordedAt - einde;
   if (na < -VOOR_EINDE_MARGE_MS || na > NA_EINDE_MAX_MS) return null;
 
-  // Champion plus the four counters, consumed one by one, so two seats on the
-  // same champion cannot both claim the same scoreline.
-  const rest = match.players.map((p) => `${p.championId}|${p.kills}|${p.deaths}|${p.assists}|${p.cs}`);
+  // Champion plus the kill line, consumed one by one, so two seats on the same
+  // champion cannot both claim the same scoreline.
+  //
+  // Creep score used to be part of this key and it made the figure close to
+  // worthless. Measured on the only recording that overlaps a real match
+  // (7965097532): kills, deaths and assists agreed on ten seats out of ten,
+  // creeps on one, because the recorded creep score is a multiple of ten on
+  // every seat while the match's is not --
+  //
+  //     match     268  271  298  258   13  257  160  274  266   37
+  //     recording 230  140  280  240   10  250  160  270  260   30
+  //
+  // -- so an exact join reported 1/10, and voor() below picks between candidate
+  // recordings on that number. Creeps are still measured, just reported
+  // separately instead of being allowed to veto a join they cannot judge.
+  const rest = match.players.map((p) => `${p.championId}|${p.kills}|${p.deaths}|${p.assists}`);
   let gelijkeScores = 0;
   for (const s of opname.spelers) {
-    const sleutel = `${s.championId}|${s.kills}|${s.deaths}|${s.assists}|${s.cs}`;
+    const sleutel = `${s.championId}|${s.kills}|${s.deaths}|${s.assists}`;
     const i = rest.indexOf(sleutel);
     if (i !== -1) {
       rest.splice(i, 1);
@@ -218,9 +231,20 @@ export function koppel(opname: OpnameRecord, match: StoredMatch): TijdlijnKoppel
     }
   }
 
+  const csRest = match.players.map((p) => p.cs);
+  let gelijkeCs = 0;
+  for (const s of opname.spelers) {
+    const i = csRest.indexOf(s.cs);
+    if (i !== -1) {
+      csRest.splice(i, 1);
+      gelijkeCs++;
+    }
+  }
+
   return {
     gameId: match.gameId,
     gelijkeScores,
+    gelijkeCs,
     spelers: opname.spelers.length,
     naEindeSeconden: Math.round(na / 1000),
     duurVerschilSeconden: opname.gameLengthSeconds - match.duration,

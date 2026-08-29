@@ -567,6 +567,13 @@ void app
       .start(() => !service?.inGame)
       .catch((err: Error) => console.error("[allmid] updater starten mislukte:", err));
 
+    // A history timeline landed. Deliberately not part of the snapshot: it is
+    // about one game the user happens to be looking at, and pushing a whole
+    // snapshot for it would redraw every screen in the app to change one chart.
+    service.on("tijdlijn", (gameId: number) => {
+      stuurNaarVenster("game:tijdlijn", gameId);
+    });
+
     service.on("snapshot", (snapshot: AppSnapshot) => {
       // De kopie eerst: de handlers hieronder lezen hem.
       const vorige = instellingen;

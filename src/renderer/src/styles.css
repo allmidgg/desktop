@@ -2762,6 +2762,19 @@ button.tier-tegel,
 .duel-maat:hover {
   color: var(--color-ink-100);
 }
+/* A measure neither source carried. Shown rather than dropped, because two of
+   the five are absent for reasons the reader either can act on (gold needs the
+   client running) or needs to know is permanent (no frame carries a ward), and
+   a button that quietly vanishes teaches him the app cannot do it at all. The
+   cursor stays default so it reads as a label, and the tooltip carries which of
+   the two reasons applies. */
+.duel-maat:disabled {
+  color: var(--color-ink-700);
+  cursor: default;
+}
+.duel-maat:disabled:hover {
+  color: var(--color-ink-700);
+}
 .duel-maat-aan,
 .duel-maat-aan:hover {
   background: var(--color-surface-3);
@@ -2818,6 +2831,68 @@ button.tier-tegel,
 }
 .duel-woord-achter {
   color: var(--color-loss-400);
+}
+
+/* ── The two gold checkpoints ───────────────────────────────────────────────
+   A row of readings, not a scoreboard. The weight class is carried in the
+   border rather than in the number's colour, because the number already uses
+   jade and loss to mean ahead and behind, and a second meaning stacked onto the
+   same two colours would make a wide lead and a good lead indistinguishable.
+
+   Measured, and this is what the three classes are: a lead under 1,000 gold at
+   fifteen minutes went on to win 53% of 120 sampled games, which is a coin, so
+   it gets no emphasis at all. From 2,000 the leader won 89%, so that one is
+   allowed a visible edge. In between the sample cannot say, and neither does
+   the border. */
+.duel-ijkpunten {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-ink-400);
+}
+.duel-ijkpunt {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-line);
+  background: var(--color-surface-2);
+  transition:
+    background-color var(--duur) var(--ease),
+    border-color var(--duur) var(--ease);
+}
+.duel-ijkpunt:hover:not(:disabled) {
+  background: var(--color-surface-3);
+}
+.duel-ijkpunt:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 1px;
+}
+/* Not a hidden control. A checkpoint the game never reached is a fact about the
+   game -- 2% of games in this database end before fifteen minutes -- and the
+   reader has to be able to see that it was asked and came back empty. */
+.duel-ijkpunt:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.duel-ijkpunt-breed {
+  border-color: color-mix(in oklab, var(--color-gold-500) 34%, var(--color-line));
+}
+.duel-ijkpunt-klok {
+  color: var(--color-ink-500);
+  font-size: 11px;
+}
+.duel-ijkpunt-leeg {
+  color: var(--color-ink-500);
+  font-style: italic;
+}
+.duel-ijkpunt-uitleg {
+  color: var(--color-ink-500);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .duel-oordeel {

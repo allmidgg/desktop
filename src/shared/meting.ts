@@ -123,6 +123,45 @@ export function krommeVan(
 }
 
 /**
+ * The same curve, for a series that does not live in a Verloop.
+ *
+ * Gold is the one measured quantity in this app that is kept beside the readings
+ * rather than inside them -- see HistorieTijdlijn.goudPerStoel and the reason it
+ * is not a VerloopKolommen column -- so it would otherwise need its own summing
+ * loop. It had one, in shared/matchtijdlijn.ts, and it was a line-for-line copy
+ * of krommeVan: carry a seat's last value forward, skip the whole sample while a
+ * seat has never been read. Two copies of that rule is exactly what the note at
+ * the foot of this file describes going stale in silence, so the series is
+ * projected into a throwaway Verloop and the one implementation reads it.
+ *
+ * The projection is into `cs` for no reason other than that it is a column that
+ * exists; nothing downstream sees the throwaway.
+ */
+export function krommeVanReeksen(
+  tijden: number[] | null | undefined,
+  perStoel: Array<Array<number | null>> | null | undefined,
+  orde: number[],
+  chaos: number[],
+): Kromme {
+  if (!tijden || tijden.length === 0 || !perStoel) return LEEG;
+  const leeg = (n: number): Array<number | null> => new Array<number | null>(n).fill(null);
+  const verloop: Verloop = {
+    interval: 0,
+    tijden,
+    goud: leeg(tijden.length),
+    spelers: perStoel.map((kolom) => ({
+      kills: leeg(kolom.length),
+      deaths: leeg(kolom.length),
+      assists: leeg(kolom.length),
+      cs: kolom,
+      wards: leeg(kolom.length),
+      level: leeg(kolom.length),
+    })),
+  };
+  return krommeVan(verloop, orde, chaos, "cs");
+}
+
+/**
  * The reading in force at a second: the last one taken at or before it.
  *
  * Held flat rather than interpolated, on purpose. Between two readings nobody

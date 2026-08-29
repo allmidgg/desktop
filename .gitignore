@@ -71,6 +71,15 @@ live-sample.json
 # Build orders uit eigen games, nog niet gedeeld.
 buildorders.jsonl
 
+# Per-minute curves fetched from match history for games that were opened.
+#
+# Already covered by /data/ and *.jsonl, and named here for the same reason
+# buildorders.jsonl is: it carries a minute-by-minute series for all ten seats of
+# other people's games, which is the behavioural fingerprint shared/types.ts
+# warns about under Verloop. It stays on the machine that fetched it. The
+# uploader is built against MatchStore alone and never opens this.
+historie-tijdlijnen.jsonl
+
 # Champion portraits for the full League roster: fetched from Data Dragon by
 # site/data/catalogus.mjs, and regenerated rather than reviewed.
 site/img/lol-champions/

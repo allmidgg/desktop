@@ -38,6 +38,7 @@ import {
   type Position, type StoredMatch, type StoredPlayer,
 } from "../core/services/matchStore";
 import { sluitAfgebrokenRegel, TijdlijnStore } from "../core/services/tijdlijn";
+import { HistorieTijdlijnStore } from "../core/services/historieTijdlijn";
 import { MatchCrawler } from "../core/services/crawler";
 import { JadeStats, likelyPosition, MIN_MATCHUP_GAMES, type ChampionStat } from "../core/services/stats";
 import { leesBeeldmodus } from "../core/lcu/beeldmodus";
@@ -48,7 +49,7 @@ import { MatchUploader, defaultUploadStatePath } from "../core/services/uploader
 import type {
   AppSnapshot, ApplyResult, ChampSelectSnapshot, ChampionSummary, GameflowPhase, LaneAnalysis,
   ChampionDetail, ChampionPlan, GameDetail, ItemEntry, MasteryPlanSummary, MasteryTreeInfo,
-  MatchupEntry, PerformanceBaseline, RecentGameSummary, SpelerIjklijn,
+  HistorieUitslag, MatchupEntry, PerformanceBaseline, RecentGameSummary, SpelerIjklijn,
   RuneInfo, RunePlanSummary, ScoutEntry, TierEntry, UploadStatus,
 } from "../shared/types";
 
@@ -166,6 +167,15 @@ export class JadeService extends EventEmitter {
   private readonly backupDir: string;
   /** The games this machine watched, so a finished one can be shown over time. */
   private readonly tijdlijnen: TijdlijnStore;
+  /**
+   * The per-minute curves match history serves for everybody else's games.
+   *
+   * The store above covers the two games this machine watched. This one covers
+   * any of the 130,086 in the database, one at a time, the moment somebody opens
+   * it -- see core/services/historieTijdlijn.ts for why it is fetched on demand
+   * rather than backfilled.
+   */
+  private readonly historie: HistorieTijdlijnStore;
   private readonly uploadStatePath: string;
   private readonly community: CommunityStatsCache;
   /**
@@ -217,6 +227,16 @@ export class JadeService extends EventEmitter {
     this.settings = new SettingsStore(defaultSettingsPath(dataRoot));
     this.backupDir = join(dataRoot, "data", "backups");
     this.tijdlijnen = new TijdlijnStore(join(dataRoot, "data", "buildorders.jsonl"));
+    this.historie = new HistorieTijdlijnStore(
+      join(dataRoot, "data", "historie-tijdlijnen.jsonl"),
+      // Looked up per request rather than captured: the client goes away and
+      // comes back on a different port, and a frozen reference would be a
+      // request into a socket that closed an hour ago.
+      () => this.client,
+      // A fetch settled. Whoever has that game open should ask again; anyone
+      // looking at a different game ignores it.
+      (gameId) => this.emit("tijdlijn", gameId),
+    );
     this.uploadStatePath = defaultUploadStatePath(dataRoot);
     this.community = new CommunityStatsCache(dataRoot);
   }
@@ -1223,21 +1243,51 @@ export class JadeService extends EventEmitter {
    * elsewhere are built from, and it still answers with League closed.
    */
   gameDetail(gameId: number): GameDetail | null {
-    // values() rather than all(): this looks up one game and never needed a copy
-    // of the whole database to find it. With 130,086 games in there that was a
-    // fresh array of as many references, every time a row is opened.
-    let match: StoredMatch | null = null;
-    for (const kandidaat of this.store.values()) {
-      if (kandidaat.gameId === gameId) {
-        match = kandidaat;
-        break;
-      }
-    }
+    // The store keeps its games in a Map keyed by gameId, so this is a lookup
+    // and not a search. The previous version walked values() and compared, on
+    // the reasoning that it avoided copying the whole database into an array --
+    // true, and it still visited up to 130,127 entries to answer a question the
+    // key already answers. Measured on the real file: 1.39 ms to reach the last
+    // record and 1.00 ms to conclude a game is absent, against 0.0001 ms here.
+    const match = this.store.get(gameId);
     if (!match) return null;
     const jouwPuuid = this.snapshot.summoner?.puuid ?? null;
-    const jij = jouwPuuid === null
-      ? null
-      : (match.players.find((p) => p.puuid === jouwPuuid) ?? null);
+    // The seat and the player together, from one search. findIndex answers -1
+    // for a game you were not in, which is 130,067 of them.
+    const jouwStoel = jouwPuuid === null ? -1 : match.players.findIndex((p) => p.puuid === jouwPuuid);
+    const jij = jouwStoel < 0 ? null : (match.players[jouwStoel] ?? null);
+
+    // A recording, when this machine happened to be watching. Two games out of
+    // 130,086, and no more are coming for the old ones -- a recording is made
+    // while the game runs or not at all.
+    const opname = this.tijdlijnen.voor(match);
+
+    // The coarser curve from match history, fetched for every game including the
+    // ones we have a recording of.
+    //
+    // This used to skip the fetch whenever a recording existed, on the reasoning
+    // that the recording is the better source. Measured against the one game
+    // where both exist (7965097532) that reasoning does not survive: the
+    // recording's creep score came out low on nine of the ten seats, by up to
+    // 131, and every one of its ten values is a multiple of ten while none of
+    // the timeline's are -- the client reports another seat's creeps rounded.
+    // The recording also holds gold for one seat, because a running game only
+    // ever reveals your own wallet, while the frames carry gold earned for all
+    // ten. So the two are complementary per measure rather than ranked per game,
+    // and shared/samenloop.ts is what picks between them column by column.
+    //
+    // The cost of asking anyway is two extra requests in the life of this
+    // install, because two recordings exist.
+    const historie: HistorieUitslag = this.historie.uitslagVoor(
+      match.gameId,
+      match.players.length,
+      jouwStoel < 0 ? null : jouwStoel,
+      // The tripwire's input. See stemtOvereen: participantId 1..10 lining up
+      // with players[0..9] is measured, not promised, and a silent reordering
+      // would give every player somebody else's curve.
+      match.players.map((p) => p.cs),
+    );
+
     return {
       gameId: match.gameId,
       createdAt: match.createdAt,
@@ -1248,7 +1298,8 @@ export class JadeService extends EventEmitter {
       baseline: jij ? this.baselineFor(jij, match.duration) : null,
       // Null for nearly every game, and permanently so: the crawler collects
       // other people's matches and nobody was watching any of them.
-      tijdlijn: this.tijdlijnen.voor(match),
+      tijdlijn: opname,
+      historie,
       players: match.players.map((p) => ({
         championId: p.championId,
         team: p.teamId,

@@ -82,9 +82,21 @@ export function NaspelPaneel({
    */
   const [poging, setPoging] = useState(0);
 
+  /**
+   * A different game means nothing on screen belongs to it any more.
+   *
+   * Split out from the fetch below so that a re-ask for the SAME game does not
+   * blank the panel. Opening a game and having the per-minute timeline land half
+   * a second later asks again, and replacing a drawn screen with a spinner for
+   * one frame is a flicker rather than feedback.
+   */
+  useEffect(() => {
+    setDetail(null);
+    setBezig(true);
+  }, [gameId]);
+
   useEffect(() => {
     let levend = true;
-    setBezig(true);
     void window.jade
       .gameDetail(gameId)
       .then((d) => {
@@ -98,6 +110,22 @@ export function NaspelPaneel({
       levend = false;
     };
   }, [gameId, poging]);
+
+  /**
+   * Ask again when the per-minute timeline for this game finishes arriving.
+   *
+   * gameDetail answers straight away with `historie: { staat: "bezig" }` rather
+   * than waiting on the client, so the scorecard is on screen before any request
+   * has come back. Without this listener that is where it would stay: the panel
+   * would say "fetching" for a fetch that finished half a second later, until
+   * the reader navigated away and came back. The main process emits the gameId
+   * it settled, and any other gameId is somebody else's row and ignored.
+   */
+  useEffect(() => {
+    return window.jade.onGameTijdlijn((klaar) => {
+      if (klaar === gameId) setPoging((n) => n + 1);
+    });
+  }, [gameId]);
 
   // The catalogues are three Maps built from arrays of several hundred entries,
   // and this panel re-renders every time the snapshot ticks. Keying them to the
@@ -128,6 +156,14 @@ export function NaspelPaneel({
       detail.baseline,
       champion?.name ?? String(detail.baseline.championId),
       POSITION_LABELS[detail.baseline.position] ?? detail.baseline.position,
+      // The verdicts that read the per-minute timeline name the player who was
+      // standing opposite you, and they work out which seat that was from the
+      // map coordinates rather than from a position label. Only the renderer
+      // holds the catalogue that turns his champion id into a word, so it is
+      // passed down instead of the sentence settling for "the enemy in your
+      // lane" -- which is what it falls back to when the catalogue has not
+      // arrived from the client yet.
+      (championId) => champions.get(championId)?.name ?? null,
     );
   }, [detail, naspel, champions]);
 
@@ -260,6 +296,15 @@ export function NaspelPaneel({
           so the band and the sentence cannot disagree. */}
       <Tijdlijnpaneel
         tijdlijn={detail.tijdlijn}
+        // The per-minute curve, or the reason there is none. Both are handed
+        // over: the panel draws whichever of the two sources exist and, when
+        // neither does, prints which of the four reasons that is rather than
+        // disappearing off the page.
+        historie={detail.historie}
+        // Where the rows come from for a game nobody recorded, which is all but
+        // two of them. Same order as the timeline's seats, since both are the
+        // stored match.
+        spelers={detail.players}
         items={items}
         champions={champions}
         venster={omslag?.ergste ?? null}

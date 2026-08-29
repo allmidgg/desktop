@@ -7,6 +7,11 @@
 import type { PlayerProfile } from "../core/services/player";
 import type { RuneKind } from "../core/jade/runes";
 import type { Position } from "../core/services/matchStore";
+// Type-only, and circular on paper: matchtijdlijn.ts imports Position back out
+// of this file. Both sides are erased at compile time, so nothing circular
+// survives to runtime -- the same argument the MINIMALE_GAMEDUUR_SECONDEN block
+// below already makes for importing from matchStore.
+import type { Laanmeting } from "./matchtijdlijn";
 
 export type { Position };
 
@@ -298,6 +303,18 @@ export interface GameDetail {
    */
   tijdlijn: GameTijdlijn | null;
   /**
+   * The coarser curve from match history, which does exist for crawled games.
+   *
+   * Fetched the moment somebody opens a game and cached from then on, so this is
+   * never "not collected yet" -- it is either here, being fetched, or absent for
+   * a reason the union names. Never null: the reason is the answer.
+   *
+   * The paragraph above about `tijdlijn` still holds. That field stays a
+   * recording and stays empty for games nobody watched; this one is a different
+   * and coarser source sitting beside it, not a backfill of it.
+   */
+  historie: HistorieUitslag;
+  /**
    * Your own line in this game against what the champion normally does in that
    * lane. Null when you are not in the game, when your lane came out UNKNOWN, or
    * when too few games sit behind the average to say anything with it.
@@ -444,7 +461,27 @@ export interface Verloop {
    * earned, so it drops every time you spend. A wallet, not a score.
    */
   goud: Array<number | null>;
-  /** One entry per seat, in the same order as OpnameRecord.spelers. */
+  /**
+   * One entry per seat -- but WHICH seat order depends on where the curve came
+   * from, and the two sources do not use the same one.
+   *
+   *   from a recording (OpnameRecord.verloop): the order of OpnameRecord.spelers,
+   *       which is the order the running client listed players in. Not promised
+   *       by anything; core/services/tijdlijn.ts refuses to derive teams from it
+   *       for exactly that reason, and data/live-sample.json shows the active
+   *       player hoisted to the front of that list while the stored match has
+   *       that same player ninth.
+   *   from match history (HistorieTijdlijn.verloop): the order of
+   *       StoredMatch.players, which is participantId 1..10. Measured exact on
+   *       220 seats across 22 games on all six columns, and again on 60 seats
+   *       across six other games on creeps and gold.
+   *
+   * Whoever draws this must take its seat list from the same source. Handing a
+   * match-ordered curve to a component whose seats came from a recording gives
+   * every player somebody else's line, and nothing on screen would look wrong.
+   * shared/samenloop.ts is the one place that lines the two up -- on champion,
+   * never on index -- and Tijdlijnpaneel is the one caller that needs to.
+   */
   spelers: VerloopKolommen[];
 }
 
@@ -484,8 +521,20 @@ export interface OpnameRecord {
  */
 export interface TijdlijnKoppeling {
   gameId: number;
-  /** Seats whose champion, kills, deaths, assists and CS are all identical. */
+  /**
+   * Seats whose champion and whole kill/death/assist line are identical.
+   *
+   * Creep score is deliberately not in here. The one recording on disk that
+   * overlaps a real match (7965097532) agrees on kills, deaths and assists for
+   * all ten seats and on creeps for one, because its recorded creep score is
+   * quantised to multiples of ten -- 230,140,280,240,10,250,160,270,260,30
+   * against the match's 268,271,298,258,13,257,160,274,266,37. With creeps in
+   * the key this figure read 1 out of 10 for a join that is exact, and
+   * TijdlijnStore.voor() ranks candidate recordings by it.
+   */
   gelijkeScores: number;
+  /** Seats whose creep score also agrees. Reported, never required; see above. */
+  gelijkeCs: number;
   spelers: number;
   /** Seconds between the game ending and the recording being written. */
   naEindeSeconden: number;
@@ -499,6 +548,125 @@ export interface GameTijdlijn {
   opname: OpnameRecord;
   koppeling: TijdlijnKoppeling;
 }
+
+/**
+ * Which columns of a history timeline were measured and which were not.
+ *
+ * Carried with the data instead of written in a comment, because the flags the
+ * screen needs are exactly the ones that would otherwise be read off a default:
+ * a ward column full of nulls and a `gestolen` that is always false are not
+ * findings about the game, they are the shape of the source. A screen that can
+ * read this can say "not recorded" where it would otherwise draw a zero.
+ */
+export interface HistorieGemeten {
+  cs: boolean;
+  level: boolean;
+  kills: boolean;
+  deaths: boolean;
+  assists: boolean;
+  /** Always false. The timeline carries no ward or vision figure of any kind. */
+  wards: boolean;
+  /** Always false. There is no field for a stolen objective and no way to derive one. */
+  gestolen: boolean;
+  /** Always false. No ITEM_PURCHASED events; buildorders.jsonl stays the only source. */
+  aankopen: boolean;
+  /** Always false. No SKILL_LEVEL_UP events either. */
+  skills: boolean;
+}
+
+/**
+ * How a game went, rebuilt from match history rather than from watching it.
+ *
+ * The counterpart to GameTijdlijn and explicitly not the same thing. That one is
+ * a recording: fifteen-second samples, every purchase with a timestamp, and the
+ * seat that was at the keyboard identifiable because only that seat has a skill
+ * order. This one is one frame a minute out of
+ * `/lol-match-history/v1/game-timelines/{gameId}`, which exists for games nobody
+ * installed anything to watch -- the 130,086 in matches.jsonl included -- and
+ * carries no purchases, no skill levels and no ward figure at all.
+ *
+ * The two complement each other and neither replaces the other, so they travel
+ * side by side on GameDetail and each says what it is.
+ *
+ * Only reachable while the League client is running: the endpoint is the
+ * client's, not a public one. HistorieUitslag is what says so.
+ */
+export interface HistorieTijdlijn {
+  gameId: number;
+  /** Wall clock when it was fetched, so a cached line can be dated. */
+  opgehaaldOp: number;
+  /**
+   * The per-minute series in the same shape a recording's curve uses, so the
+   * charts that already read Verloop need no second code path.
+   *
+   * Seat i here is players[i] of the same GameDetail. That is not an assumption:
+   * participantId 1..10 was checked against the stored scoreline on 100 seats
+   * across ten games and matched exactly on creeps, and on 50 seats across five
+   * games for kills, deaths and assists.
+   */
+  verloop: Verloop;
+  /**
+   * Total gold earned per seat per minute -- the one series this source has that
+   * a recording does not, since a running game reveals gold for your seat only.
+   *
+   * Kept beside Verloop instead of inside VerloopKolommen: adding a column there
+   * would put a permanently empty gold axis on every live recording ever made.
+   * Same length and same order as `verloop.spelers`.
+   */
+  goudPerStoel: Array<Array<number | null>>;
+  /** Champion kills, buildings and elite monsters. Nothing else is in the frames. */
+  gebeurtenissen: SpelGebeurtenis[];
+  /**
+   * Where each seat actually stood, read off the map coordinates before the
+   * frames were thrown away.
+   *
+   * One entry per seat, same order as `verloop.spelers`. Measured here rather
+   * than left to the renderer because the coordinates are the bulk of an 80 KB
+   * response and they answer exactly one question -- see laanmetingenUit in
+   * shared/matchtijdlijn.ts, which turns these into lanes and which is where the
+   * thresholds and their evidence live.
+   *
+   * It matters because Riot's own position labels on the stored games are bad,
+   * and this is the only thing in the app that can contradict them.
+   */
+  laanmetingen: Laanmeting[];
+  /** Your seat, when you were in this game at all. Null for a crawled game. */
+  jouwStoel: number | null;
+  gemeten: HistorieGemeten;
+}
+
+/**
+ * Whether there is a history timeline for a game, and if not, why not.
+ *
+ * A union rather than a nullable, because the four ways of having nothing mean
+ * genuinely different things to somebody looking at an empty panel. "No client"
+ * is a thing he can fix by starting League; "no timeline" is a fact about that
+ * game; "busy" resolves on its own; only "mislukt" is a fault, and it is the
+ * only one that should read like one.
+ */
+export type HistorieUitslag =
+  | { staat: "gevonden"; tijdlijn: HistorieTijdlijn }
+  /** Being fetched now. A game:tijdlijn event follows; ask for the detail again. */
+  | { staat: "bezig" }
+  /*
+   * There is deliberately no "a recording already exists, so we did not ask"
+   * state. There was one, and the measurement retired it: on the single game
+   * where both sources exist the recording's creep score came out low on nine
+   * seats out of ten -- by up to 131, every value a multiple of ten -- and the
+   * recording carries gold for one seat only, because a running game never
+   * reveals anybody else's wallet. A game we have a recording of is therefore
+   * the game where having both is worth most, not the one where the second
+   * source is redundant. shared/samenloop.ts picks between them per measure.
+   */
+  /** League is not running, so the only endpoint that serves this is unreachable. */
+  | { staat: "geen-client" }
+  /** The client answered 404: this game has no timeline, and will not grow one. */
+  | { staat: "geen-tijdlijn" }
+  /**
+   * The request failed. Reported once, then forgotten, so opening the game again
+   * is a fresh attempt rather than a screen permanently stuck on an old error.
+   */
+  | { staat: "mislukt"; reden: string };
 
 /**
  * What one champion normally does in one lane, cut down to the four figures the

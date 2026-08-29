@@ -119,6 +119,10 @@ async function main(): Promise<void> {
       surrendered: match.surrendered,
       baseline,
       tijdlijn: null,
+      // This probe reads matches straight off disk with no client anywhere, so
+      // there is no history timeline to be had and saying so is the honest
+      // answer rather than a stand-in.
+      historie: { staat: "geen-client" },
       players: match.players.map((p, i) => ({
         championId: p.championId,
         team: p.teamId,

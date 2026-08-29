@@ -331,10 +331,22 @@ function bandTekst(u: Uitspraak): string {
     ? (n: number) => `${(n * 100).toFixed(1)}%`
     : (n: number) => Math.round(n).toLocaleString("en-GB");
   const sample = band.slots.toLocaleString("en-GB");
+  // Three cases and not two. A row can now reach this list while sitting inside
+  // its band -- shared/tijdvak.ts sends one that describes the shape of a
+  // collapse rather than judging it, and "not concentrated" is that row's answer
+  // rather than its absence. Calling that "further out than half of them" would
+  // be the caption contradicting the sentence above it.
   const waar =
     u.tier === "ver"
       ? `further out than nine in ten of them`
-      : `further out than half of them`;
+      : u.tier === "buiten"
+        ? `further out than half of them`
+        : `closer in than half of them`;
 
-  return `Gap of ${toon(u.gat)} on ${band.maat} — ${waar}. Over ${sample} recorded player slots, half sit within ${toon(band.helft)} and one in ten passes ${toon(band.staart)}.`;
+  // The sample is named rather than assumed to be "recorded player slots". This
+  // block now mixes rows whose cut points rest on a million slots off the local
+  // store with rows whose cut points rest on a couple of hundred observations
+  // pulled from the client, and a reader who cannot see which is which will
+  // reasonably give both the same weight.
+  return `Gap of ${toon(u.gat)} on ${band.maat} — ${waar}. Over ${sample} ${band.herkomst}, half sit within ${toon(band.helft)} and one in ten passes ${toon(band.staart)}.`;
 }

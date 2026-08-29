@@ -27,6 +27,19 @@ const api = {
   activateMasteryPage: (pageIndex: number): Promise<ApplyResult> =>
     ipcRenderer.invoke("masteries:activate", pageIndex),
   gameDetail: (gameId: number): Promise<GameDetail | null> => ipcRenderer.invoke("game:detail", gameId),
+  /**
+   * Fires when a history timeline finishes being fetched, with its gameId.
+   *
+   * gameDetail answers straight away with `historie: { staat: "bezig" }` rather
+   * than waiting on the client, so the game opens at once. This is how the screen
+   * learns the curve has arrived: ask for the same detail again. A gameId that is
+   * not the one on screen is meant to be ignored.
+   */
+  onGameTijdlijn: (handler: (gameId: number) => void): (() => void) => {
+    const listener = (_event: unknown, gameId: number): void => handler(gameId);
+    ipcRenderer.on("game:tijdlijn", listener);
+    return () => ipcRenderer.removeListener("game:tijdlijn", listener);
+  },
   /** Locked means click-through; unlocked lets you drag the overlay somewhere else. */
   lockOverlay: (locked: boolean): Promise<boolean> => ipcRenderer.invoke("overlay:lock", locked),
   onOverlayLocked: (fn: (locked: boolean) => void): (() => void) => {

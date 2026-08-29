@@ -18,7 +18,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { MatchStore, StoredMatch } from "./matchStore";
+import type { MatchStore, StoredMatch, StoredPlayer } from "./matchStore";
 
 /** Hoeveel games we per verzoek meesturen; de server weigert grotere pakketten. */
 const UPLOAD_BATCH = 200;
@@ -87,6 +87,56 @@ function parseRetryAfter(header: string | null): number | null {
   const timestamp = Date.parse(value);
   if (Number.isNaN(timestamp)) return null;
   return Math.max(0, timestamp - Date.now());
+}
+
+/**
+ * Copies out exactly the fields the shared server is meant to receive.
+ *
+ * Until now sync() handed the stored record straight to the POST, which means
+ * anything ever added to StoredMatch would start being shared the moment it was
+ * added -- no upload code touched, no number in UploadResult changed, and nobody
+ * told. That became a real hazard the day timelines arrived: a per-minute series
+ * for all ten seats is exactly the behavioural fingerprint shared/types.ts warns
+ * about under Verloop, and hanging one on the stored match -- which is the
+ * natural-looking convenience -- would have published nine strangers' games as a
+ * side effect of a refactor nobody would have thought to review for it.
+ *
+ * So the shape is written out by name rather than spread. Adding a field to the
+ * upload is now an edit to this function, which is a thing a reviewer can see.
+ * Timelines have no line here and are not meant to get one: they live in their
+ * own local cache, out of MatchStore entirely, and stay on the machine that
+ * fetched them.
+ */
+function voorVerzending(match: StoredMatch): StoredMatch {
+  return {
+    gameId: match.gameId,
+    surrendered: match.surrendered,
+    createdAt: match.createdAt,
+    duration: match.duration,
+    queueId: match.queueId,
+    patch: match.patch,
+    players: match.players.map(
+      (p): StoredPlayer => ({
+        puuid: p.puuid,
+        championId: p.championId,
+        teamId: p.teamId,
+        position: p.position,
+        win: p.win,
+        kills: p.kills,
+        deaths: p.deaths,
+        assists: p.assists,
+        cs: p.cs,
+        gold: p.gold,
+        items: p.items,
+        spells: p.spells,
+        damage: p.damage,
+        damageTaken: p.damageTaken,
+        vision: p.vision,
+        wards: p.wards,
+        level: p.level,
+      }),
+    ),
+  };
 }
 
 export class MatchUploader {
@@ -215,7 +265,7 @@ export class MatchUploader {
         const batch = toSend.slice(i, i + UPLOAD_BATCH);
         const response = await this.post<{ accepted: number; rejected: number; total: number }>(
           "/api/v1/matches",
-          { matches: batch },
+          { matches: batch.map(voorVerzending) },
         );
 
         // Pas hier staat vast dat deze batch is aangekomen. Ook de games die de

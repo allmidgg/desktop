@@ -22,6 +22,7 @@
     "timeline-endpoint-probe": "tsx src/cli/timeline-endpoint-probe.ts",
     "stats": "tsx src/cli/stats.ts",
     "oordeel-probe": "tsx src/cli/oordeel-probe.ts",
+    "tijdvak-probe": "tsx src/cli/tijdvak-probe.ts",
     "live": "tsx src/cli/live.ts",
     "server": "tsx server/index.ts",
     "upload": "tsx src/cli/upload.ts"
