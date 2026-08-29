@@ -24,6 +24,8 @@ import { pipeline } from "node:stream/promises";
 import { dirname, join } from "node:path";
 import type { Game } from "../lcu/types";
 import { isJadeGame } from "../jade/ids";
+import { modeOf } from "../modes/detect";
+import type { ModeId } from "../modes/types";
 import { withFileLock } from "./fileLock";
 import { MINIMALE_GAMEDUUR_SECONDEN } from "../../shared/types";
 
@@ -101,6 +103,32 @@ export interface StoredMatch {
   createdAt: number;
   duration: number;
   queueId: number;
+  /**
+   * Which mode this game was played in, decided once, when it was written.
+   *
+   * Absent on the 130,197 records that predate this field, and undefined means
+   * "not written down" rather than "modern". Those records are all Classic and
+   * their queue id proves it -- counted over the whole file: 126,340 on 4310,
+   * 3,852 on 4320, 5 on 3262, and nothing else -- so modeOfStored() derives the
+   * answer for them and the file itself is never rewritten.
+   */
+  mode?: ModeId;
+  /**
+   * The two signals the decision was made from, kept so it can be re-checked.
+   *
+   * They used to be discarded. queueId was the only survivor, which is why the
+   * mode of an old record can only be recovered from a hand-written list of four
+   * queue ids -- and the client already publishes Classic-adjacent queues that
+   * are not on it (2450 and 3280, gameMode KIWI_JADE). A game stored today under
+   * a queue Riot adds tomorrow would silently change mode between two versions
+   * of the app, and there is no way back: the LCU keeps only a few months of
+   * match history, so the evidence would be gone.
+   *
+   * Twelve bytes on a 2,504-byte record, against a question that cannot be asked
+   * a second time.
+   */
+  gameMode?: string;
+  mapId?: number;
   patch: string;
   players: StoredPlayer[];
 }
@@ -125,6 +153,9 @@ export function toPosition(lane: string | undefined, role: string | undefined): 
 }
 
 export function slimGame(game: Game): StoredMatch | null {
+  // The gate is unchanged for now: this step only makes the record remember what
+  // it already knew. Step 5 replaces this line with routing, and by then every
+  // record written since today can answer for itself.
   if (!isJadeGame(game)) return null;
   // Remakes en vroege surrenders vertekenen elke statistiek.
   //
@@ -177,6 +208,11 @@ export function slimGame(game: Game): StoredMatch | null {
     // en de cijfers erin zijn navenant lager.
     surrendered: game.participants[0]?.stats?.gameEndedInSurrender,
     queueId: game.queueId,
+    // Decided here and nowhere else, while the client's own answer is still in
+    // hand. Below this line gameMode and mapId only exist because we copied them.
+    mode: modeOf({ queueId: game.queueId, mapId: game.mapId, gameMode: game.gameMode }),
+    gameMode: game.gameMode,
+    mapId: game.mapId,
     patch: game.gameVersion.split(".").slice(0, 2).join("."),
     players,
   };
