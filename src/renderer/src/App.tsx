@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { AppSnapshot, Settings, UploadStatus } from "../../shared/types";
 import type { CollectedMode } from "../../core/modes/registry";
 import { modeCollects, modeCrawls } from "../../core/modes/registry";
-import { kiesStartModus, ModusMerk } from "./modus";
+import { ModusMerk } from "./modus";
 import { MerkGeslepen } from "./merk";
 import { LiveView } from "./views/LiveView";
 import { ProfileView } from "./views/ProfileView";
@@ -118,18 +118,37 @@ function MainWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element
   /**
    * Which mode the champion screens are showing, and it lives here.
    *
-   * Here rather than in the main process because it is a property of this
+   * Held here rather than in the main process because it is a property of this
    * window: two people reading two windows may reasonably be reading two modes,
-   * and every call that reads statistics carries the mode along with it now, so
-   * there is nothing left to keep in step. Null until the first snapshot lands,
-   * because the honest starting mode depends on which mode actually has games
-   * and there is no way to know that before the figures arrive.
+   * and every call that reads statistics carries its own mode now, so there is
+   * nothing left to keep in step.
+   *
+   * The starting value is the saved one, and it is saved because it is a choice
+   * somebody made. It used to be derived from which mode had games, which read
+   * well and was wrong: on a machine holding 130,197 Classic games and no modern
+   * ones, deriving it opens the app on Classic every time until the modern side
+   * fills up -- which is the exact framing this reframe exists to turn around.
+   *
+   * Null until the first snapshot lands, because the setting arrives with it.
    */
   const [gekozenModus, setGekozenModus] = useState<CollectedMode | null>(null);
   const database = snapshot?.database;
+  const bewaardeModus = snapshot?.settings?.bladerModus;
   useEffect(() => {
-    if (database) setGekozenModus((huidig) => huidig ?? kiesStartModus(database));
-  }, [database]);
+    if (bewaardeModus) setGekozenModus((huidig) => huidig ?? bewaardeModus);
+  }, [bewaardeModus]);
+
+  /**
+   * Switching writes it back, so the next start opens where you left off.
+   *
+   * The local state moves first and does not wait for the round trip: the tier
+   * list under the reader's cursor should change on the click, not two frames
+   * later when the main process answers.
+   */
+  const kiesModus = (modus: CollectedMode): void => {
+    setGekozenModus(modus);
+    void window.jade.updateSettings({ bladerModus: modus });
+  };
 
   // Champion select is almost always what you want to look at.
   useEffect(() => {
@@ -149,7 +168,7 @@ function MainWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element
           {!snapshot || !gekozenModus ? null : tab === "live" ? (
             <LiveView snapshot={snapshot} modus={gekozenModus} onNavigate={setTab} />
           ) : tab === "meta" ? (
-            <MetaView snapshot={snapshot} modus={gekozenModus} onKiesModus={setGekozenModus} />
+            <MetaView snapshot={snapshot} modus={gekozenModus} onKiesModus={kiesModus} />
           ) : tab === "profile" ? (
             <ProfileView snapshot={snapshot} modus={gekozenModus} />
           ) : tab === "runes" ? (

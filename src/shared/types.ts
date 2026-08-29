@@ -13,6 +13,7 @@ import type { ModeId } from "../core/modes/types";
 // survives to runtime -- the same argument the MINIMALE_GAMEDUUR_SECONDEN block
 // below already makes for importing from matchStore.
 import type { Laanmeting } from "./matchtijdlijn";
+import type { CollectedMode } from "../core/modes/registry";
 
 export type { Position };
 
@@ -1105,6 +1106,14 @@ export interface Settings {
   /** When started with Windows, come up as a tray icon with no window. */
   startVerborgen: boolean;
   uploadServer: string;
+  /**
+   * Which game the tier list, profile and meta screens describe.
+   *
+   * Saved, because it is a choice the reader made and it should outlive the
+   * window. Modern on a fresh install: the app is for League of Legends and
+   * Classic is one mode it can name.
+   */
+  bladerModus: CollectedMode;
 }
 
 /**

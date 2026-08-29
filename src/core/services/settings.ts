@@ -8,6 +8,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import type { CollectedMode } from "../modes/registry";
 
 /**
  * Wat de interface mag zien en mag wijzigen.
@@ -57,6 +58,20 @@ export interface Settings {
    * tray-menu -- en dat staat er expliciet in, omdat een kruisje dat niet sluit
    * anders aanvoelt als software die je niet laat gaan.
    */
+  /**
+   * Which game the tier list, the profile and the meta screen describe.
+   *
+   * A choice the reader made, so it outlives the window: without it the switch
+   * silently reset to the default on every start, and someone who plays modern
+   * would have had to set it again every time.
+   *
+   * The default is modern, and it is a flat default rather than a look at what
+   * is in the database. Deriving it would mean that on this machine -- 130,197
+   * Classic games and no modern ones yet -- the app opens on Classic and keeps
+   * doing so until the modern side fills up, which is exactly the framing this
+   * whole reframe was meant to turn around. The switch is on screen either way.
+   */
+  bladerModus: CollectedMode;
   sluitNaarTray: boolean;
   /**
    * Meestarten met Windows.
@@ -94,6 +109,22 @@ export interface Settings {
  */
 export interface StoredSettings extends Settings {
   uploadKey: string;
+  /**
+   * The key for Riot's official API, which is a different kind of secret to the
+   * one above and is treated as one.
+   *
+   * The upload key is a writing pass for our own server: leaking it lets someone
+   * offer rubbish to the collector, which is a nuisance for whoever runs it. This
+   * one is issued by Riot against a person's developer account, it is rate
+   * limited per key, and abuse of it lands on the account it belongs to. So it
+   * never reaches `Settings`, never reaches the renderer, and never reaches the
+   * snapshot -- the same rule as the upload key, for a heavier reason.
+   *
+   * RIOT_API_KEY in the environment wins over the file and never touches disk,
+   * which is the right way to hold a development key: those expire every 24
+   * hours, so a value written into settings.json is stale by tomorrow anyway.
+   */
+  riotApiKey: string;
 }
 
 /**
@@ -124,6 +155,10 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   startVerborgen: true,
   uploadServer: DEFAULT_UPLOAD_SERVER,
   uploadKey: "",
+  // Modern, on a fresh install and on every install that never chose. The app is
+  // for League of Legends; Classic is one mode it can name.
+  bladerModus: "lol:sr",
+  riotApiKey: "",
 };
 
 /**
@@ -140,6 +175,10 @@ export const publicSettings = (settings: StoredSettings): Settings => ({
   sluitNaarTray: settings.sluitNaarTray,
   startMetWindows: settings.startMetWindows,
   startVerborgen: settings.startVerborgen,
+  bladerModus: settings.bladerModus,
+  // riotApiKey is deliberately absent, and so is uploadKey. This function is
+  // the boundary: adding a secret to StoredSettings and forgetting it here is a
+  // compile error rather than a value that quietly reaches the window.
 });
 
 export class SettingsStore {
