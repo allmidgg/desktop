@@ -62,12 +62,56 @@ export interface Band {
 /** Where a gap fell relative to its band. Named, because the screen prints it. */
 export type Tier = "binnen" | "buiten" | "ver";
 
+/**
+ * One line of a verdict as three aligned cells rather than as a clause.
+ *
+ * The screen prints a verdict as a table: the quantity, your figure, what it was
+ * held against, and the distance between the two. The sentence is still written
+ * and still says the same thing -- it moves behind the row's own fold, where a
+ * reader who wants the claim spelled out can have it -- but the open surface is
+ * numbers in columns, which is what the owner asked for and what the rest of this
+ * app already is.
+ *
+ * Nothing here is a new measurement. Every cell is built from the same variables
+ * the sentence beside it is built from, in the same function, so the table and
+ * the sentence cannot come to disagree.
+ *
+ * The cells are strings because the producer is the only thing that knows how
+ * many decimals its figure honestly carries -- 0.62 kills a minute and 147 CS are
+ * not the same kind of number -- and a renderer that rounded them again would be
+ * a second opinion about precision.
+ */
+export interface Meting {
+  /** The quantity, in the small-caps label voice the app uses: "CS / min". */
+  maat: string;
+  /** Your figure. */
+  jij: string;
+  /**
+   * What your figure is held against: a norm, an opponent, or the median gap.
+   *
+   * Null when nothing measures this. Damage and vision have no average anywhere
+   * and never will, and an empty cell says that far more honestly than a filled
+   * one -- a column that is blank on exactly the rows nothing measures is the
+   * absence made visible instead of explained.
+   */
+  norm: string | null;
+  /** The distance between the two, signed. Null when there is nothing to subtract. */
+  verschil: string | null;
+}
+
 export interface Uitspraak {
   sleutel: OordeelSleutel;
   /** The heading the row carries: Farming, Fights, Dying, Lane. */
   gebied: string;
   /** Green when this went your way, red when it did not, grey when neither. */
   toon: "goed" | "slecht" | "vlak";
+  /**
+   * The row on the open surface: one to four lines of figures in columns.
+   *
+   * This is what the screen draws. `zin`, `cijfers`, `band` and `grond` are the
+   * same finding written out, and they sit behind the fold on the row.
+   */
+  metingen: Meting[];
   /** The sentence itself, already carrying its own numbers. */
   zin: string;
   /** Your figure and the reference, in the units the sentence used. */
@@ -115,6 +159,44 @@ export const verschil = (n: number): string =>
   Math.abs(n) >= 1 ? heel(n) : komma(Math.abs(n), 1);
 
 export const procent = (deel: number): string => `${Math.round(deel * 100)}%`;
+
+/**
+ * A difference with its sign in front, for the column that is a difference.
+ *
+ * Every formatter above takes an absolute value, because the sentences put the
+ * direction in words -- "48 CS behind". A table column has no room for a word, so
+ * the sign has to carry it, and it is the typographic minus the rest of the app
+ * uses rather than a hyphen.
+ *
+ * A figure that rounded to zero never gets a sign. "−0" claims a direction that
+ * the rounding has just thrown away, and it is the one output of this function a
+ * reader would be right to call a bug.
+ */
+export const gemerkt = (n: number, toon: (waarde: number) => string = heel): string => {
+  const cijfer = toon(n);
+  if (/^[0.,]*$/.test(cijfer)) return cijfer;
+  return `${n > 0 ? "+" : n < 0 ? "−" : ""}${cijfer}`;
+};
+
+/**
+ * The gap between two figures, at the precision the two figures are printed at.
+ *
+ * Subtracting the raw values and rounding the answer is the obvious way to do
+ * this and it is wrong on a screen. A game at 0.606 deaths a minute against a
+ * norm of 2.204 prints as 0.61 and 2.20, and the exact gap of 1.598 prints as
+ * 1.60 -- so the reader subtracts the two numbers in front of him, gets 1.59,
+ * and has caught the app out in an arithmetic error it did not make. Rounding
+ * both sides first costs a thousandth of a death and buys a column that adds up.
+ *
+ * `decimalen` is the wider of the two cells' precisions, because that is the
+ * precision the reader is subtracting at: 4 deaths against 6.0 is a gap of 2.0
+ * and not of 2.
+ */
+export const gemerktVerschil = (jij: number, norm: number, decimalen: number): string => {
+  const factor = 10 ** decimalen;
+  const gat = Math.round(jij * factor) / factor - Math.round(norm * factor) / factor;
+  return gemerkt(gat, (n) => komma(Math.abs(n), decimalen));
+};
 
 /** mm:ss, from a count of seconds. */
 export const klok = (seconden: number): string =>

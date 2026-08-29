@@ -48,7 +48,9 @@ const dringend = (herkomst: Herkomst): boolean =>
 
 const NAAM: Record<SamenloopVeld, string> = {
   cs: "Creep score",
-  gold: "Gold earned",
+  // The name the charts drawn off this series now carry. Riot's totalGold counts
+  // the spawn purse, so "earned" overstated it by 475 a seat on every reading.
+  gold: "Total gold",
   kills: "Kills",
   deaths: "Deaths",
   assists: "Assists",

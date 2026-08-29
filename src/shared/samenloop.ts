@@ -131,8 +131,25 @@ export interface Herkomst {
   tot: number;
   /** True when the other source could also have answered and was passed over. */
   andereBestond: boolean;
-  /** Plain sentence for the screen. Never a claim the numbers do not support. */
+  /**
+   * The caption itself: source, cadence, window. Nothing but readings.
+   *
+   * Kept to those three because it is drawn on the open surface under a chart,
+   * and everything that sits there has to be a figure the reader can check
+   * against the picture above it. Never a claim the numbers do not support.
+   */
   zin: string;
+  /**
+   * Why this source and not the other one, for the fold under the caption.
+   *
+   * Split out of `zin` rather than dropped. It is the part that argues instead
+   * of reporting, and on creep score it is also where the measurement behind the
+   * choice lives -- our own recording came out low on nine of one game's ten
+   * seats, by up to 131 -- so it cannot go anywhere except behind a fold that is
+   * still on the page. Empty string when there is nothing to say, which is every
+   * measure with only one possible source.
+   */
+  nuance: string;
 }
 
 /**
@@ -359,7 +376,8 @@ export function samenloop(
       VOLGORDE[veld].length > 1 && (bron === "opname" ? !!historieVerloop : !!opnameVerloop);
     herkomst[veld] = {
       veld, bron, cadansSeconden: cadans, metingen, vanaf: van, tot, andereBestond,
-      zin: zinVoor(veld, bron, cadans, van, tot, andereBestond),
+      zin: zinVoor(bron, cadans, van, tot),
+      nuance: nuanceVoor(veld, bron, andereBestond),
     };
     return true;
   };
@@ -455,21 +473,36 @@ export function krommeVoor(
 /**
  * The caption, in the numbers behind it rather than in a label.
  *
- * Two things are always said: where the line came from and how often it was
- * read. A third is said only when it changes what the reader should believe --
- * that the other source was available and lost -- and on creep score it quotes
- * by how much the loser was measured to be off, because that is the one case
- * where the choice moves the line rather than only its cadence.
+ * Exactly three things: where the line came from, how often it was read, and
+ * between which two seconds. All three are readings, all three can be checked
+ * against the chart above the caption, and none of them is an argument.
+ *
+ * Everything that is an argument moved to `nuanceVoor` below. It used to be
+ * appended here, which put up to three sentences of reasoning on the open
+ * surface directly under a chart -- the arrangement the owner objected to. It is
+ * not shortened, only relocated.
  */
-function zinVoor(
+function zinVoor(bron: Bron, cadans: number, vanaf: number, tot: number): string {
+  const venster = `${klok(vanaf)} to ${klok(tot)}`;
+  return bron === "historie"
+    ? `Match history, one frame a minute, ${venster}.`
+    : `Our own recording, every ${cadans}s, ${venster}.`;
+}
+
+/**
+ * Why this source and not the other, for the fold under the caption.
+ *
+ * Said only when it changes what the reader should believe. On creep score it
+ * quotes by how much the source that was not drawn was measured to be off,
+ * because that is the one case where the choice moves the line rather than only
+ * its cadence -- so this string carries a measurement and has to stay on the
+ * page even though it is prose.
+ */
+function nuanceVoor(
   veld: SamenloopVeld,
   bron: Bron,
-  cadans: number,
-  vanaf: number,
-  tot: number,
   andereBestond: boolean,
 ): string {
-  const venster = `${klok(vanaf)} to ${klok(tot)}`;
   if (bron === "historie") {
     const gepasseerd = !andereBestond
       ? ""
@@ -480,22 +513,21 @@ function zinVoor(
         : " Our own recording reads this more often and agreed with these frames, so either" +
           " would have been truthful; the frames are drawn because they cover the whole game.";
     return (
-      `Match history, one frame a minute, ${venster}.` +
-      ` Served for every game, including games this app never saw run.${gepasseerd}`
+      `Served for every game, including games this app never saw run.${gepasseerd}`
     );
   }
   const alleen =
     veld === "wards"
-      ? " The frames carry no ward or vision figure of any kind, so there is no second source for this one."
+      ? "The frames carry no ward or vision figure of any kind, so there is no second source for this one."
       : andereBestond
-        ? " Match history could answer this too, once a minute; ours is drawn because it is six" +
+        ? "Match history could answer this too, once a minute; ours is drawn because it is six" +
           " times finer and the two agreed exactly on the one game we could check."
         : "";
   const grof =
     veld === "cs"
-      ? " Read off the client's own scoreboard, which reports another seat's creep score in whole" +
+      ? "Read off the client's own scoreboard, which reports another seat's creep score in whole" +
         " tens -- checked against one game's match history it was low by up to 131. There is no" +
         " timeline for this game to correct it against."
       : "";
-  return `Our own recording, every ${cadans}s, ${venster}.${alleen}${grof}`;
+  return [alleen, grof].filter((s) => s !== "").join(" ");
 }

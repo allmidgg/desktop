@@ -60,7 +60,7 @@ import { LAANNORM_15, banenVan } from "./matchtijdlijn";
 import type { GameDetail, HistorieTijdlijn, Position, SpelGebeurtenis } from "./types";
 import {
   type Band, type Uitspraak, type Zwijgen,
-  heel, klok, procent, tierVan,
+  gemerkt, gemerktVerschil, heel, klok, procent, tierVan,
 } from "./uitspraak";
 
 /**
@@ -413,6 +413,14 @@ function laanRegels(
     sleutel: "laning",
     gebied: "Laning phase",
     toon: laanTier === "binnen" ? "vlak" : goud15 >= 0 ? "goed" : "slecht",
+    // The middle column here is a person and not a norm, which is the whole
+    // point of the row: this is you against the man you were standing next to,
+    // at one named minute. The lane's median gap goes under the fold with the
+    // band, where every other cut point on this screen also sits.
+    metingen: [
+      { maat: "Gold at 15:00", jij: heel(mijnGoud15), norm: heel(hunGoud15), verschil: gemerktVerschil(mijnGoud15, hunGoud15, 0) },
+      { maat: "CS at 15:00", jij: heel(mijnCs15), norm: heel(hunCs15), verschil: gemerktVerschil(mijnCs15, hunCs15, 0) },
+    ],
     zin:
       `At 15:00 you were ${heel(goud15)} gold ${goud15 >= 0 ? "ahead of" : "behind"} ${naam}, ` +
       `and ${heel(cs15)} CS ${cs15 >= 0 ? "ahead" : "behind"}.`,
@@ -425,7 +433,7 @@ function laanRegels(
     tier: laanTier,
     luidheid: laanGat / Math.max(1, laanBand.helft),
     grond:
-      "Both players' total gold earned at the fifteen-minute frame of the match-history timeline. This is the laning phase and nothing else: not one gold piece from after 15:00 is in it, which is the whole reason it can disagree with the end-of-game figure.",
+      "Both players' total gold at the fifteen-minute frame of the match-history timeline, subtracted. This is the laning phase and nothing else: not one gold piece from after 15:00 is in it, which is the whole reason it can disagree with the end-of-game figure. Riot's total-gold field counts the purse a champion spawns with, so both figures carry the same 475 and it cancels out of the gap.",
   });
 
   if (naMinuten < NA_LAAN_MINIMUM_MINUTEN) {
@@ -447,6 +455,19 @@ function laanRegels(
     sleutel: "naLaning",
     gebied: "After laning",
     toon: naTier === "binnen" ? "vlak" : goudNa >= 0 ? "goed" : "slecht",
+    // The end-of-game line is on the row rather than only in the sentence,
+    // because the two together are the finding: a lane that ended one way and a
+    // game that ended the other is exactly what this row exists to show, and two
+    // signed numbers in one column show it without a word.
+    metingen: [
+      { maat: "Gold after 15:00", jij: heel(mijnNa), norm: heel(hunNa), verschil: gemerktVerschil(mijnNa, hunNa, 0) },
+      {
+        maat: "Gold at the end",
+        jij: heel(goudOp(historie, jij, eind)),
+        norm: heel(goudOp(historie, tegen, eind)),
+        verschil: gemerktVerschil(goudOp(historie, jij, eind), goudOp(historie, tegen, eind), 0),
+      },
+    ],
     zin: draait
       ? `Then it turned round. From 15:00 to the end you made ${heel(goudNa)} gold ${goudNa >= 0 ? "more than" : "less than"} ${naam} — the opposite way from the lane, so the end-of-game gap points away from how you actually laned.`
       : `From 15:00 to the end you made ${heel(goudNa)} gold ${goudNa >= 0 ? "more than" : "less than"} ${naam}, the same way the lane went.`,
@@ -541,6 +562,43 @@ function voorsprongRegels(
     sleutel: "voorsprong",
     gebied: "When the lead went",
     toon: "slecht",
+    // The clock sits in the label rather than in a column of its own. Three
+    // readings of one curve at three named minutes is the whole shape of this
+    // finding, and it is a shape the reader can then go and point at on the
+    // chart, which is the only claim this row makes.
+    metingen: [
+      { maat: `Lead peaked ${klok(tijden[piekAt] ?? 0)}`, jij: heel(piek), norm: null, verschil: null },
+      // The clock is the value on this line and not the label, because the
+      // reading at that frame is not zero -- zero is the threshold it crossed.
+      // Printing "0" in the gold column would be the one invented number on a
+      // screen whose whole claim is that it has none.
+      { maat: "Lead gone by", jij: klok(tijden[nulAt ?? dalAt] ?? 0), norm: null, verschil: null },
+      {
+        maat: `Bottomed out ${klok(tijden[dalAt] ?? 0)}`,
+        jij: dal < 0 ? gemerkt(dal) : "0",
+        norm: null,
+        verschil: null,
+      },
+      {
+        maat: `Given back over ${minuten} min`,
+        jij: heel(val),
+        // Named as a median in the cell. A bare figure in the middle column
+        // reads as the other side's number on every other row of this table,
+        // and on this one it is the middle of a measured spread.
+        norm: `${heel(INSTORTING_BAND.helft)} median`,
+        verschil: null,
+      },
+      // Your own line through the same minutes, which is what separates a
+      // collapse you led from one you had no part in. Held against your side's
+      // total over those minutes rather than against a norm, because there is no
+      // norm for "a share of a collapse" anywhere and there is not going to be.
+      {
+        maat: "Your gold in them",
+        jij: heel(eigenGroei),
+        norm: `${heel(teamGroei)} your side`,
+        verschil: null,
+      },
+    ],
     zin:
       `Your side's gold lead peaked at ${heel(piek)} at ${klok(tijden[piekAt] ?? 0)}` +
       `, was gone by ${klok(tijden[nulAt ?? dalAt] ?? 0)}` +
@@ -555,7 +613,7 @@ function voorsprongRegels(
     tier,
     luidheid: val / INSTORTING_BAND.helft,
     grond:
-      "Both sides' total gold earned at every frame of the match-history timeline, subtracted. The events named are the only ones the frames carry — champion kills, turrets, inhibitors, dragons and Baron. There are no item purchases and no skill levels in this feed at all, so nothing here can say what was bought while it happened.",
+      "Both sides' total gold at every frame of the match-history timeline, subtracted. Five seats a side spawn holding 475 each, so the same 2,375 sits under both curves and cancels out of the lead this reads. The events named are the only ones the frames carry — champion kills, turrets, inhibitors, dragons and Baron. There are no item purchases and no skill levels in this feed at all, so nothing here can say what was bought while it happened.",
   });
 
   vormRegel(historie, detail, jij, voorsprong, piekAt, dalAt, val, altijd, zwijgt);
@@ -642,6 +700,30 @@ function vormRegel(
     // row above it already said that -- it says what shape the going took, and
     // painting a shape red would be the block holding the same opinion twice.
     toon: "vlak",
+    // The one subtraction this verdict rests on, laid beside the even slide it
+    // is being called uneven against. The events of that worst minute stay in
+    // the sentence under the fold: they are the only part of this row that
+    // cannot be a number.
+    metingen: [
+      {
+        maat: `Worst ${eenheid}, ${klok(van)}–${klok(tot)}`,
+        jij: heel(ergste),
+        norm: `${heel(val / minuten)} even`,
+        verschil: gemerktVerschil(ergste, val / minuten, 0),
+      },
+      {
+        maat: "Share of the whole fall",
+        jij: procent(aandeel),
+        norm: `${procent(MOMENT_BAND.helft)} median`,
+        verschil: null,
+      },
+      {
+        maat: "Readings that lost ground",
+        jij: `${verliezend} of ${minuten}`,
+        norm: null,
+        verschil: null,
+      },
+    ],
     zin: eenMoment
       ? `It went at once rather than slowly: ${heel(ergste)} of the ${heel(val)} came between ${klok(van)} and ${klok(tot)}, ${procent(aandeel)} of the whole fall in one ${eenheid}.` +
         (feiten.length > 0

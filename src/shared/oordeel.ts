@@ -52,8 +52,8 @@ import type {
 import type { Naspel, NaspelSpeler } from "./naspel";
 import { leesTijdvak, type NaamVan } from "./tijdvak";
 import {
-  type Band, type OordeelSleutel, type Tier, type Uitspraak, type Zwijgen,
-  heel, klok, komma, procent, tierVan, verschil,
+  type Band, type Meting, type OordeelSleutel, type Tier, type Uitspraak, type Zwijgen,
+  gemerkt, gemerktVerschil, heel, klok, komma, procent, tierVan, verschil,
 } from "./uitspraak";
 
 /* The vocabulary these verdicts are written in -- Band, Tier, Uitspraak and the
@@ -66,7 +66,7 @@ import {
    Re-exported from here because IjkBlok.tsx and everything else already import
    them from this file, and moving a type is not a reason to make every consumer
    learn a new path. */
-export type { Band, OordeelSleutel, Tier, Uitspraak, Zwijgen };
+export type { Band, Meting, OordeelSleutel, Tier, Uitspraak, Zwijgen };
 
 export interface Oordeel {
   /** Verdicts against the database, loudest first. */
@@ -216,6 +216,14 @@ function tegenNorm(opts: {
   jij: number;
   norm: number;
   beterIsHoger: boolean;
+  /**
+   * The row as the screen draws it: the same two figures in columns.
+   *
+   * Built by the caller from the same variables the sentence is built from,
+   * which is the only reason the table and the fold behind it can be trusted to
+   * agree.
+   */
+  metingen: Meting[];
   /** The sentence, given the absolute gap and which way it went. */
   zin: (gat: number, boven: boolean) => string;
   cijfers: string;
@@ -239,6 +247,7 @@ function tegenNorm(opts: {
     sleutel: opts.sleutel,
     gebied: opts.gebied,
     toon: tier === "binnen" ? "vlak" : boven === opts.beterIsHoger ? "goed" : "slecht",
+    metingen: opts.metingen,
     zin: opts.zin(gat, boven),
     cijfers: opts.cijfers,
     gat,
@@ -323,6 +332,23 @@ export function leesOordeel(
       jij: baseline.csPerMin.you,
       norm: baseline.csPerMin.average,
       beterIsHoger: true,
+      // Two lines and not one. The rate is what the verdict was decided on and
+      // the total is what the reader remembers playing, and neither can be
+      // recovered from the other without knowing the length of the game.
+      metingen: [
+        {
+          maat: "CS / min",
+          jij: komma(baseline.csPerMin.you, 1),
+          norm: komma(baseline.csPerMin.average, 1),
+          verschil: gemerktVerschil(baseline.csPerMin.you, baseline.csPerMin.average, 1),
+        },
+        {
+          maat: "CS this game",
+          jij: heel(jij.cs),
+          norm: heel(verwachtCs),
+          verschil: gemerktVerschil(jij.cs, verwachtCs, 0),
+        },
+      ],
       zin: (_gat, boven) =>
         `${heel(jij.cs - verwachtCs)} CS ${boven ? "ahead of" : "behind"} ${wie} ${overDeze}.`,
       cijfers: `${komma(baseline.csPerMin.you, 1)} against ${komma(baseline.csPerMin.average, 1)} CS/min · ${heel(jij.cs)} against ${heel(verwachtCs)} CS`,
@@ -336,6 +362,20 @@ export function leesOordeel(
       jij: baseline.goldPerMin.you,
       norm: baseline.goldPerMin.average,
       beterIsHoger: true,
+      metingen: [
+        {
+          maat: "Gold / min",
+          jij: heel(baseline.goldPerMin.you),
+          norm: heel(baseline.goldPerMin.average),
+          verschil: gemerktVerschil(baseline.goldPerMin.you, baseline.goldPerMin.average, 0),
+        },
+        {
+          maat: "Gold this game",
+          jij: heel(jij.gold),
+          norm: heel(verwachtGoud),
+          verschil: gemerktVerschil(jij.gold, verwachtGoud, 0),
+        },
+      ],
       zin: (_gat, boven) =>
         `${heel(jij.gold - verwachtGoud)} gold ${boven ? "more than" : "less than"} ${wie} ${overDeze}.`,
       cijfers: `${heel(baseline.goldPerMin.you)} against ${heel(baseline.goldPerMin.average)} gold/min · ${heel(jij.gold)} against ${heel(verwachtGoud)} gold`,
@@ -349,6 +389,30 @@ export function leesOordeel(
       jij: jijGevechtenPerMin,
       norm: normGevechtenPerMin,
       beterIsHoger: true,
+      // The third line has an empty middle cell on purpose. Kill participation
+      // is already a share of your own lobby, so there is nothing anywhere to
+      // hold it against, and a blank column says that where a filled one would
+      // quietly invent a norm.
+      metingen: [
+        {
+          maat: "Kills + assists / min",
+          jij: komma(jijGevechtenPerMin, 2),
+          norm: komma(normGevechtenPerMin, 2),
+          verschil: gemerktVerschil(jijGevechtenPerMin, normGevechtenPerMin, 2),
+        },
+        {
+          maat: "Kills + assists",
+          jij: heel(jij.kills + jij.assists),
+          norm: heel(verwachtGevechten),
+          verschil: gemerktVerschil(jij.kills + jij.assists, verwachtGevechten, 0),
+        },
+        {
+          maat: "Share of team kills",
+          jij: procent(jijNaspel.killDeelname),
+          norm: null,
+          verschil: null,
+        },
+      ],
       zin: (_gat, boven) =>
         `In on ${verschil(jij.kills + jij.assists - verwachtGevechten)} ${boven ? "more" : "fewer"} kills and assists than ${wie} ${overDeze} — ${heel(jij.kills + jij.assists)} against ${heel(verwachtGevechten)}.`,
       cijfers: `${komma(jijGevechtenPerMin, 2)} against ${komma(normGevechtenPerMin, 2)} kills+assists/min · ${procent(jijNaspel.killDeelname)} of your team's kills`,
@@ -362,8 +426,32 @@ export function leesOordeel(
       jij: jijSterftePerMin,
       norm: normSterftePerMin,
       beterIsHoger: false,
+      // Per ten minutes rather than per minute, because deaths per minute is
+      // 0.09 against 0.11 and two figures that differ in the second decimal read
+      // as the same number however true the difference is.
+      metingen: [
+        {
+          maat: "Deaths / 10 min",
+          jij: komma(jijSterftePerMin * 10, 2),
+          norm: komma(normSterftePerMin * 10, 2),
+          verschil: gemerktVerschil(jijSterftePerMin * 10, normSterftePerMin * 10, 2),
+        },
+        {
+          maat: "Deaths this game",
+          jij: heel(jij.deaths),
+          norm: komma(verwachtSterfte, 1),
+          // One decimal and not zero: the norm cell carries one, so that is the
+          // precision the reader is subtracting at.
+          verschil: gemerktVerschil(jij.deaths, verwachtSterfte, 1),
+        },
+      ],
+      // One decimal on the gap, matching the norm it is a gap from. The row
+      // above this sentence prints 11 against 8.1 and a gap of 2.9; a sentence
+      // saying "3 more deaths" directly under that is the same finding rounded
+      // two different ways in two adjacent lines, which reads as a mistake even
+      // though both numbers are right.
       zin: (_gat, boven) =>
-        `${verschil(jij.deaths - verwachtSterfte)} ${boven ? "more" : "fewer"} deaths than ${wie} ${overDeze} — ${heel(jij.deaths)} against ${komma(verwachtSterfte, 1)}.`,
+        `${komma(Math.abs(jij.deaths - verwachtSterfte), 1)} ${boven ? "more" : "fewer"} deaths than ${wie} ${overDeze} — ${heel(jij.deaths)} against ${komma(verwachtSterfte, 1)}.`,
       cijfers: `${komma(jijSterftePerMin * 10, 2)} against ${komma(normSterftePerMin * 10, 2)} deaths per 10 min`,
       grond:
         "Deaths per minute on both sides, so a long game is not counted as a worse one. The norm is total deaths over total game time for this pick, which is the per-game average above divided by the average game length.",
@@ -481,6 +569,27 @@ function laneDuel(
     sleutel: "lane",
     gebied: "Your lane",
     toon: tier === "binnen" ? "vlak" : voor ? "goed" : "slecht",
+    // This row is a gap rather than a level, so the first column holds your gap
+    // and the second holds the gap an ordinary lane in this position ends on.
+    // Subtracting those two would be a difference between two differences, which
+    // is a number nobody can picture, so the third column stays empty.
+    metingen: [
+      {
+        maat: "Gold gap at the end",
+        jij: gemerkt(goud),
+        // Named as a median, because on every other row of this table the
+        // middle column is somebody's actual figure and here it is the middle
+        // of the spread of gaps this lane produces.
+        norm: `${heel(band.helft)} median`,
+        verschil: null,
+      },
+      {
+        maat: "CS gap at the end",
+        jij: gemerkt(cs),
+        norm: `${heel(band.csHelft)} median`,
+        verschil: null,
+      },
+    ],
     zin: `Finished ${heel(goud)} gold ${voor ? "ahead of" : "behind"} the enemy ${laneLabel}.`,
     cijfers: `${heel(cs)} CS ${cs >= 0 ? "ahead" : "behind"} · median gap in this lane is ${heel(band.helft)} gold`,
     gat,
@@ -520,6 +629,15 @@ function schadeRegel(
     sleutel: "schade",
     gebied: "Damage",
     toon: "vlak",
+    // Both middle cells empty, and that is the finding. Nothing stored holds a
+    // damage average, so there is no figure that belongs in the column -- and an
+    // even five-way split being 20% is a fact about the number five rather than
+    // about League, which is why it is written under the fold and not printed
+    // here where it would be read as a target.
+    metingen: [
+      { maat: "Share of team damage", jij: procent(aandeel), norm: null, verschil: null },
+      { maat: "Damage to champions", jij: heel(jijNaspel.speler.damage ?? 0), norm: null, verschil: null },
+    ],
     zin: `${procent(aandeel)} of your team's damage to champions.`,
     cijfers: `${heel(jijNaspel.speler.damage ?? 0)} damage · an even five-way split is 20%`,
     gat: null,
@@ -569,6 +687,24 @@ function visieRegel(
     sleutel: "visie",
     gebied: "Vision",
     toon: "vlak",
+    // A rank and a highest, which are facts about these ten players. The middle
+    // column holds the best figure in the game rather than a norm, because a
+    // norm for vision does not exist in any stored game and printing the lobby's
+    // best where an average belongs would be the app inventing one.
+    metingen: [
+      {
+        maat: label === "vision score" ? "Vision score" : "Wards placed",
+        jij: heel(mijn),
+        norm: `${heel(Math.max(...alle))} best`,
+        verschil: null,
+      },
+      {
+        maat: "Rank in the game",
+        jij: `${plaats} of 10`,
+        norm: `${plaatsTeam} of 5 your side`,
+        verschil: null,
+      },
+    ],
     zin: `${plaats}${achtervoegsel(plaats)} of the ten on ${label}, ${plaatsTeam}${achtervoegsel(plaatsTeam)} on your own side.`,
     cijfers: `${heel(mijn)} ${label} · highest in the game was ${heel(Math.max(...alle))}`,
     gat: null,
@@ -679,6 +815,22 @@ function vensterRegel(
     sleutel: "venster",
     gebied: "When it went wrong",
     toon: "vlak",
+    // The clock is a measurement too, and it is the one the reader came for, so
+    // it gets a row rather than being folded into a caption.
+    metingen: [
+      {
+        maat: "Worst 5 minutes",
+        jij: `${klok(van)}–${klok(van + VENSTER_SECONDEN)}`,
+        norm: null,
+        verschil: null,
+      },
+      {
+        maat: "Deaths in it",
+        jij: `${aantal} of ${doden.length}`,
+        norm: `${komma(gelijk, 1)} even`,
+        verschil: gemerktVerschil(aantal, gelijk, 1),
+      },
+    ],
     zin: `${aantal} of your ${doden.length} deaths fell between ${klok(van)} and ${klok(van + VENSTER_SECONDEN)}.`,
     cijfers: `an even spread over this game's ${blokken} blocks would be ${komma(gelijk, 1)} per block`,
     gat: null,

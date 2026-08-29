@@ -1807,7 +1807,21 @@ button.tier-tegel,
 /* ── The rule behind the score ────────────────────────────────────────────
    Closed by default and one click away, which is the whole deal: a derived
    number is allowed on this screen precisely because its recipe is reachable
-   from it. */
+   from it. This is the disclosure the owner singled out as working, and it is
+   the pattern the rest of the post-game has since been rebuilt onto: the figure
+   on the surface, the argument behind the fold.
+
+   The row carries the button and the two facts about the scoring that are
+   figures rather than arguments -- which yardstick, and how thin the thinnest
+   average behind it is. Both used to be sentences: one a three-line paragraph
+   under the button, the other the opening clause of the paragraph inside it. */
+.naspel-regel-rij {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+}
+
 .naspel-regel-knop {
   display: inline-flex;
   align-items: center;
@@ -1842,12 +1856,14 @@ button.tier-tegel,
   opacity: 0.45;
 }
 
-/* What the score could not be measured on, said where the score is.
-   Deliberately not styled as a warning: nothing went wrong, a field was simply
-   never written down. Brass at its lowest strength, so it is legible above the
-   table without competing with it -- and above all, present without a click. */
+/* Which yardstick the score was measured on, inside the panel that explains the
+   score. Deliberately not styled as a warning: nothing went wrong, a coarser
+   average was simply the best one available. It sat on the open surface until
+   the post-game stopped opening with prose; the fact it carries is now the chip
+   beside the button and this is the argument for it, which is the half that
+   belongs next to the weights it qualifies. */
 .naspel-beperkt {
-  margin-top: 8px;
+  margin-bottom: 10px;
   padding: 7px 10px;
   border-radius: var(--radius-xs);
   border: 1px solid color-mix(in oklab, var(--color-gold-600) 50%, transparent);
@@ -2023,38 +2039,69 @@ button.tier-tegel,
   transform: translateY(-50%);
 }
 
-/* The rule that produced every average above. Printed rather than hidden behind
-   a toggle: this block is a comparison against 128,628 games the reader has
-   never seen, and the one thing that makes that trustworthy is being able to
-   check how it was counted. */
-.ijk-regel {
-  margin-top: 10px;
-  padding-top: 8px;
+/* The length row, which has no average to run a bar against -- it IS the
+   divisor. An empty track keeps the five columns in step with the six rows above
+   rather than letting the numbers slide left on one row. */
+.ijk-rijen-slot {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in oklab, var(--color-line) 45%, transparent);
+}
+.ijk-baan-leeg {
+  display: block;
+}
+
+/* The rule that produced every average above, one click away.
+   It used to be printed in full under the block. Every word of it earned its
+   place -- this is a comparison against a hundred thousand games the reader has
+   never seen, and being able to check how they were counted is the only thing
+   that makes it worth anything -- but four lines of prose under six lines of
+   numbers is a page that reads as an essay with a table in it. The rule stays
+   whole and moves behind the same kind of disclosure the score's rule already
+   uses. */
+.ijk-uitleg {
+  margin-top: 8px;
+  padding-top: 7px;
   border-top: 1px solid color-mix(in oklab, var(--color-line) 60%, transparent);
+}
+.ijk-uitleg > summary {
+  cursor: pointer;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-600);
+  transition: color var(--duur) var(--ease);
+}
+.ijk-uitleg > summary:hover {
+  color: var(--color-ink-400);
+}
+.ijk-uitleg p {
+  margin-top: 6px;
   font-size: 10px;
   line-height: 1.6;
   color: var(--color-ink-600);
 }
-.ijk-regel .num {
-  color: var(--color-ink-300);
-}
 
 /* ---------------------------------------------------------------------------
-   THE SAME ROWS, SAID OUT LOUD
+   THE SAME ROWS, AS A TABLE
    ---------------------------------------------------------------------------
-   A sentence carries more authority than a bar, so this half of the block is
-   built to be argued with. Every statement is followed by the two numbers it
-   came from, the cut point that let it through, and the sentence naming where
-   both numbers were counted -- none of it behind a tooltip, because a claim you
-   have to hover to check is a claim most people never check.
+   This half of the block used to be four paragraphs. It said true things and it
+   read as an essay sitting under a table, which is exactly what the owner said
+   back: he wanted the statistics. So every finding is now its own two or three
+   figures in four columns that line up with each other and with the sticks
+   above, and the sentence, the cut point that let it through and the note saying
+   where both numbers were counted live one click behind the row. Nothing was
+   deleted -- a badge whose rule you cannot reach is an opinion wearing a fact's
+   clothes -- it moved to the same kind of fold `How the score is made` uses,
+   which is the one the owner already liked.
 
-   Colour is the same three states as the sticks above, and it means the same
-   thing: jade went your way, loss did not, ink is neither. The figures that have
-   no average behind them are always ink, which is not a design choice but the
-   whole point -- the app does not know whether 14% of your team's damage is bad,
-   so it does not get to paint it red. Gold appears exactly once, as the dot on a
-   gap only one game in ten passes, which is the only thing here rare enough to
-   deserve the accent.
+   Colour is the same three states as the sticks above and means the same thing:
+   jade went your way, loss did not, ink is neither. The figures with no average
+   behind them are always ink, which is not a design choice but the whole point:
+   the app does not know whether 14% of your team's damage is bad, so it does not
+   get to paint it red -- and their middle column is simply empty, which says the
+   same thing again in the place a reader is already looking. Gold appears
+   exactly once, as the dot on a gap only one game in ten passes.
    --------------------------------------------------------------------------- */
 
 .oordeel {
@@ -2062,6 +2109,12 @@ button.tier-tegel,
   padding-top: 10px;
   border-top: 1px solid color-mix(in oklab, var(--color-line) 60%, transparent);
   display: grid;
+  gap: 7px;
+}
+
+.oordeel-kop-rij {
+  display: flex;
+  align-items: baseline;
   gap: 8px;
 }
 
@@ -2075,6 +2128,19 @@ button.tier-tegel,
   margin-top: 6px;
   padding-top: 8px;
   border-top: 1px solid color-mix(in oklab, var(--color-line) 40%, transparent);
+  cursor: help;
+}
+
+/* A count of the rows under it, in the same voice as `better on 4 of 6` at the
+   top of the block. Both are countable by eye off what is on screen, which is
+   the only reason either is allowed to look like a verdict. */
+.oordeel-telling {
+  margin-left: auto;
+  flex: none;
+  font-size: 10px;
+  color: var(--color-ink-400);
+  cursor: help;
+  white-space: nowrap;
 }
 
 .oordeel-leeg,
@@ -2083,10 +2149,50 @@ button.tier-tegel,
   line-height: 1.55;
   color: var(--color-ink-500);
 }
+.oordeel-leeg .num,
+.oordeel-gewoon .num {
+  color: var(--color-ink-300);
+}
 
-/* The statement is a block and not a table row, because the four lines under it
-   are of wildly different lengths and a grid would either clip the long one or
-   leave a hole beside the short one. */
+/* The small-caps label that turns "Normal for this pick, so not listed above:
+   farming, gold." into a row with a heading and its values. */
+.oordeel-veldkop {
+  margin-right: 8px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-600);
+}
+
+/* ── The four columns ──────────────────────────────────────────────────────
+   One template, shared by the header and by every measurement row under every
+   finding, so the numbers stand in one line down the whole block rather than in
+   one line per finding. The first column carries the quantity and takes what is
+   left; the three figure columns are fixed, because a column that resizes with
+   its content is a column the eye cannot run down. */
+.oordeel-kolomkop,
+.oordeel-meting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 66px 78px 62px;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.oordeel-kolomkop {
+  margin-bottom: -2px;
+  /* Two pixels of border plus ten of padding is where a row's content starts,
+     so that is where the header of its columns has to start. Off by those two
+     and the whole point of a shared grid template is lost. */
+  padding-left: 12px;
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-ink-700);
+}
+.oordeel-kolomkop > span:not(:first-child) {
+  text-align: right;
+}
+
 .oordeel-regel {
   position: relative;
   padding-left: 10px;
@@ -2109,17 +2215,85 @@ button.tier-tegel,
   background: var(--color-gold-400);
 }
 
+/* The whole heading is the toggle, not a chevron beside it: the row is two
+   figures tall and a four-pixel target on a row that size is a control only a
+   mouse in good hands can hit. */
+.oordeel-regel-kop {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
 .oordeel-gebied {
-  display: block;
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+
+/* The gap divided by the median gap for that figure in that lane. The one
+   number on the block that lets a CS finding and a deaths finding be ranked
+   against each other, and it reads as what it is: 1.0 is exactly the gap an
+   ordinary game produces. */
+.oordeel-luid {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: help;
+}
+.oordeel-luid-geen {
+  color: var(--color-ink-700);
+}
+
+.oordeel-pijl {
+  flex: none;
   color: var(--color-ink-600);
+  transition: transform var(--duur) var(--ease);
+}
+.oordeel-pijl-open {
+  transform: rotate(90deg);
+}
+
+.oordeel-meting {
+  margin-top: 2px;
+}
+
+.oordeel-maat {
+  font-size: 10.5px;
+  color: var(--color-ink-400);
+}
+
+.oordeel-cel {
+  text-align: right;
+  font-size: 11.5px;
+}
+.oordeel-cel-jij {
+  font-weight: 600;
+}
+/* The reference, and quieter than your own figure on purpose: the row is about
+   the reader's game, and the thing it is held against is context. An empty cell
+   here is a measurement in its own right -- it is what "nothing anywhere counts
+   an average for this" looks like. */
+.oordeel-cel-norm {
+  color: var(--color-ink-500);
+}
+.oordeel-cel-gat {
+  font-size: 10.5px;
+}
+
+/* The sentence, the cut point and the provenance, on request. Everything that
+   was on the surface before, unchanged. */
+.oordeel-uitklap {
+  margin-top: 5px;
+  padding: 6px 0 2px;
+  border-top: 1px solid color-mix(in oklab, var(--color-line) 40%, transparent);
 }
 
 .oordeel-zin {
-  margin-top: 1px;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.4;
 }
@@ -2144,15 +2318,43 @@ button.tier-tegel,
   color: var(--color-ink-600);
 }
 
-/* The questions this game cannot answer. Set quieter than everything above it
-   and still on the page: a row that is missing and a row that was never possible
-   look identical from the outside, and only one of them is worth being annoyed
-   about. */
+/* The questions this game cannot answer. Named on the surface as chips, because
+   a row that is missing and a row that was never possible look identical from
+   the outside and only one of them is worth being annoyed about -- and the
+   reasons behind a fold, because four of the five are things the reader can act
+   on and one is permanent, which is a paragraph's worth of difference nobody
+   needs while scanning a table. */
 .oordeel-zwijgt {
   display: grid;
   gap: 5px;
 }
+.oordeel-stil-rij {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 5px;
+}
+.oordeel-stil-chip {
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--color-line) 70%, transparent);
+  font-size: 10px;
+  color: var(--color-ink-500);
+  cursor: help;
+  white-space: nowrap;
+}
+.oordeel-waarom > summary {
+  cursor: pointer;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-700);
+  transition: color var(--duur) var(--ease);
+}
+.oordeel-waarom > summary:hover {
+  color: var(--color-ink-400);
+}
 .oordeel-stil {
+  margin-top: 5px;
   font-size: 10px;
   line-height: 1.6;
   color: var(--color-ink-600);
@@ -2162,7 +2364,98 @@ button.tier-tegel,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ijk-vulling {
+  .ijk-vulling,
+  .oordeel-pijl {
+    transition: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FIGURES ON THE SURFACE, THE RULE BEHIND A FOLD
+   ---------------------------------------------------------------------------
+   Every chart in this app used to close with a paragraph. Each of those
+   paragraphs was carrying two different jobs at once: a handful of measured
+   figures -- the side ahead at fifteen won 75% of 120 games, two laners are
+   normally 2,698 gold apart -- and the argument for why those figures are
+   allowed on screen at all. The figures are what the reader came for and they
+   were buried in the middle of sentences; the argument is what makes the app
+   worth trusting and it does not have to be read every time.
+
+   So this is the one pattern both of them get, used under every chart: a row of
+   labelled figures, and a disclosure holding the rule word for word. Nothing was
+   dropped in the split -- a figure that was in a sentence is now in a cell, and
+   the sentence that justified it is one click down.
+
+   The label is small-caps ink-600 and the figure is ink-300 in the tabular face,
+   which is the same pairing the scoreboard, the profile figures and the ijk
+   block already use, so a reader arriving from any of them already knows how to
+   read this.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.feitenrij {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 16px;
+  margin-top: 6px;
+}
+
+.feit {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.feit-kop {
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-ink-600);
+}
+
+.feit-waarde {
+  font-size: 11px;
+  color: var(--color-ink-300);
+}
+
+/* For a figure that is a source or a cadence rather than a quantity. Quieter,
+   because "match history, one frame a minute" is context for the numbers beside
+   it and not one of them. */
+.feit-waarde-stil {
+  font-size: 10.5px;
+  color: var(--color-ink-500);
+}
+
+.uitleg-fold {
+  margin-top: 7px;
+}
+.uitleg-fold > summary {
+  cursor: pointer;
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-ink-700);
+  transition: color var(--duur) var(--ease);
+}
+.uitleg-fold > summary:hover {
+  color: var(--color-ink-400);
+}
+.uitleg-fold p {
+  margin-top: 5px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--color-ink-600);
+}
+.uitleg-fold p + p {
+  margin-top: 5px;
+}
+.uitleg-fold .num {
+  color: var(--color-ink-400);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uitleg-fold > summary {
     transition: none;
   }
 }
@@ -2225,6 +2518,57 @@ button.tier-tegel,
 .tijdlijn-schuif:focus-visible {
   outline: 2px solid var(--color-gold-500);
   outline-offset: 4px;
+}
+
+/* Where the scrubber stands, at the far end of the head row.
+   It exists because everything under the chart -- the gold per row, the faded
+   purchases -- is read at one second, and a reader who cannot see which second
+   that is has to guess whether the panel is scrubbed or broken. Two words at
+   rest, the clock while a pointer is on a chart, and a button that puts it back
+   once a second has been pinned. Deliberately quiet: it reports a state, it is
+   not a fourth control competing with the slider next to it. */
+.tijdlijn-stand {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-ink-500);
+  background: none;
+}
+.tijdlijn-stand .num {
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-gold-300);
+}
+/* A pointer is on a chart. The second under it is a preview, so the chip takes
+   no border: nothing has been chosen and there is nothing to put back yet. */
+.tijdlijn-stand-zweef {
+  color: var(--color-ink-400);
+}
+/* A second has been pinned. Now it is a button, and it says so. */
+.tijdlijn-stand-terug {
+  border-color: var(--color-line);
+  background: var(--color-surface-2);
+  color: var(--color-ink-400);
+  cursor: pointer;
+  transition:
+    border-color var(--duur) var(--ease),
+    color var(--duur) var(--ease);
+}
+.tijdlijn-stand-terug:hover {
+  border-color: var(--color-gold-400);
+  color: var(--color-ink-300);
+}
+.tijdlijn-stand-terug:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 3px;
 }
 
 .tijdlijn-grafiek svg {
@@ -2485,9 +2829,15 @@ button.tier-tegel,
   z-index: 2;
 }
 /* Bought after the second the scrubber is on. Dimmed rather than hidden: the
-   shape of the rest of the build is context for where you are in it. */
-.tijdlijn-koop-later {
-  opacity: 0.28;
+   shape of the rest of the build is context for where you are in it.
+
+   The artwork fades and the frame does not. At 0.28 on the whole button, frame
+   included, the icon sank close enough to the panel background to read as an
+   image that had failed to load rather than as a purchase that has not happened
+   yet -- which is exactly how it was read. Fading only the image keeps every
+   slot plainly present and still separates bought from not-yet at a glance. */
+.tijdlijn-koop-later img {
+  opacity: 0.45;
 }
 /* Nog niet opgegaan in iets groters op dat moment -- meer kan de opname niet
    bewijzen. Verkopen en verbruiken ziet ze niet, dus dit is geen inventaris: op
@@ -2889,10 +3239,14 @@ button.tier-tegel,
   color: var(--color-ink-500);
   font-style: italic;
 }
+/* What a lead at those two minutes normally is. A clause until the post-game
+   stopped closing its charts with sentences; now the same two medians and the
+   sample behind them, in the labelled cells used under every other chart. */
 .duel-ijkpunt-uitleg {
-  color: var(--color-ink-500);
-  font-size: 11px;
-  line-height: 1.5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 14px;
 }
 
 .duel-oordeel {
@@ -3010,12 +3364,6 @@ button.tier-tegel,
   border-radius: var(--radius-xs);
 }
 
-.omslag-zin {
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--color-ink-100);
-}
-
 /* Where the stretch sits in the game, at the width of the whole game. Not a
    chart: no axis, no scale, nothing to read off it beyond "this part". */
 .omslag-strook {
@@ -3038,15 +3386,13 @@ button.tier-tegel,
   background: var(--color-jade-500);
 }
 
+/* The finding itself, now that the sentence over it is gone: the two rates, the
+   gap between them and the bar the gap had to clear, in the same labelled cells
+   every other chart on this screen closes with. The gap cell carries
+   .omslag-achter or .omslag-voor, which are already this block's two colours a
+   few rules up -- on that one cell the direction is the finding. */
 .omslag-cijfers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--color-ink-500);
-}
-.omslag-punt {
-  color: var(--color-ink-700);
+  margin-top: 2px;
 }
 
 .omslag-feiten {

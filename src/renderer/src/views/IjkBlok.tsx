@@ -20,6 +20,7 @@
  * is the same figure over every other game of that pick. So every row here is
  * two values and the distance between them, and never a grade.
  */
+import { useState } from "react";
 import type {
   BaselineNumber, ChampionSummary, PerformanceBaseline,
 } from "../../../shared/types";
@@ -146,8 +147,14 @@ export function IjkBlok({
             </span>
             <span className="ijk-titel-bij">this game vs. normal</span>
           </p>
-          <p className="num ijk-sample">
-            measured against {baseline.games.toLocaleString("en-GB")} recorded games of this pick
+          {/* The sample, as a figure with a unit rather than as a clause. What it
+              is a sample of is on the row above it -- champion, lane -- so the
+              sentence that repeated both was saying the header twice. */}
+          <p
+            className="num ijk-sample"
+            title={`Every average on this block is counted over ${baseline.games.toLocaleString("en-GB")} recorded games of this champion in this lane.`}
+          >
+            {baseline.games.toLocaleString("en-GB")} games
           </p>
         </div>
         {/* Not a score. It counts the rows below, and the rows below are all on
@@ -168,19 +175,38 @@ export function IjkBlok({
 
       {oordeel ? <OordeelLijst oordeel={oordeel} /> : null}
 
-      {/* The rule, in view. Every figure above is reproducible from this
-          paragraph and the raw match, which is the only reason any of it is
-          allowed on screen at all. */}
-      <p className="ijk-regel">
-        Averages cover every recorded game of {naam} in {lane} in the {bron} database (
-        {baseline.games.toLocaleString("en-GB")} games) and are counted as totals: all CS divided by
-        all game time, not the average of each game&rsquo;s own rate. KDA is (kills + assists)
-        &divide; deaths over those same totals, so a game without deaths counts kills + assists on
-        both sides. The tick on each bar is the average and the bar runs out at twice it. A gap
-        under 5% is drawn grey, because on one game it is not a gap. This game ran{" "}
-        <span className="num">{baseline.yourMinutes.toFixed(1)}</span> min against an average of{" "}
-        <span className="num">{baseline.averageMinutes.toFixed(1)}</span> min.
-      </p>
+      {/* The last row of the table rather than a paragraph.
+          Game length is a measurement like the six above it and belongs in the
+          same columns: it is the divisor under every rate on this block, and a
+          reader comparing a 22-minute game to a 34-minute average wants to see
+          that in the place he is already reading numbers. */}
+      <div className="ijk-rijen ijk-rijen-slot">
+        <div className="ijk-rij" title="How long this game ran, against the average length of a recorded game of this pick.">
+          <span className="ijk-label">Length</span>
+          <span className="num ijk-jij ijk-neutraal">{baseline.yourMinutes.toFixed(1)}</span>
+          <span className="ijk-baan-leeg" />
+          <span className="num ijk-gemiddeld">{baseline.averageMinutes.toFixed(1)}</span>
+          <span className="num ijk-verschil ijk-neutraal">min</span>
+        </div>
+      </div>
+
+      {/* The rule, one fold away. It stays word for word -- every figure above is
+          reproducible from it and the raw match, which is the only reason any of
+          this is allowed on screen -- but it is no longer the last thing on the
+          block, because a reader who has just read six rows of numbers is owed a
+          seventh and not a paragraph. Same disclosure the owner already reads
+          the score's rule through. */}
+      <details className="ijk-uitleg">
+        <summary>How these averages are counted</summary>
+        <p>
+          Averages cover every recorded game of {naam} in {lane} in the {bron} database (
+          {baseline.games.toLocaleString("en-GB")} games) and are counted as totals: all CS divided
+          by all game time, not the average of each game&rsquo;s own rate. KDA is (kills + assists)
+          &divide; deaths over those same totals, so a game without deaths counts kills + assists on
+          both sides. The tick on each bar is the average and the bar runs out at twice it. A gap
+          under 5% is drawn grey, because on one game it is not a gap.
+        </p>
+      </details>
     </section>
   );
 }
@@ -236,45 +262,84 @@ function IjkRij({
 }
 
 /**
- * The rows above, said as sentences, and the three areas that have no row.
+ * The same findings as a table, and the three areas that have no row.
  *
- * Three groups on purpose, and the reader is told which is which before reading
- * any of them. The first group is measured against the whole database and is
- * allowed to be a verdict. The second is measured against the nine other players
- * in this one game, because no average for those fields exists anywhere, and is
- * therefore drawn without a colour and without a claim. The third is the list of
- * questions this game cannot answer at all -- printed rather than omitted,
- * because a missing row and a row that was never possible look identical from
- * the outside, and only one of them is worth being annoyed about.
+ * ── Why this stopped being a list of sentences ───────────────────────────────
+ *
+ * It used to open with "What stood out, against every recorded game of this
+ * pick" and then print four paragraphs. Every word of that was true and the
+ * owner's answer to it was that he wanted the statistics and not the essay --
+ * which is fair on its own terms and also the way the rest of this app already
+ * reads. Nothing was thrown away: each finding is now its own two or three
+ * figures in the same columns, and the sentence, the cut point that let it
+ * through and the sentence naming where both numbers were counted all sit one
+ * click behind the row that shows them. Same rule as `How the score is made`.
+ *
+ * Three groups on purpose, and the reader is told which is which by a label
+ * rather than by a paragraph. The first group is measured against the whole
+ * database and is allowed to be a verdict. The second is measured against the
+ * nine other players in this one game, because no average for those fields
+ * exists anywhere, and is drawn without a colour. The third is the list of
+ * questions this game cannot answer -- named on the surface, reasons behind a
+ * fold, because a missing row and a row that was never possible look identical
+ * from the outside and only one of them is worth being annoyed about.
  */
 function OordeelLijst({ oordeel }: { oordeel: Oordeel }): JSX.Element | null {
   const { tegenDatabase, binnenDezeGame, gewoon, zwijgt } = oordeel;
   if (tegenDatabase.length === 0 && binnenDezeGame.length === 0 && zwijgt.length === 0) return null;
 
+  // Everything that had a norm to be held against, whichever side of its band it
+  // came out on. It is the denominator the count needs: "3 outside" means
+  // nothing without the number of figures that could have been.
+  const gemeten = tegenDatabase.filter((u) => u.band !== null).length + gewoon.length;
+
   return (
     <div className="oordeel">
-      <p className="oordeel-kop">What stood out, against every recorded game of this pick</p>
+      <div className="oordeel-kop-rij">
+        <p className="oordeel-kop">Against normal for this pick</p>
+        {gemeten > 0 ? (
+          <span
+            className="num oordeel-telling"
+            title="Figures whose gap to the average is wider than the gap half of all recorded games produce on that same figure in this lane."
+          >
+            {tegenDatabase.filter((u) => u.band !== null).length} of {gemeten} outside
+          </span>
+        ) : null}
+      </div>
+
       {tegenDatabase.length > 0 ? (
-        tegenDatabase.map((u) => <OordeelRegel key={u.sleutel} uitspraak={u} />)
+        <>
+          <Kolomkop />
+          {tegenDatabase.map((u) => (
+            <OordeelRegel key={u.sleutel} uitspraak={u} />
+          ))}
+        </>
       ) : (
         <p className="oordeel-leeg">
-          Nothing. Every figure above sits closer to normal than half of all recorded games of any
-          pick do, which is its own answer: this was an ordinary game on this champion.
+          <span className="num">0</span> of <span className="num">{gemeten}</span> outside &mdash; an
+          ordinary game on this champion.
         </p>
       )}
 
       {gewoon.length > 0 ? (
         <p className="oordeel-gewoon">
-          Normal for this pick, so not listed above: {gewoon.join(", ")}.
+          <span className="oordeel-veldkop">Inside normal</span>
+          {gewoon.join(" · ")}
         </p>
       ) : null}
 
       {binnenDezeGame.length > 0 ? (
         <>
-          <p className="oordeel-kop oordeel-kop-tweede">
-            Figures with no average behind them &mdash; these compare you to the nine other players
-            in this game, and to nothing else
+          <p
+            className="oordeel-kop oordeel-kop-tweede"
+            title="No stored game holds damage, damage taken or vision, so no average for them exists anywhere. These figures are ranked against the nine other players in this game and against nothing else."
+          >
+            No average exists &mdash; this game only
           </p>
+          {/* Only when the group above did not already print one. Two headers
+              for one grid, three rows apart, would be the app labelling the same
+              columns twice. */}
+          {tegenDatabase.length === 0 ? <Kolomkop /> : null}
           {binnenDezeGame.map((u) => (
             <OordeelRegel key={u.sleutel} uitspraak={u} />
           ))}
@@ -283,12 +348,28 @@ function OordeelLijst({ oordeel }: { oordeel: Oordeel }): JSX.Element | null {
 
       {zwijgt.length > 0 ? (
         <div className="oordeel-zwijgt">
-          <p className="oordeel-kop oordeel-kop-tweede">What this game cannot be asked</p>
-          {zwijgt.map((z) => (
-            <p key={z.onderwerp} className="oordeel-stil">
-              <span className="oordeel-stil-kop">{z.onderwerp}.</span> {z.reden}
-            </p>
-          ))}
+          <p className="oordeel-kop oordeel-kop-tweede">Cannot be asked of this game</p>
+          {/* The subjects on the surface, the reasons a fold away. Naming them is
+              the part that matters: it is what stops a reader hunting for a row
+              that was never possible. The reasons are still every word they
+              were, because four of them are actionable -- "League is closed"
+              takes thirty seconds to fix -- and one of them is permanent, and
+              nothing on the chip says which. */}
+          <p className="oordeel-stil-rij">
+            {zwijgt.map((z) => (
+              <span key={z.onderwerp} className="oordeel-stil-chip" title={z.reden}>
+                {z.onderwerp}
+              </span>
+            ))}
+          </p>
+          <details className="oordeel-waarom">
+            <summary>Why each of these is missing</summary>
+            {zwijgt.map((z) => (
+              <p key={z.onderwerp} className="oordeel-stil">
+                <span className="oordeel-stil-kop">{z.onderwerp}.</span> {z.reden}
+              </p>
+            ))}
+          </details>
         </div>
       ) : null}
     </div>
@@ -296,27 +377,110 @@ function OordeelLijst({ oordeel }: { oordeel: Oordeel }): JSX.Element | null {
 }
 
 /**
- * One statement, its figures, and the threshold that let it through.
+ * What the three number columns are, printed once above them all.
  *
- * The band is on the row and not in a tooltip. This block is the only place in
- * the app that turns a comparison into a sentence, and a sentence carries more
- * authority than a bar does -- so the reader gets the cut point that produced it
- * in the same glance, and can disagree with the app's idea of "unusual" without
- * having to go looking for it.
+ * Worded to survive every row that lands under it, which is the whole difficulty
+ * of the header: "yours" is your figure on the farming row, your side's lead on
+ * the collapse row and your gap on the lane row, and "against" is the champion's
+ * average, your lane opponent, or the median gap depending on which of those it
+ * is. The row's own label says which -- "CS / min", "Gold gap at the end" -- so
+ * the header only has to name the direction each column reads in.
+ */
+function Kolomkop(): JSX.Element {
+  return (
+    <div className="oordeel-kolomkop" aria-hidden="true">
+      <span />
+      <span>Yours</span>
+      <span>Against</span>
+      <span>Gap</span>
+    </div>
+  );
+}
+
+/**
+ * One finding: its figures in columns, and its rule one click away.
+ *
+ * The number beside the heading is the gap divided by the median gap on that
+ * same figure in that same lane, which is the one thing that makes two findings
+ * in different units comparable -- 1.0 is exactly the gap an ordinary game
+ * produces, so 2.4 is a game twice as far off as usual and the reader can rank
+ * the rows himself rather than trusting the order they arrived in. Rows with no
+ * band have no such number and print nothing, which is the same absence the
+ * middle column shows on those rows.
  */
 function OordeelRegel({ uitspraak: u }: { uitspraak: Uitspraak }): JSX.Element {
+  const [open, zetOpen] = useState(false);
   const toon = u.toon === "goed" ? "ijk-goed" : u.toon === "slecht" ? "ijk-slecht" : "ijk-neutraal";
 
   return (
     <div className={`oordeel-regel ${u.tier === "ver" ? "oordeel-ver" : ""}`}>
-      <span className="oordeel-gebied">{u.gebied}</span>
-      <p className={`oordeel-zin ${toon}`}>{u.zin}</p>
-      <p className="num oordeel-cijfers">{u.cijfers}</p>
-      {u.band && u.gat !== null ? <p className="oordeel-band">{bandTekst(u)}</p> : null}
-      <p className="oordeel-grond">{u.grond}</p>
+      <button
+        type="button"
+        className="oordeel-regel-kop"
+        onClick={() => zetOpen(!open)}
+        aria-expanded={open}
+      >
+        <span className="oordeel-gebied">{u.gebied}</span>
+        {u.luidheid !== null ? (
+          <span
+            className={`num oordeel-luid ${toon}`}
+            title={`${TIER_TEKST[u.tier ?? "binnen"]} This gap is ${u.luidheid.toFixed(1)} times the gap half of all recorded games produce on this figure in this lane.`}
+          >
+            {u.luidheid.toFixed(1)}&times;
+          </span>
+        ) : (
+          <span className="oordeel-luid oordeel-luid-geen" title="No average exists for this figure, so there is nothing to be far from.">
+            &mdash;
+          </span>
+        )}
+        <svg
+          viewBox="0 0 24 24"
+          width="10"
+          height="10"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className={`oordeel-pijl ${open ? "oordeel-pijl-open" : ""}`}
+        >
+          <path d="m9 6 6 6-6 6" />
+        </svg>
+      </button>
+
+      {u.metingen.map((m) => (
+        <div key={m.maat} className="oordeel-meting">
+          <span className="oordeel-maat">{m.maat}</span>
+          <span className={`num oordeel-cel oordeel-cel-jij ${toon}`}>{m.jij}</span>
+          <span className="num oordeel-cel oordeel-cel-norm">{m.norm ?? ""}</span>
+          <span className={`num oordeel-cel oordeel-cel-gat ${toon}`}>{m.verschil ?? ""}</span>
+        </div>
+      ))}
+
+      {/* The claim spelled out, the cut point that let it through, and where both
+          numbers were counted. Behind the fold because the owner asked for the
+          statistics rather than the essay -- and still on the page, word for
+          word, because a badge without its rule is an opinion wearing a fact's
+          clothes. */}
+      {open ? (
+        <div className="oordeel-uitklap">
+          <p className={`oordeel-zin ${toon}`}>{u.zin}</p>
+          <p className="num oordeel-cijfers">{u.cijfers}</p>
+          {u.band && u.gat !== null ? <p className="oordeel-band">{bandTekst(u)}</p> : null}
+          <p className="oordeel-grond">{u.grond}</p>
+        </div>
+      ) : null}
     </div>
   );
 }
+
+/** What a tier means, for the tooltip on the number that carries it. */
+const TIER_TEKST: Record<"binnen" | "buiten" | "ver", string> = {
+  binnen: "Inside the ordinary spread for this figure.",
+  buiten: "Further out than half of all recorded games.",
+  ver: "Further out than nine in ten of all recorded games.",
+};
 
 /**
  * The threshold, in the same unit as the gap it let through.

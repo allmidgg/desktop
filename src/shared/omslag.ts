@@ -10,7 +10,7 @@
  * sentence.
  *
  * It reads what the sampler in liveGame.ts writes -- OpnameRecord.verloop, the
- * scoreline every fifteen seconds -- together with the purchases and the event
+ * scoreline every ten seconds -- together with the purchases and the event
  * feed that were already being recorded. Nothing here estimates or interpolates.
  * Every sentence it produces traces back to two readings and the events between
  * them, which is why it can be checked by scrubbing the timeline above it to the
@@ -45,9 +45,10 @@ import type { BuildStep, OpnameRecord, SpelGebeurtenis, Verloop } from "./types"
 /**
  * The shortest stretch this will report, in seconds.
  *
- * Not a claim about League. The sampler reads the scoreline every fifteen
- * seconds, so a two-interval answer rests on three readings and one poll that
- * landed late decides it. Two minutes is at least eight intervals at the
+ * Not a claim about League. The sampler reads the scoreline every ten seconds --
+ * MONSTER_INTERVAL_SECONDEN in core/services/liveGame.ts, which has never been
+ * any other number -- so a two-interval answer rests on three readings and one
+ * poll that landed late decides it. Two minutes is twelve intervals at the
  * sampler's normal spacing, and it survives the halving that a very long game
  * triggers. It is also the shortest answer that can honestly be read out in
  * minutes, which is the form the question was asked in.

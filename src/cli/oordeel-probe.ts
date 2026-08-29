@@ -20,7 +20,7 @@
 import { MatchStore, defaultStorePath, type StoredPlayer } from "../core/services/matchStore";
 import { JadeStats } from "../core/services/stats";
 import { leesNaspel } from "../shared/naspel";
-import { leesOordeel } from "../shared/oordeel";
+import { leesOordeel, type Meting } from "../shared/oordeel";
 import type { GameDetail, PerformanceBaseline, SpelerIjklijn } from "../shared/types";
 
 const c = {
@@ -76,6 +76,22 @@ function baselineVoor(
     assists: { you: jij.assists, average: gemiddelde.assists },
     source: "local",
   };
+}
+
+/**
+ * One measurement row in the four columns the screen draws it in.
+ *
+ * The widths are the terminal's own and not the stylesheet's; what is being
+ * checked here is the content of the cells and their signs, which is the part a
+ * screenshot cannot check quickly over three hundred games.
+ */
+function meetregel(m: Meting): string {
+  return (
+    `${c.dim}${m.maat.padEnd(26)}${c.reset}` +
+    `${m.jij.padStart(10)}` +
+    `${c.dim}${(m.norm ?? "").padStart(14)}${c.reset}` +
+    `${(m.verschil ?? "").padStart(10)}`
+  );
 }
 
 async function main(): Promise<void> {
@@ -163,12 +179,20 @@ async function main(): Promise<void> {
     for (const u of oordeel.tegenDatabase) {
       const kleur = u.toon === "goed" ? c.green : u.toon === "slecht" ? c.red : c.reset;
       const ster = u.tier === "ver" ? `${c.yellow}*${c.reset}` : " ";
-      console.log(`  ${ster}${kleur}${u.zin}${c.reset}`);
-      console.log(`    ${c.dim}${u.cijfers}${c.reset}`);
+      const luid = u.luidheid === null ? "  --" : `${u.luidheid.toFixed(1)}x`;
+      console.log(`  ${ster}${kleur}${u.gebied.padEnd(24)}${c.reset}${c.dim} ${luid}${c.reset}`);
+      // The table the screen actually draws, in the same four columns. Printed
+      // rather than only the sentence, because the sentence is now behind a fold
+      // and this probe is the only place either of them can be read side by side
+      // over real games -- a sign inverted in one and not the other would
+      // otherwise reach the screen looking finished.
+      for (const m of u.metingen) console.log(`     ${meetregel(m)}`);
+      console.log(`     ${c.dim}${u.zin}${c.reset}`);
       tellen.set(u.sleutel, (tellen.get(u.sleutel) ?? 0) + 1);
     }
     for (const u of oordeel.binnenDezeGame) {
-      console.log(`  ${c.cyan}${u.zin}${c.reset} ${c.dim}${u.cijfers}${c.reset}`);
+      console.log(`  ${c.cyan}${u.gebied}${c.reset}`);
+      for (const m of u.metingen) console.log(`     ${meetregel(m)}`);
     }
     if (oordeel.gewoon.length > 0) {
       console.log(`  ${c.dim}normal: ${oordeel.gewoon.join(", ")}${c.reset}`);

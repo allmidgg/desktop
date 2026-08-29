@@ -39,24 +39,52 @@ export function Dekkingsregel({ dekking }: { dekking: Dekking }): JSX.Element | 
   return (
     <div className="rounded border border-gold-400/30 bg-gold-400/5 px-3 py-2">
       <p className="text-xs font-medium text-gold-400">{titels[dekking.soort]}</p>
-      <p className="mt-1 text-xs leading-relaxed text-ink-500">{dekking.grond}</p>
-      <p className="mt-1 text-xs leading-relaxed text-ink-500">
-        {/* The window is the actual product of this component: it is what stops a
-            reader answering "which minute went worse" with a minute we never saw. */}
-        Anything this screen says about a particular minute can only be about minute{" "}
-        <span className="num">{venster.vanMinuut}</span> through{" "}
-        <span className="num">{venster.totMinuut}</span>.
+
+      {/* The window is the actual product of this component -- it is what stops a
+          reader answering "which minute went worse" with a minute nobody saw --
+          so it is a pair of figures in the place the eye lands, rather than the
+          object of a sentence two lines down. The reasoning behind it, and the
+          two caveats that only apply to some recordings, keep every word they
+          had one line below. */}
+      <div className="feitenrij">
+        <span className="feit">
+          <span className="feit-kop">Recorded</span>
+          <span className="num feit-waarde">
+            {klok(dekking.vanaf)}&ndash;{klok(dekking.tot)}
+          </span>
+        </span>
+        <span className="feit">
+          <span className="feit-kop">Minutes it can speak for</span>
+          <span className="num feit-waarde">
+            {venster.vanMinuut}&ndash;{venster.totMinuut}
+          </span>
+        </span>
+        {dekking.gebeurtenissenVanafNul ? (
+          <span
+            className="feit"
+            title="The game handed over its own event history when the app started watching, so kills and objectives from before that second are real readings rather than gaps."
+          >
+            <span className="feit-kop">Kills and objectives from</span>
+            <span className="num feit-waarde">0:00</span>
+          </span>
+        ) : null}
+      </div>
+
+      <details className="uitleg-fold">
+        <summary>What that leaves out</summary>
+        <p>{dekking.grond}</p>
         {dekking.vanaf > 0 ? (
-          <>
-            {" "}
+          <p>
             Every item held at <span className="num">{klok(dekking.vanaf)}</span> was written down at
             that second because that is when we first looked, not when it was bought.
-          </>
+          </p>
         ) : null}
         {dekking.gebeurtenissenVanafNul ? (
-          <> Kills and objectives from before then are real: the game handed over its own history.</>
+          <p>
+            Kills and objectives from before then are real: the game handed over its own history.
+          </p>
         ) : null}
-      </p>
+      </details>
     </div>
   );
 }

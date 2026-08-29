@@ -22,9 +22,16 @@
  * it reported, or the catalogue price of an item somebody was seen to pick up.
  * The chart can be four different quantities and the caption changes with it,
  * because the four are not the same kind of thing: kills, creeps and levels are
- * sampled off the running game every fifteen seconds, and gold committed to
- * items is rebuilt afterwards from inventories filling up. A curve you cannot
- * account for is decoration, so each one says which of the two it is.
+ * readings taken along the clock, and gold committed to items is rebuilt
+ * afterwards from inventories filling up. A curve you cannot account for is
+ * decoration, so each one says which of the two it is.
+ *
+ * How often those readings were taken is not written into this file any more.
+ * The first three come off shared/samenloop.ts, which answers out of a recording
+ * at one cadence and out of a match-history timeline at another depending on
+ * which source holds the measure for this game, so a fixed number here would be
+ * a claim the drawing cannot keep. Herkomstregel states it under the chart, out
+ * of the readings that were actually merged.
  */
 import { useMemo, useState } from "react";
 import { aankoopVerloop, bezitOp, bouwPad, goudOp, type Aankoop } from "../../../shared/build";
@@ -38,6 +45,7 @@ import { leesDekking, type Dekking } from "../../../shared/dekking";
 import { asset, ChampionIcon, EmptyState, Panel, PositionIcon, SectionTitle } from "../ui";
 import { Duelkromme, Teamgoudkromme } from "./Duelkromme";
 import { Dekkingsregel } from "./Dekkingsregel";
+import { Herkomstregel } from "./Herkomstregel";
 
 const klok = (s: number): string =>
   `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, "0")}`;
@@ -94,10 +102,11 @@ const GROOT = new Set<SpelGebeurtenis["soort"]>(["dragon", "baron", "inhibitor",
 /* ── What the chart can be a chart of ────────────────────────────────────────
 
    Gold committed to items was the only answer for as long as the watcher threw
-   every poll away and kept the last one. It no longer is: the recorder now
-   samples all ten scorelines every fifteen seconds and stores them as
-   OpnameRecord.verloop, so kills, creeps and levels are readings taken during
-   the game rather than a total read off the end of it.
+   every poll away and kept the last one. It no longer is: the recorder samples
+   all ten scorelines every ten seconds and stores them as OpnameRecord.verloop,
+   and shared/samenloop.ts serves the same three measures out of a match-history
+   timeline for a game nobody watched. Either way kills, creeps and levels are
+   readings taken during the game rather than a total read off the end of it.
 
    That distinction is the whole reason for the switch rather than a second
    chart. Committed gold is a reconstruction -- it moves when somebody visits
@@ -121,6 +130,8 @@ interface Grootheidsuitleg {
   sleutel: Grootheid;
   /** The word on the button and in the read-out. */
   naam: string;
+  /** The heading when this is the only quantity on offer and there is no switch. */
+  titel: string;
   /** Whether it was measured during the game or rebuilt afterwards. */
   gemeten: boolean;
   uitleg: JSX.Element;
@@ -130,10 +141,20 @@ interface Grootheidsuitleg {
 const toonWaarde = (grootheid: Grootheid, waarde: number): string =>
   grootheid === "goud" ? `${(waarde / 1000).toFixed(1)}k` : String(Math.round(waarde));
 
+/* The cadence is deliberately not written into any of these four sentences.
+   The same chart is now drawn off two sources with different clocks -- a
+   recording polls every ten seconds, a match-history frame lands once a minute
+   -- and which one answers depends on the game and on the measure, so a fixed
+   "every fifteen seconds" here is a claim the drawing cannot keep. That number
+   is stated under the chart instead, by Herkomstregel, out of the readings that
+   were actually merged. What stays here is what does not change with the
+   source: whether the quantity was measured or reconstructed, and what it does
+   and does not mean. */
 const GROOTHEDEN: readonly Grootheidsuitleg[] = [
   {
     sleutel: "goud",
     naam: "Item gold",
+    titel: "Gold committed to items",
     gemeten: false,
     uitleg: (
       <>
@@ -150,39 +171,39 @@ const GROOTHEDEN: readonly Grootheidsuitleg[] = [
   {
     sleutel: "kills",
     naam: "Kills",
+    titel: "Kills",
     gemeten: true,
     uitleg: (
       <>
-        Read off the scoreboard the running game reports for all ten players, once every fifteen
-        seconds while the game was on.{" "}
+        The kills on each side, added up as the game was read.{" "}
         <span className="tijdlijn-nadruk">This is a measurement, not a reconstruction:</span> the
-        step down is the fifteen seconds in which it happened, not the minute in which somebody got
-        round to buying something.
+        step up is the moment it happened, not the moment somebody got round to buying something.
       </>
     ),
   },
   {
     sleutel: "cs",
     naam: "Creep score",
+    titel: "Creep score",
     gemeten: true,
     uitleg: (
       <>
-        Both sides&rsquo; creeps added up, sampled every fifteen seconds. This is the closest thing
-        to a gold curve that actually exists for the other nine players, and it is the one that
-        shows a lane going quiet: farm stops before a scoreline does.
+        Both sides&rsquo; creeps added up. This is the closest thing to a gold curve that exists
+        for all ten players at once, and it is the one that shows a lane going quiet: farm stops
+        before a scoreline does.
       </>
     ),
   },
   {
     sleutel: "level",
     naam: "Levels",
+    titel: "Levels",
     gemeten: true,
     uitleg: (
       <>
-        The five levels on each side, added up and sampled every fifteen seconds. Levels move
-        slowly and never go backwards, so a level lead that stops growing is a side that stopped
-        getting experience &mdash; which is what being pushed off a lane looks like before it looks
-        like anything else.
+        The five levels on each side, added up. Levels move slowly and never go backwards, so a
+        level lead that stops growing is a side that stopped getting experience &mdash; which is
+        what being pushed off a lane looks like before it looks like anything else.
       </>
     ),
   },
@@ -246,12 +267,23 @@ interface Reeks {
  *
  * Kept out of the render path because it walks every purchase of every player
  * and the scrubber re-renders on every mouse move.
+ *
+ * `kromme` is the merged curve out of shared/samenloop.ts and not the
+ * recording's own, which is what this used to be handed. The two differ on every
+ * game but two. Measured on this machine: `OpnameRecord.verloop` is undefined on
+ * all eleven lines in data/buildorders.jsonl, so for gameId 7965097532 the
+ * sampled branch below was unreachable and for the 130,086 crawled games the
+ * purchase branch had no purchase to walk -- two points, both zero, a max of 1
+ * and five axis labels reading "0.0k". The merge already carries what those
+ * games do have: 46 frames for 7965097532, 33 and 35 for the other two fetched
+ * timelines, every one of them holding creeps, kills, deaths, assists and levels
+ * for all ten seats in this panel's own seat order.
  */
 function useTijdlijnData(
   sporen: Spoor[],
   items: Map<number, ItemSummary>,
   duur: number,
-  verloop: Verloop | undefined,
+  kromme: Verloop | undefined,
   grootheid: Grootheid,
 ) {
   return useMemo(() => {
@@ -274,11 +306,11 @@ function useTijdlijnData(
     const ordeStoelen = stoelenVan("ORDER");
     const chaosStoelen = stoelenVan("CHAOS");
 
-    // A recording written before the sampler landed has no curve, and that is
-    // the ordinary case for everything already in buildorders.jsonl. Nothing is
-    // substituted for it: an empty curve would claim the game was measured and
-    // found flat.
-    const gemeten = Boolean(verloop && verloop.tijden.length > 0);
+    // Whether anything at all was read along the clock, from either source.
+    // Nothing is substituted when the answer is no: an empty curve would claim
+    // the game was measured and found flat, which is the picture this panel was
+    // drawing for every game the app did not watch.
+    const gemeten = Boolean(kromme && kromme.tijden.length > 0);
 
     let punten: Voorsprongpunt[];
     if (grootheid === "goud" || !gemeten) {
@@ -301,8 +333,8 @@ function useTijdlijnData(
       // Both sides are read off the same readings, so the two series share an
       // index -- which is the only reason it is safe to subtract them position
       // by position rather than looking each one up by time.
-      const orde = kolomReeks(verloop, ordeStoelen, grootheid);
-      const chaos = kolomReeks(verloop, chaosStoelen, grootheid);
+      const orde = kolomReeks(kromme, ordeStoelen, grootheid);
+      const chaos = kolomReeks(kromme, chaosStoelen, grootheid);
       punten = orde.map((meting, i) => {
         const tegen = chaos[i]?.waarde ?? 0;
         return { t: meting.t, orde: meting.waarde, chaos: tegen, voorsprong: meting.waarde - tegen };
@@ -312,8 +344,8 @@ function useTijdlijnData(
     const max = Math.max(1, ...punten.map((p) => Math.max(p.orde, p.chaos)));
     const maxVoorsprong = Math.max(1, ...punten.map((p) => Math.abs(p.voorsprong)));
 
-    return { reeksen, punten, max, maxVoorsprong, gemeten, verloop };
-  }, [sporen, items, duur, verloop, grootheid]);
+    return { reeksen, punten, max, maxVoorsprong, gemeten, verloop: kromme };
+  }, [sporen, items, duur, kromme, grootheid]);
 }
 
 /** Seconds to an x in chart space, and back. */
@@ -386,6 +418,7 @@ function Grafiek({
   sporen,
   moment,
   zetMoment,
+  zweef,
   gekozen,
   grootheid,
   venster,
@@ -395,7 +428,10 @@ function Grafiek({
   gebeurtenissen: SpelGebeurtenis[];
   sporen: Spoor[];
   moment: number;
+  /** Pin a second. Only a deliberate act calls this: a click, a tick, a key. */
   zetMoment: (t: number) => void;
+  /** Point at a second, or at nothing when the pointer leaves. Never pins. */
+  zweef: (t: number | null) => void;
   gekozen: string | null;
   grootheid: Grootheid;
   /** The stretch the panel above named, shaded here. Never found again locally. */
@@ -403,14 +439,14 @@ function Grafiek({
 }): JSX.Element {
   const { punten, max, maxVoorsprong, reeksen, gemeten, verloop } = data;
 
-  const uitVoorval = (clientX: number, doel: SVGSVGElement): void => {
+  const secondeVan = (clientX: number, doel: SVGSVGElement): number | null => {
     const kader = doel.getBoundingClientRect();
-    if (kader.width <= 0) return;
+    if (kader.width <= 0) return null;
     // Back out of the viewBox scaling by hand rather than trusting a CTM: the
     // chart is width-100% and the browser has already scaled it.
     const inChart = ((clientX - kader.left) / kader.width) * W;
     const deel = (inChart - PAD.links) / GRAF_B;
-    zetMoment(Math.round(Math.min(1, Math.max(0, deel)) * duur));
+    return Math.round(Math.min(1, Math.max(0, deel)) * duur);
   };
 
   const gekozenStoel = sporen.findIndex((s) => s.sleutel === gekozen);
@@ -451,9 +487,17 @@ function Grafiek({
         viewBox={`0 0 ${W} ${H + STRIP_H}`}
         className="w-full"
         role="img"
-        aria-label="Gold committed to items over time"
-        onMouseMove={(e) => uitVoorval(e.clientX, e.currentTarget)}
-        onClick={(e) => uitVoorval(e.clientX, e.currentTarget)}
+        aria-label={`${
+          GROOTHEDEN.find((g) => g.sleutel === grootheid)?.titel ?? "Gold committed to items"
+        } over time`}
+        // Moving over the chart shows a second; leaving it puts the second back.
+        // Only the click keeps it, which is why the two go to different setters.
+        onMouseMove={(e) => zweef(secondeVan(e.clientX, e.currentTarget))}
+        onMouseLeave={() => zweef(null)}
+        onClick={(e) => {
+          const t = secondeVan(e.clientX, e.currentTarget);
+          if (t !== null) zetMoment(t);
+        }}
       >
         {/* Four rules, labelled in thousands. Any more and the grid competes
             with the two lines it is there to make readable. */}
@@ -684,8 +728,16 @@ function Spoorregel({
           {spoor.kills}/{spoor.deaths}/{spoor.assists}
         </span>
         {/* What this player was carrying at the scrubbed second, not at the end.
-            The whole reason to have a clock. */}
-        <span className="num tijdlijn-spoor-goud">{(goud / 1000).toFixed(1)}k</span>
+            The whole reason to have a clock -- and the reason the number has a
+            tooltip: a bare 7.3k next to a name is unreadable if you cannot see
+            which second it was read at. At rest that second is the last one of
+            the game, so this is the finished build's cost. */}
+        <span
+          className="num tijdlijn-spoor-goud"
+          title={`Gold committed to items by ${klok(moment)}`}
+        >
+          {(goud / 1000).toFixed(1)}k
+        </span>
       </button>
 
       <div className="tijdlijn-baan">
@@ -707,9 +759,14 @@ function Spoorregel({
               // icoon tot 49px links van de seconde die de grafiek eronder
               // tekent. Hoort samen met `.tijdlijn-baan { margin: 0 0 4px; }`.
               style={{ left: `${(xVan(a.stap.at, duur) / W) * 100}%` }}
+              // The last clause is why a faded icon is faded. It only appears on
+              // the faded ones, so the tooltip stays a fact about the purchase
+              // for every icon that is not asking a question of the reader.
               title={`${item?.name ?? "Unknown item"} — ${klok(a.stap.at)}${
                 a.bijbetaling > 0 ? `, ${a.bijbetaling}g` : ""
-              }${a.verbruikt.length > 0 ? `, built from ${a.verbruikt.length}` : ""}`}
+              }${a.verbruikt.length > 0 ? `, built from ${a.verbruikt.length}` : ""}${
+                gehad ? "" : ` — bought after ${klok(moment)}, where the timeline is standing`
+              }`}
             >
               {item ? <img src={asset(item.iconPath)} alt={item.name} /> : <span />}
             </button>
@@ -751,10 +808,16 @@ function Spoorregel({
               ))}
             </ol>
           )}
+          {/* A label and its value, and the reason it is on one row only moves to
+              the tooltip. The clause was three quarters of the line's length and
+              said the same thing on every game. */}
           {spoor.skillOrder && spoor.skillOrder.length > 0 ? (
-            <p className="tijdlijn-uitleg">
-              Skill order: <span className="num">{spoor.skillOrder.join(" ")}</span> &mdash; yours only,
-              because the client reveals nobody else&rsquo;s abilities.
+            <p
+              className="feit"
+              title="Only the seat at the keyboard has one: the client reveals nobody else's abilities."
+            >
+              <span className="feit-kop">Skill order</span>
+              <span className="num feit-waarde">{spoor.skillOrder.join(" ")}</span>
             </p>
           ) : null}
         </div>
@@ -827,22 +890,64 @@ export function Tijdlijn({
   dekking?: Dekking | null;
 }): JSX.Element {
   /**
+   * The second somebody deliberately chose, or null when nobody has chosen one.
+   *
+   * Only a click, a keypress on the slider or a click on an event tick writes
+   * here. See `rustpunt` below for what null resolves to.
+   */
+  const [gekozenMoment, zetGekozenMoment] = useState<number | null>(null);
+  /**
+   * The second the pointer is over right now, or null when it is over no chart.
+   *
+   * Held apart from the chosen second because pointing at a chart and choosing a
+   * second are not the same act, and this panel used to treat them as one. All
+   * three charts scrubbed on mousemove, none of them released on mouseleave, and
+   * the pinned second is what every row below reads -- so a pointer that merely
+   * crossed a chart on its way down the page left the whole panel parked on that
+   * second for as long as it stayed open, with no control showing that anything
+   * had been moved.
+   *
+   * That is the "why are only the first eight items in colour" report, and the
+   * arithmetic matches it exactly. Re-run over the one recording on disk (game
+   * 7965097532, 2667s, ten builds of 18 to 25 purchases): at the resting second
+   * every purchase is in colour, and a pointer left between a quarter and a
+   * third of the chart's width leaves 3 to 11 of them in colour and dims the
+   * rest -- eight in colour lands at 25% to 36% of the width, seat by seat. The
+   * dimming was never wrong, it was answering a question nobody had asked.
+   *
+   * A hover now lasts exactly as long as the hover. A click still pins.
+   */
+  const [zweefMoment, zetZweefMoment] = useState<number | null>(null);
+  /**
+   * Where the scrubber sits when nobody is pointing at anything.
+   *
    * Null means "follow the end of the game", which is the only sensible resting
    * place for a live one: duur grows every poll, so a scrubber parked on the
    * second this component first rendered would sit there while the game ran on
    * without it. It becomes a number the moment somebody points at a second, and
    * then it stays where they put it.
    */
-  const [gekozenMoment, zetGekozenMoment] = useState<number | null>(null);
-  const moment = gekozenMoment === null ? duur : Math.min(gekozenMoment, duur);
+  const rustpunt = gekozenMoment === null ? duur : Math.min(gekozenMoment, duur);
+  const moment = zweefMoment === null ? rustpunt : Math.min(zweefMoment, duur);
   const zetMoment = (t: number): void => zetGekozenMoment(Math.max(0, Math.min(duur, t)));
+  /** A pointer passing over a chart. Null when it leaves, which puts it back. */
+  const zweef = (t: number | null): void =>
+    zetZweefMoment(t === null ? null : Math.max(0, Math.min(duur, t)));
+  const losMoment = (): void => {
+    zetGekozenMoment(null);
+    zetZweefMoment(null);
+  };
   const [gekozen, kies] = useState<string | null>(null);
 
   /**
-   * A recording made before the sampler landed has purchases and nothing else,
-   * so it gets the one series it can support and no switch to press. Offering
-   * three buttons where two of them can only ever draw a flat line would be
-   * offering a measurement that was never taken.
+   * What the reader last asked for, which is not always what can be drawn.
+   *
+   * Held as the request rather than as the answer: a game with a recording opens
+   * on item gold, and the same button pressed on the next game -- one nobody
+   * watched, where no purchase has a timestamp anywhere -- has to fall through
+   * to a quantity that was measured instead of drawing a line at zero. That
+   * fall-through is `actief` below, and `beschikbaar` is what it falls through
+   * to.
    */
   const [grootheid, zetGrootheid] = useState<Grootheid>("goud");
 
@@ -870,11 +975,40 @@ export function Tijdlijn({
     [historie, stoelen],
   );
 
-  const data = useTijdlijnData(sporen, items, duur, verloop, grootheid);
-  // useTijdlijnData is the one place that knows whether the rows decoded, so it
-  // is also the one place that gets to say whether the other series exist.
-  const gemeten = data.gemeten;
-  const actief: Grootheid = gemeten ? grootheid : "goud";
+  /**
+   * Which of the four the sources can actually draw, decided per quantity.
+   *
+   * Item gold needs a purchase to have been seen, which only ever happens for a
+   * game this app was running during -- two of the 130,088 on this machine. The
+   * other three need a reading along the clock, and `bron.herkomst` is non-null
+   * for exactly the measures one of the two sources produced readings for, so
+   * this asks the merge rather than guessing from which source existed.
+   *
+   * A quantity that is not in here would draw a line at zero across the whole
+   * game. That is what the panel was doing: on gameId 7959569696 and 7957444528
+   * -- crawled games with a fetched timeline and no recording -- the only button
+   * on offer was the one quantity with nothing behind it, so the chart came out
+   * flat with all five axis labels reading "0.0k" while a 33- and a 35-frame
+   * timeline sat unread in the same component.
+   */
+  const heeftAankopen = useMemo(() => sporen.some((s) => s.build.length > 0), [sporen]);
+  const beschikbaar = useMemo(
+    () =>
+      GROOTHEDEN.filter((g) =>
+        g.sleutel === "goud" ? heeftAankopen : bron.herkomst[g.sleutel] !== null,
+      ),
+    [bron, heeftAankopen],
+  );
+  /**
+   * What is drawn: what was asked for while it is on offer, and otherwise the
+   * first thing that is. Item gold stays first in GROOTHEDEN and so stays the
+   * opening view of every recorded game, which is the one it was chosen for.
+   */
+  const actief: Grootheid =
+    beschikbaar.some((g) => g.sleutel === grootheid)
+      ? grootheid
+      : (beschikbaar[0]?.sleutel ?? "goud");
+  const data = useTijdlijnData(sporen, items, duur, bron.verloop ?? undefined, actief);
   const uitleg = GROOTHEDEN.find((g) => g.sleutel === actief) ?? GROOTHEDEN[0];
 
   /**
@@ -909,9 +1043,13 @@ export function Tijdlijn({
   return (
     <Panel className="tijdlijn">
       <div className="tijdlijn-kop">
-        {gemeten ? (
+        {/* Only the quantities something measured. A button that can only ever
+            draw a flat line is an offer of a measurement nobody took, and the
+            reader who presses it cannot tell that from a game in which nothing
+            happened. One quantity gets its name rather than a switch. */}
+        {beschikbaar.length > 1 ? (
           <div className="tijdlijn-keuze" role="group" aria-label="What the chart shows">
-            {GROOTHEDEN.map((g) => (
+            {beschikbaar.map((g) => (
               <button
                 key={g.sleutel}
                 type="button"
@@ -927,7 +1065,7 @@ export function Tijdlijn({
             ))}
           </div>
         ) : (
-          <p className="tijdlijn-titel">Gold committed to items</p>
+          <p className="tijdlijn-titel">{uitleg?.titel ?? "Gold committed to items"}</p>
         )}
         {/* Arrow keys, because a scrubber you can only reach with a mouse is a
             scrubber half the people looking at this cannot use. */}
@@ -940,6 +1078,36 @@ export function Tijdlijn({
           aria-label="Move through the game"
           className="tijdlijn-schuif"
         />
+        {/* Where the scrubber stands, in three words rather than in a sentence.
+            Everything below reads `moment`, so when it is not at the end of the
+            game the reader has to be able to see that in one glance and put it
+            back in one click -- otherwise a dimmed item row is a bug report.
+            The tooltip carries the reason the row dims; the label carries only
+            the state, because a label nobody can read at a glance is a caption. */}
+        {gekozenMoment === null ? (
+          <span
+            className={`tijdlijn-stand ${zweefMoment === null ? "" : "tijdlijn-stand-zweef"}`}
+            title="Everything below is read at this second. Purchases made after it are faded."
+          >
+            {zweefMoment === null ? (
+              "Whole game"
+            ) : (
+              <>
+                At <span className="num">{klok(moment)}</span>
+              </>
+            )}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={losMoment}
+            className="tijdlijn-stand tijdlijn-stand-terug"
+            title="Back to the end of the game. Purchases made after the pinned second are faded."
+          >
+            At <span className="num">{klok(moment)}</span>
+            <span aria-hidden="true">&times;</span>
+          </button>
+        )}
       </div>
 
       {/* What this chart is allowed to claim, before the chart claims it.
@@ -958,6 +1126,7 @@ export function Tijdlijn({
         sporen={sporen}
         moment={moment}
         zetMoment={zetMoment}
+        zweef={zweef}
         gekozen={gekozen}
         grootheid={actief}
         venster={venster ?? null}
@@ -982,6 +1151,7 @@ export function Tijdlijn({
         duur={duur}
         moment={moment}
         zetMoment={zetMoment}
+        zweef={zweef}
         xVan={(t) => xVan(t, duur)}
         links={PAD.links}
         rechts={PAD.rechts}
@@ -997,6 +1167,7 @@ export function Tijdlijn({
         duur={duur}
         moment={moment}
         zetMoment={zetMoment}
+        zweef={zweef}
         champions={champions}
         xVan={(t) => xVan(t, duur)}
         links={PAD.links}
@@ -1010,7 +1181,60 @@ export function Tijdlijn({
           above this chart, and repeating it under the chart in different wording
           would read as two findings that happen to agree rather than as one. The
           band is this chart's share of that finding. */}
-      <p className="tijdlijn-uitleg">{uitleg?.uitleg}</p>
+      {/* Which source drew this line and how often it looked. The chart can now
+          be fed by the recording or by the match-history frames, and pressing a
+          button that appears to change only the units can change the clock
+          underneath -- so the cadence is stated here, from the readings that
+          were merged, rather than asserted in the prose above. Nothing to say
+          for item gold: it is not one of the merged measures, it is rebuilt from
+          purchases, and the sentence under it already says so. */}
+      {actief === "goud" ? null : <Herkomstregel herkomst={bron.herkomst[actief] ?? null} />}
+
+      {/* ── What the chart is made of, counted ──────────────────────────────
+          The paragraph that used to sit open here is an argument rather than a
+          reading: it says whether the quantity was measured during the game or
+          rebuilt from side effects afterwards, and what the curve therefore does
+          and does not mean. That is worth every word and it is not worth reading
+          twice, so it goes behind the fold and the countable part of it comes
+          out onto the surface -- how many readings the line is drawn from, and
+          which of the two kinds of number it is.
+
+          The count is `data.punten` and not a constant: for item gold it is the
+          number of seconds somebody was seen to shop, and for the three measured
+          quantities it is the number of readings that were taken. Those are
+          genuinely different figures and the reader is entitled to see which one
+          he is looking at a curve of. */}
+      <div className="feitenrij">
+        <span className="feit">
+          <span className="feit-kop">Readings</span>
+          <span className="num feit-waarde">{data.punten.length}</span>
+        </span>
+        <span className="feit">
+          <span className="feit-kop">Kind</span>
+          <span className="feit-waarde-stil">
+            {uitleg?.gemeten ? "measured during the game" : "rebuilt from purchases afterwards"}
+          </span>
+        </span>
+        {gebeurtenissen.length > 0 ? (
+          <span className="feit">
+            <span className="feit-kop">Timed events</span>
+            <span className="num feit-waarde">{gebeurtenissen.length}</span>
+          </span>
+        ) : null}
+      </div>
+
+      <details className="uitleg-fold">
+        <summary>What this line is</summary>
+        <p>{uitleg?.uitleg}</p>
+        {/* Why this source and not the other one. It used to be appended to the
+            caption above, on the open surface, where on creep score it ran to
+            three sentences under the chart. The caption keeps the three readings
+            -- source, cadence, window -- and the argument lands here, because on
+            creep score it is also where the figure behind the choice lives. */}
+        {actief !== "goud" && bron.herkomst[actief]?.nuance ? (
+          <p>{bron.herkomst[actief]?.nuance}</p>
+        ) : null}
+      </details>
 
       <div className="tijdlijn-sporen">
         {orde.length > 0 ? (
@@ -1228,11 +1452,29 @@ export function Tijdlijnpaneel({
           tijdlijn ? (
             <Koppelregel koppeling={tijdlijn.koppeling} opname={tijdlijn.opname} />
           ) : (
-            <p>
-              Rebuilt from match history, one frame a minute, fetched from the League client the
-              moment you opened this game. Nobody was watching it run, so there are no purchases
-              and no skill order &mdash; those exist only for games this app recorded itself.
-            </p>
+            // The same shape as the join above it: the countable part on the
+            // surface, the reason behind a summary. Both branches of this slot
+            // are now a disclosure, so a game with a recording and a game
+            // without one read the same way rather than one of them ending in a
+            // paragraph and the other in a control.
+            <details>
+              <summary>
+                Rebuilt from match history &mdash;{" "}
+                <span className="num">{gevonden?.verloop.tijden.length ?? 0}</span> frames, one a
+                minute
+              </summary>
+              <ul>
+                <li>
+                  Fetched from the League client the moment you opened this game, not stored
+                  beforehand.
+                </li>
+                <li>
+                  No purchases and no skill order: nobody was watching this game run, and the frames
+                  carry no ITEM_PURCHASED event of any kind. Those exist only for games this app
+                  recorded itself.
+                </li>
+              </ul>
+            </details>
           )
         }
         // Absent on every recording written before the sampler landed, and the

@@ -310,25 +310,37 @@ export function NaspelPaneel({
         venster={omslag?.ergste ?? null}
       />
 
-      <p className="text-[11px] leading-relaxed text-ink-600">
-        Everything above the timeline is measured against the ten players in this game and nothing
-        else.{" "}
+      {/* What the screen above is measured against, one fold down.
+          It is a scope note rather than a reading -- there is no figure in it --
+          and the panels it describes each already carry their own provenance
+          line, so leaving it open at the bottom of the page was the third time
+          the same fact was stated. The wording of the no-recording branch was
+          also out of date: this app does fetch the per-minute timeline now, and
+          a paragraph saying otherwise under a screen that is drawing one is
+          worse than no paragraph. */}
+      <details className="uitleg-fold">
+        <summary>What these figures are measured against</summary>
+        <p>
+          Everything above the timeline is measured against the ten players in this game and nothing
+          else &mdash; except the block at the top, which is measured against every recorded game of
+          your champion in your lane and says so on its own header.
+        </p>
         {detail.tijdlijn ? (
-          <>
+          <p>
             The timeline below was recorded by this app while the game was running, which is why it
-            can say what was bought and when, and why it reads the scoreline every few seconds
-            rather than once a minute.
-          </>
+            can say what was bought and when, and why it reads the scoreline every few seconds rather
+            than once a minute.
+          </p>
         ) : (
-          <>
-            This app was not running while this game was played, so nothing here is a reading taken
-            during it &mdash; only what each player finished with. Match history does keep a
-            per-minute timeline for Classic games, which nothing in this app fetches yet; it holds
-            gold, creeps and levels but no purchases, so it could show how the game went and never
-            what was built.
-          </>
+          <p>
+            This app was not running while this game was played, so nothing above the timeline is a
+            reading taken during it &mdash; only what each player finished with. The curves below it
+            come from the per-minute timeline match history keeps for Classic games, fetched from the
+            client when you opened this game: it holds gold, creeps and levels but no purchases, so
+            it can show how the game went and never what was built.
+          </p>
         )}
-      </p>
+      </details>
     </div>
   );
 }
@@ -763,55 +775,78 @@ function Verschil({
 function ScoreRegel({ naspel }: { naspel: Naspel }): JSX.Element {
   const [open, setOpen] = useState(false);
 
+  /**
+   * Which yardstick this game was scored on, as a value beside a label.
+   *
+   * The two warnings under this button used to be three-sentence paragraphs on
+   * the open surface. They are worth keeping to the word -- a score against the
+   * lobby and a score against the database are different claims and the reader
+   * has to be able to tell -- but which of the three it was is a one-word fact,
+   * and one word is what belongs beside a button. The paragraph moved inside the
+   * panel the button opens, next to the rule it is a caveat about.
+   */
+  const ijkWoord =
+    naspel.ijk === "champion" ? "champion, lanes pooled" : naspel.ijk === "lobby" ? "this lobby" : null;
+
   return (
     <div>
-      <button type="button" className="naspel-regel-knop" onClick={() => setOpen(!open)}>
-        <svg
-          viewBox="0 0 24 24"
-          width="11"
-          height="11"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-          className={`transition-transform ${open ? "rotate-90" : ""}`}
-        >
-          <path d="m9 6 6 6-6 6" />
-        </svg>
-        How the score is made
-      </button>
-
-      {/* Stated where the score is, rather than only inside the panel that
-          explains it.
-
-          The old caveat here counted factors, because a game stored before the
-          store kept damage was scored on four of seven and the reader had to be
-          told. That is gone: every game is now scored on the same five figures,
-          all of which are on every record, so scores are comparable between
-          games and there is nothing left to warn about on that front. What is
-          left to warn about is which yardstick was available, and that is a
-          property of the database rather than of the game. */}
-      {naspel.ijk === "champion" ? (
-        <p className="naspel-beperkt">
-          This game came back without lanes, so everyone was measured against their champion across
-          every lane instead of in one. That is a coarser comparison &mdash; a champion is played in
-          its usual lane about seven games in ten &mdash; but it is still each player against their
-          own champion, and not against whoever farmed most in the lobby.
-        </p>
-      ) : null}
-      {naspel.ijk === "lobby" ? (
-        <p className="naspel-beperkt">
-          There are not enough recorded games yet to say what these champions normally do, so this
-          score compares the ten players in this game with each other instead. That is the older and
-          worse yardstick: it flatters whoever farmed most and it is unkind to supports. It corrects
-          itself as the database fills.
-        </p>
-      ) : null}
+      <div className="naspel-regel-rij">
+        <button type="button" className="naspel-regel-knop" onClick={() => setOpen(!open)}>
+          <svg
+            viewBox="0 0 24 24"
+            width="11"
+            height="11"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className={`transition-transform ${open ? "rotate-90" : ""}`}
+          >
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+          How the score is made
+        </button>
+        {ijkWoord ? (
+          <span className="feit">
+            <span className="feit-kop">Scored against</span>
+            <span className="feit-waarde-stil">{ijkWoord}</span>
+          </span>
+        ) : null}
+        {naspel.ijkGames !== null ? (
+          <span className="feit" title="The thinnest average behind any player on this screen. Every other seat stands on at least this many recorded games.">
+            <span className="feit-kop">Thinnest average</span>
+            <span className="num feit-waarde">
+              {naspel.ijkGames.toLocaleString()} {naspel.ijkGames === 1 ? "game" : "games"}
+            </span>
+          </span>
+        ) : null}
+      </div>
 
       {open ? (
         <div className="naspel-regel">
+          {/* The caveat first, inside the panel, because it changes what every
+              weight below it means. It used to sit on the open surface as a
+              paragraph; the fact it carries -- which yardstick -- is now the
+              chip beside the button, and this is the argument behind that
+              chip. */}
+          {naspel.ijk === "champion" ? (
+            <p className="naspel-beperkt">
+              This game came back without lanes, so everyone was measured against their champion
+              across every lane instead of in one. That is a coarser comparison &mdash; a champion is
+              played in its usual lane about seven games in ten &mdash; but it is still each player
+              against their own champion, and not against whoever farmed most in the lobby.
+            </p>
+          ) : null}
+          {naspel.ijk === "lobby" ? (
+            <p className="naspel-beperkt">
+              There are not enough recorded games yet to say what these champions normally do, so
+              this score compares the ten players in this game with each other instead. That is the
+              older and worse yardstick: it flatters whoever farmed most and it is unkind to
+              supports. It corrects itself as the database fills.
+            </p>
+          ) : null}
           <p className="mb-2.5 text-[11px] leading-relaxed text-ink-300">
             Every player is measured against what their own champion normally does in their own
             lane, so a support&rsquo;s 11 CS is held against other supports and not against the top
@@ -837,13 +872,11 @@ function ScoreRegel({ naspel }: { naspel: Naspel }): JSX.Element {
               </li>
             ))}
           </ul>
+          {/* The sample the weights stand on is a figure, so it is a cell beside
+              the button rather than the opening clause of this paragraph. What
+              is left here is the one thing that is not a number: why three of
+              the columns on screen are deliberately not in the score. */}
           <p className="mt-2.5 text-[10px] leading-relaxed text-ink-600">
-            {naspel.ijkGames !== null ? (
-              <>
-                The thinnest average behind this game stands on {naspel.ijkGames.toLocaleString()} recorded{" "}
-                {naspel.ijkGames === 1 ? "game" : "games"}.{" "}
-              </>
-            ) : null}
             Damage, damage taken and vision are shown above but deliberately not scored: no stored
             game carries them and there is no backfill, so scoring on them would mean two different
             rules on one screen. When enough games have them, they become factors here too.

@@ -375,9 +375,11 @@ export interface OpnameSpeler {
  *
  * Stored column by column rather than as a list of readings, and that is a
  * measurement rather than a preference. Priced over 3,000 real games out of
- * matches.jsonl at a reading every fifteen seconds, the same curve costs 80,064
- * bytes a game written as one named object per player per reading, 20,428 as a
- * fixed-order tuple per player per reading, and 18,216 like this. It is both the
+ * matches.jsonl at a reading every fifteen seconds -- coarser than the ten the
+ * sampler actually keeps, so all three figures are floors rather than the live
+ * cost -- the same curve costs 80,064 bytes a game written as one named object
+ * per player per reading, 20,428 as a fixed-order tuple per player per reading,
+ * and 18,216 like this. It is both the
  * smallest of the three and the only cheap one that still says which number is
  * which.
  *
@@ -578,7 +580,7 @@ export interface HistorieGemeten {
  * How a game went, rebuilt from match history rather than from watching it.
  *
  * The counterpart to GameTijdlijn and explicitly not the same thing. That one is
- * a recording: fifteen-second samples, every purchase with a timestamp, and the
+ * a recording: ten-second samples, every purchase with a timestamp, and the
  * seat that was at the keyboard identifiable because only that seat has a skill
  * order. This one is one frame a minute out of
  * `/lol-match-history/v1/game-timelines/{gameId}`, which exists for games nobody

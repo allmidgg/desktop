@@ -163,7 +163,16 @@ async function main(): Promise<void> {
       const kleur = u.toon === "goed" ? c.green : u.toon === "slecht" ? c.red : c.cyan;
       const ster = u.tier === "ver" ? `${c.yellow}*${c.reset}` : " ";
       console.log(`  ${ster}${kleur}${u.gebied}:${c.reset} ${u.zin}`);
-      console.log(`    ${c.dim}${u.cijfers}${c.reset}`);
+      // The four columns the screen draws, beside the sentence they were built
+      // from. The sentence now sits behind a fold on that screen and the table
+      // is what a reader sees, so a probe that printed only the sentence would
+      // be checking the half nobody reads.
+      for (const m of u.metingen) {
+        console.log(
+          `    ${c.dim}${m.maat.padEnd(28)}${c.reset}${m.jij.padStart(10)}` +
+            `${c.dim}${(m.norm ?? "").padStart(20)}${c.reset}${(m.verschil ?? "").padStart(10)}`,
+        );
+      }
       if (u.band && u.gat !== null) {
         const toon = u.band.ratio
           ? (n: number) => `${(n * 100).toFixed(1)}%`

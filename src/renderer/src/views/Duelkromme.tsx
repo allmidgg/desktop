@@ -135,7 +135,7 @@ const redenGeen = (veld: SamenloopVeld, heeftHistorie: boolean): string =>
   veld === "wards"
     ? "Only a game this app had open while it ran has a ward score. The match-history frames carry no vision figure of any kind."
     : veld === "gold" && !heeftHistorie
-      ? "Gold earned for all ten seats comes from match history, which needs the League client running. Start it and open this game again."
+      ? "Total gold for all ten seats comes from match history, which needs the League client running. Start it and open this game again."
       : "Neither source carried a reading of this for this game.";
 
 /**
@@ -185,6 +185,7 @@ export function Duelkromme({
   duur,
   moment,
   zetMoment,
+  zweef,
   champions,
   xVan,
   links,
@@ -215,7 +216,10 @@ export function Duelkromme({
   laanmetingen: Array<Laanmeting | null> | null;
   duur: number;
   moment: number;
+  /** Pin a second. Only a deliberate act calls this: a click, a key. */
   zetMoment: (t: number) => void;
+  /** Point at a second, or at nothing when the pointer leaves. Never pins. */
+  zweef: (t: number | null) => void;
   champions: Map<number, ChampionSummary>;
   xVan: (t: number) => number;
   links: number;
@@ -322,10 +326,11 @@ export function Duelkromme({
    *
    * The scrubber changes on every pixel the cursor travels, and every one of
    * those is a re-render. Rebuilding a step path there means walking the whole
-   * reading list three times to produce strings that did not change -- at the
-   * sampler's fifteen-second cadence a median Classic game is 123 readings and
-   * the cap is 320, so it is small either way, but it is also exactly the work
-   * a memo exists to skip.
+   * reading list three times to produce strings that did not change. The median
+   * of the 130,197 games in matches.jsonl runs 1,807 seconds, which is 181
+   * readings at the sampler's ten-second cadence and 31 at the one-frame-a-minute
+   * cadence the match-history timeline answers on, so it is small either way --
+   * but it is also exactly the work a memo exists to skip.
    */
   const paden = useMemo(() => {
     if (!kromme || kromme.punten.length === 0) return null;
@@ -451,11 +456,21 @@ export function Duelkromme({
               // The one thing a reader has to know before believing a line:
               // which of the two sources it came off, and how often it looked.
               // They have different cadences and different blind spots, and a
-              // button that hid that would let a minute curve be read as a
-              // fifteen-second one. Taken from the merge rather than from a
+              // button that hid that would let a once-a-minute curve be read as
+              // a ten-second one. Taken from the merge rather than from a
               // constant on the button, because which source wins a measure is
               // decided per game by what each of them turned out to carry.
-              title={bron.herkomst[g.veld]?.zin ?? redenGeen(g.veld, heeftHistorie)}
+              //
+              // Both halves here, unlike the caption under the chart. A tooltip
+              // is already a fold -- nobody reads it who did not ask for it --
+              // so it is the one place the reasoning costs the reader nothing.
+              title={
+                bron.herkomst[g.veld]
+                  ? [bron.herkomst[g.veld]?.zin, bron.herkomst[g.veld]?.nuance]
+                      .filter((s) => s)
+                      .join(" ")
+                  : redenGeen(g.veld, heeftHistorie)
+              }
             >
               {g.naam}
             </button>
@@ -468,6 +483,9 @@ export function Duelkromme({
         className="duel-strip"
         role="img"
         aria-label={`${grootheid.naam} for ${mij.championName} against ${hij.championName}, over the game`}
+        // A hover shows a second and lasts as long as the hover. It used to pin
+        // one, and nothing put it back, so a pointer crossing this strip on its
+        // way down the page left every row below reading a second nobody chose.
         onMouseMove={(e) => {
           const kader = e.currentTarget.getBoundingClientRect();
           if (kader.width <= 0) return;
@@ -476,8 +494,9 @@ export function Duelkromme({
           // chart above uses, so both land the scrubber on the same second.
           const inStrip = ((e.clientX - kader.left) / kader.width) * breedte;
           const deel = (inStrip - links) / (breedte - links - rechts);
-          zetMoment(Math.round(Math.min(1, Math.max(0, deel)) * duur));
+          zweef(Math.round(Math.min(1, Math.max(0, deel)) * duur));
         }}
+        onMouseLeave={() => zweef(null)}
       >
         {/* The stretch that went worst, as a band rather than a marker. It has a
             width because it happened over time, and drawing it as a single line
@@ -629,66 +648,132 @@ export function Duelkromme({
               </button>
             );
           })}
+          {/* What a lead of that size normally is, as two figures rather than as
+              a clause. The buttons above are gold, your team against theirs;
+              these are the middle of the measured spread at the same two
+              minutes, so a reader can see at a glance whether his 900 is small.
+              The sample travels with them, because 120 games is what these two
+              medians stand on and a median without its sample is a rumour. */}
           <span className="duel-ijkpunt-uitleg">
-            gold, your team against theirs. Median at ten is{" "}
-            <span className="num">1,562</span> and at fifteen{" "}
-            <span className="num">3,167</span>, over 120 games measured out of this database.
+            <span className="feit">
+              <span className="feit-kop">Median at 10</span>
+              <span className="num feit-waarde">1,562</span>
+            </span>
+            <span className="feit">
+              <span className="feit-kop">At 15</span>
+              <span className="num feit-waarde">3,167</span>
+            </span>
+            <span className="feit">
+              <span className="feit-kop">Games</span>
+              <span className="num feit-waarde">120</span>
+            </span>
           </span>
         </div>
       ) : null}
 
-      {/* No verdict sentence here either. The stretch is named once, at the top
-          of the page, with the deaths and objectives that were in it; this strip
-          shows what the two of you were doing across it. */}
-      <p className="tijdlijn-uitleg">
-        {veld === "gold"
-          ? "Both lines are total gold earned, one frame a minute out of match history"
-          : "Both lines were read off the running game"}
-        , seat {mijnSeat + 1} against seat{" "}
-        {(mijnKant === "ORDER" ? duel.chaos : duel.orde) + 1}, and held flat between readings
-        because what the number did in between was not observed. The worst stretch is one measured
-        lead subtracted from another a minute earlier &mdash; the steepest fall, which is not the
-        same thing as the widest gap: the widest gap is usually the end of a game that was decided
-        ten minutes before.
-        {/* Where the pairing came from, because the two answers are not equally
-            good and the reader cannot tell them apart from the picture. */}
+      {/* ── What this strip is, in figures ────────────────────────────────
+          This used to be a paragraph of five sentences under the chart, and the
+          owner's answer to it was that he wanted the statistics rather than the
+          essay. Every figure that was inside those sentences is now a labelled
+          cell -- the lane's normal gap at fifteen, the tail of it, the sample it
+          stands on, where measurement starts -- and the argument for why the
+          pairing and the cadence are what they are sits one click below, word
+          for word. No verdict sentence here either way: the stretch is named
+          once, at the top of the page, with the deaths and objectives that were
+          in it. */}
+      <div className="feitenrij">
+        <span className="feit">
+          <span className="feit-kop">Read from</span>
+          <span className="feit-waarde-stil">
+            {veld === "gold" ? "match history · 1 frame/min" : "the running game"}
+          </span>
+        </span>
+        <span className="feit">
+          <span className="feit-kop">Seats</span>
+          <span className="num feit-waarde">
+            {mijnSeat + 1} vs {(mijnKant === "ORDER" ? duel.chaos : duel.orde) + 1}
+          </span>
+        </span>
+        <span className="feit">
+          <span className="feit-kop">Paired on</span>
+          <span className="feit-waarde-stil">
+            {gemetenDuel ? "where you stood, min 2-10" : "the stored lane label"}
+          </span>
+        </span>
+        {/* The lane's own normal gap, which is the figure that tells the reader
+            whether the number on the read-out above is large. Only on the gold
+            axis, because that is the axis LAANNORM_15 was measured on. */}
+        {(() => {
+          const baan = gemetenDuel ? banen?.[zitplaats] : null;
+          const norm = baan && baan !== "UNKNOWN" ? LAANNORM_15[baan] : null;
+          return norm && veld === "gold" ? (
+            <>
+              <span className="feit">
+                <span className="feit-kop">Normal gap at 15:00</span>
+                <span className="num feit-waarde">{norm.goud.toLocaleString("en")}</span>
+              </span>
+              <span className="feit">
+                <span className="feit-kop">1 pair in 10 past</span>
+                <span className="num feit-waarde">{norm.goudP90.toLocaleString("en")}</span>
+              </span>
+              <span className="feit">
+                <span className="feit-kop">Games</span>
+                <span className="num feit-waarde">{norm.games}</span>
+              </span>
+            </>
+          ) : null;
+        })()}
+        {/* A recording that began mid-game, which is the one fact on this row
+            that changes what the curve on screen means rather than merely
+            describing it. */}
+        {kromme.vanaf > 0 ? (
+          <span className="feit">
+            <span className="feit-kop">Starts at</span>
+            <span className="num feit-waarde">{klok(kromme.vanaf)}</span>
+          </span>
+        ) : null}
+        {kromme.overgeslagen > 0 ? (
+          <span className="feit">
+            <span className="feit-kop">Readings missing one of you</span>
+            <span className="num feit-waarde">{kromme.overgeslagen}</span>
+          </span>
+        ) : null}
+      </div>
+
+      <details className="uitleg-fold">
+        <summary>How this strip is drawn</summary>
+        <p>
+          {veld === "gold"
+            ? // Riot's own word for the field, not ours. It is totalGold, and totalGold
+              // counts the purse a champion spawns holding, so "earned" would be a
+              // claim the reading does not carry. See Teamgoudkromme below, where the
+              // same series is drawn for five seats a side and the figure is stated.
+              "Both lines are Riot's total gold, one frame a minute out of match history"
+            : "Both lines were read off the running game"}
+          , and held flat between readings because what the number did in between was not observed.
+          The worst stretch is one measured lead subtracted from another a minute earlier &mdash; the
+          steepest fall, which is not the same thing as the widest gap: the widest gap is usually the
+          end of a game that was decided ten minutes before.
+        </p>
         {gemetenDuel ? (
-          <>
-            {" "}
+          <p>
             The two of you were paired on where you actually stood in minutes 2 to 10 rather than on
             the lane the match record names &mdash; those labels put two players on one lane in{" "}
             <span className="num">58%</span> of the games in this database, and pairing on them
             quietly hands back the wrong man.
-            {(() => {
-              const baan = banen?.[zitplaats];
-              const norm = baan && baan !== "UNKNOWN" ? LAANNORM_15[baan] : null;
-              return norm && veld === "gold" ? (
-                <>
-                  {" "}
-                  At fifteen minutes the two players in {baan?.toLowerCase()} are normally{" "}
-                  <span className="num">{norm.goud.toLocaleString("en")}</span> gold apart, and one
-                  pair in ten is more than <span className="num">{norm.goudP90.toLocaleString("en")}</span>{" "}
-                  apart, measured over <span className="num">{norm.games}</span> games.
-                </>
-              ) : null;
-            })()}
-          </>
+          </p>
         ) : null}
         {kromme.vanaf > 0 ? (
-          <>
-            {" "}
-            Measurement starts at <span className="num">{klok(kromme.vanaf)}</span>
-            {kromme.overgeslagen > 0 ? (
-              <>
-                {" "}
-                and <span className="num">{kromme.overgeslagen}</span> readings are missing one of
-                you
-              </>
-            ) : null}
-            ; the app began watching after the game had started, and nothing fills the opening in.
-          </>
+          <p>
+            Measurement starts at <span className="num">{klok(kromme.vanaf)}</span>: the app began
+            watching after the game had started, and nothing fills the opening in.
+          </p>
         ) : null}
-      </p>
+        {/* Why this source and not the other, moved off the caption above. On
+            creep score it carries the figure behind the choice, so it belongs
+            behind a fold rather than nowhere. */}
+        {bron.herkomst[veld]?.nuance ? <p>{bron.herkomst[veld]?.nuance}</p> : null}
+      </details>
     </div>
   );
 }
@@ -727,6 +812,7 @@ export function Teamgoudkromme({
   duur,
   moment,
   zetMoment,
+  zweef,
   xVan,
   links,
   rechts,
@@ -739,7 +825,10 @@ export function Teamgoudkromme({
   sporen: Duelspoor[];
   duur: number;
   moment: number;
+  /** Pin a second. Only a deliberate act calls this: a click, a key. */
   zetMoment: (t: number) => void;
+  /** Point at a second, or at nothing when the pointer leaves. Never pins. */
+  zweef: (t: number | null) => void;
   xVan: (t: number) => number;
   links: number;
   rechts: number;
@@ -788,6 +877,32 @@ export function Teamgoudkromme({
   const zijnGoud = mijnKant === "ORDER" ? nu.chaos : nu.orde;
   const x = xVan(moment);
 
+  /**
+   * What both sides are already holding at 0:00, read off the first frame.
+   *
+   * The series is Riot's `totalGold`, and that field counts the purse a champion
+   * spawns with. Measured on every timeline this machine has fetched: frame 0
+   * reads 475 on all ten seats of all four games, and it is still 475 at 1:00 --
+   * it first moves at 2:00. So a five-seat side opens on 2,375 and the read-out
+   * says 2.4k against 2.4k before a minion has died.
+   *
+   * That figure is stated rather than subtracted out. Taking it off would make
+   * the curve disagree with the number the match record carries for the same
+   * game, and a chart that quietly reports 2,375 less than the source it names
+   * is worse than one that says where its floor comes from. It cancels out of
+   * the lead band underneath either way: both sides carry the same purse.
+   *
+   * Null when the two sides do not open level, which no fetched game does, or
+   * when the first frame is already past 0:00 -- then there is no floor to name
+   * and a figure here would be an assumption rather than a reading.
+   */
+  const startpurse = (() => {
+    const eerste = kromme.punten[0];
+    if (!eerste || eerste.t > 0) return null;
+    if (eerste.orde !== eerste.chaos || eerste.orde <= 0) return null;
+    return eerste.orde;
+  })();
+
   return (
     <div className="duel">
       <div className="duel-kop">
@@ -799,7 +914,10 @@ export function Teamgoudkromme({
           <span className={mijnKant === "ORDER" ? "tijdlijn-rood" : "tijdlijn-blauw"}>
             {mijnKant === "ORDER" ? "Red side" : "Blue side"}
           </span>
-          <span className="duel-lane">total gold earned</span>
+          {/* Not "earned". The series is Riot's totalGold and that field carries the
+              spawn purse, so both sides open the game on 2,375 before either has
+              earned anything. The figure is on the row below. */}
+          <span className="duel-lane">total gold</span>
         </span>
       </div>
 
@@ -807,7 +925,9 @@ export function Teamgoudkromme({
         viewBox={`0 0 ${breedte} ${H + STRIP_H}`}
         className="duel-strip"
         role="img"
-        aria-label="Total gold earned by each team, over the game"
+        aria-label="Total gold for each team, over the game"
+        // A hover shows a second and lasts as long as the hover; see the strip
+        // below, which had the same problem and carries the reasoning.
         onMouseMove={(e) => {
           const kader = e.currentTarget.getBoundingClientRect();
           if (kader.width <= 0) return;
@@ -815,8 +935,9 @@ export function Teamgoudkromme({
           // uses, so both land the scrubber on the same second.
           const inStrip = ((e.clientX - kader.left) / kader.width) * breedte;
           const deel = (inStrip - links) / (breedte - links - rechts);
-          zetMoment(Math.round(Math.min(1, Math.max(0, deel)) * duur));
+          zweef(Math.round(Math.min(1, Math.max(0, deel)) * duur));
         }}
+        onMouseLeave={() => zweef(null)}
       >
         {venster ? (
           <rect
@@ -903,15 +1024,69 @@ export function Teamgoudkromme({
         </span>
       </div>
 
-      <p className="tijdlijn-uitleg">
-        Total gold earned by each side, one frame a minute, out of match history rather than out of a
-        recording &mdash; which is why it exists for this game at all. Earned and not carried, so it
-        only ever goes up; the band underneath is the difference, signed from your side. The side
-        ahead at fifteen minutes went on to win <span className="num">75%</span> of 120 games
-        measured out of this database, but the lead changed hands after that minute in{" "}
-        <span className="num">one game in four</span> &mdash; so a checkpoint is a reading and not a
-        result.
-      </p>
+      {/* ── The two figures this chart is worth reading against ──────────────
+          The paragraph that used to sit here carried both of them in the middle
+          of a sentence, which is precisely the arrangement the owner objected
+          to: he wanted the statistics. So the two measured figures are cells,
+          and the whole of the reasoning -- what "earned" means, why the band is
+          signed the way it is, why a checkpoint is a reading rather than a
+          result -- is a click below and word for word.
+
+          Both figures are about the checkpoint lines drawn on the chart above,
+          and they are deliberately printed together: 75% on its own reads as a
+          rule, and it stops reading as one the moment the reader can also see
+          that a quarter of those leads changed hands afterwards. */}
+      <div className="feitenrij">
+        <span className="feit">
+          <span className="feit-kop">Read from</span>
+          <span className="feit-waarde-stil">match history &middot; 1 frame/min</span>
+        </span>
+        {/* The floor of both lines, as a figure rather than as a footnote. Without
+            it the read-out says 2.4k against 2.4k at 0:00 and the only available
+            reading of that is that the chart is broken -- which is the reading it
+            got. It is a measurement off frame 0 of this game, not a constant. */}
+        {startpurse !== null ? (
+          <span className="feit">
+            <span
+              className="feit-kop"
+              title="Riot's totalGold counts the gold a champion spawns holding, so neither line starts at zero. Both sides carry the same amount, so it cancels out of the lead band."
+            >
+              Both sides start on
+            </span>
+            <span className="num feit-waarde">{startpurse.toLocaleString("en")}</span>
+          </span>
+        ) : null}
+        <span className="feit">
+          <span className="feit-kop">Ahead at 15:00 went on to win</span>
+          <span className="num feit-waarde">75%</span>
+        </span>
+        <span className="feit">
+          <span className="feit-kop">Lead changed hands after it</span>
+          <span className="num feit-waarde">1 in 4</span>
+        </span>
+        <span className="feit">
+          <span className="feit-kop">Games measured</span>
+          <span className="num feit-waarde">120</span>
+        </span>
+      </div>
+
+      <details className="uitleg-fold">
+        <summary>How this curve is drawn</summary>
+        <p>
+          Riot&rsquo;s <span className="num">totalGold</span> per seat, summed per side, one frame a
+          minute out of match history rather than out of a recording &mdash; which is why it exists
+          for this game at all. It counts gold received rather than gold in hand, so it only ever
+          goes up, and it includes the purse every champion spawns with: that is why neither line
+          starts at nothing. The band underneath is the difference, signed from your side, and the
+          starting purse cancels out of it.
+        </p>
+        <p>
+          The two figures above were measured over <span className="num">120</span> games out of this
+          database. They point opposite ways on purpose: the side ahead at fifteen minutes usually
+          wins, and often enough to matter it does not, so a checkpoint on this chart is a reading
+          and not a result.
+        </p>
+      </details>
     </div>
   );
 }

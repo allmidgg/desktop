@@ -16,7 +16,7 @@
  * It is deliberately NOT an OpnameRecord and deliberately not a GameTijdlijn.
  * Four separate doc blocks in this repository state that a recording exists only
  * for games the app watched itself and that nothing backfills it, and they are
- * right: a recording samples every fifteen seconds, knows what was bought and
+ * right: a recording samples every ten seconds, knows what was bought and
  * when, knows which seat was at the keyboard, and is the only source for any of
  * those. This is one frame a minute with no purchases, no skill levels, no ward
  * figure and no way to tell whose game it was. Pouring it into the recording
@@ -214,9 +214,18 @@ export function verloopUitTimeline(
  * for every live recording ever made, which trades a gap in one place for a gap
  * in a worse one.
  *
- * `totalGold` and not `currentGold`: earned, not in hand. It only goes up, so it
- * is a score, and a dip in the slope is the thing somebody looking for the
- * minute it went wrong is actually looking for.
+ * `totalGold` and not `currentGold`: gold received, not gold in hand. It only
+ * goes up, so it is a score, and a dip in the slope is the thing somebody
+ * looking for the minute it went wrong is actually looking for.
+ *
+ * Received rather than earned, and the difference shows on screen. `totalGold`
+ * counts the purse a champion spawns holding: frame 0 reads 475 on all ten seats
+ * of all four timelines fetched on this machine, and it is still 475 at 1:00 --
+ * it first moves at 2:00. A five-seat side therefore opens on 2,375. Nothing
+ * here subtracts that off, because a column that silently reported 2,375 less
+ * than the field it names would no longer agree with the match record for the
+ * same game; the screen states the floor instead. See Teamgoudkromme in
+ * renderer/views/Duelkromme.tsx, which prints it.
  */
 export function goudPerStoel(
   timeline: GameTimeline,

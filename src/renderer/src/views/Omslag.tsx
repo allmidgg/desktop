@@ -94,34 +94,57 @@ function Venster({
         </span>
       </div>
 
-      <p className="omslag-zin">{venster.zin}</p>
-
       <Strook venster={venster} duur={duur} />
 
-      {/* The two rates the finding is the difference between, and the bar it had
-          to clear. A sentence that says "you fell 23 CS behind" is worth exactly
-          as much as the reader's ability to see where the 23 came from. */}
-      <p className="omslag-cijfers">
-        <span className="num">
-          you {tempo(venster.jouwTempo)} {eenheid === "CS" ? "CS" : "gold"}/min
-        </span>
-        <span className="omslag-punt">&middot;</span>
-        <span className="num">
-          {venster.soort === "cs-tegenstander" ? (champion?.name ?? venster.ijkNaam) : "normal"}{" "}
-          {tempo(venster.ijkTempo)} {eenheid === "CS" ? "CS" : "gold"}/min
-        </span>
-        <span className="omslag-punt">&middot;</span>
-        <span className="num">
-          {heel(venster.verschil)} over {klokTekst(venster.tot - venster.van)}, against a bar of{" "}
-          {heel(venster.drempel)}
-        </span>
-      </p>
+      {/* ── The finding, in figures ─────────────────────────────────────────
+          There used to be a sentence above this row reading "Between 14:02 and
+          19:30 you fell 23 CS behind Nasus", and every number in it was already
+          on screen twice: the clock is in the header of this block and the 23 is
+          in the cell below. The sentence has gone and nothing measured went with
+          it -- the gap is now a labelled figure like the two rates it is the
+          difference between, and the fact the sentence used to carry has joined
+          the list under it instead of being singled out.
 
-      {venster.feiten.length > 1 ? (
+          The bar stays beside the gap. A finding that says "you fell 23 CS
+          behind" is worth exactly as much as the reader's ability to see both
+          where the 23 came from and what it had to beat to be mentioned. */}
+      <div className="feitenrij omslag-cijfers">
+        <span className="feit">
+          <span className="feit-kop">You</span>
+          <span className="num feit-waarde">
+            {tempo(venster.jouwTempo)} {eenheid === "CS" ? "CS" : "gold"}/min
+          </span>
+        </span>
+        <span className="feit">
+          <span className="feit-kop">
+            {venster.soort === "cs-tegenstander" ? (champion?.name ?? venster.ijkNaam) : "Normal"}
+          </span>
+          <span className="num feit-waarde">
+            {tempo(venster.ijkTempo)} {eenheid === "CS" ? "CS" : "gold"}/min
+          </span>
+        </span>
+        <span className="feit">
+          <span className="feit-kop">{achter ? "Behind by" : "Ahead by"}</span>
+          <span className={`num feit-waarde ${achter ? "omslag-achter" : "omslag-voor"}`}>
+            {heel(venster.verschil)} {eenheid === "CS" ? "CS" : "gold"}
+          </span>
+        </span>
+        <span className="feit">
+          <span className="feit-kop">Over</span>
+          <span className="num feit-waarde">{klokTekst(venster.tot - venster.van)}</span>
+        </span>
+        <span className="feit" title="A stretch is only reported when it is worth more than two minutes of what this champion normally produces in this lane. This is that figure, in the same unit as the gap beside it.">
+          <span className="feit-kop">Bar it cleared</span>
+          <span className="num feit-waarde">{heel(venster.drempel)}</span>
+        </span>
+      </div>
+
+      {venster.feiten.length > 0 ? (
         <ul className="omslag-feiten">
-          {/* The first fact is already in the sentence above. Repeating it here
-              would read as two separate observations that happen to agree. */}
-          {venster.feiten.slice(1).map((feit: OmslagFeit, i) => (
+          {/* All of them now. The first used to be spliced into the sentence
+              above and skipped here, which meant removing the sentence would
+              have quietly dropped a measured event off the screen. */}
+          {venster.feiten.map((feit: OmslagFeit, i) => (
             <li key={i} className={`omslag-feit omslag-feit-${feit.soort}`}>
               {feit.at !== null ? <span className="num omslag-feit-tijd">{klokTekst(feit.at)}</span> : null}
               <span>{feit.tekst}</span>
