@@ -359,13 +359,20 @@ export function Duelkromme({
   // Only when neither source has anything. A crawled game has no recording at
   // all and used to stop here; it now has a match-history timeline, which is
   // the whole point, so the sentence may only be printed when that is missing
-  // too -- and it now says which of the two is absent.
+  // too.
+  //
+  // It used to open with "Nobody was watching it", and that was a claim this
+  // component is in no position to make. Seen on screen during a live game: the
+  // sentence sat directly under a chart that was drawing, beside a count reading
+  // READINGS 11, telling the reader nobody was watching a game the app was
+  // watching at that moment. What is actually known here is that neither source
+  // filled a single measure, not why -- so the text now says that, and stops.
   if (beschikbaar.length === 0) {
     return (
       <p className="duel-leeg">
-        This game has no readings along the clock. Nobody was watching it, and match history has no
-        timeline for it either &mdash; which needs the League client running, so if it is closed,
-        opening it and coming back is enough.
+        Nothing along the clock for this game yet &mdash; neither a recording of it nor a
+        match-history timeline. The timeline needs the League client running, so if it is closed,
+        opening it and coming back here is enough.
       </p>
     );
   }
