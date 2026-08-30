@@ -15,6 +15,7 @@ import type {
   AppSnapshot, ChampionPlan, ChampionSummary, LaneAnalysis, ScoutEntry,
 } from "../../../shared/types";
 import type { ModeId } from "../../../core/modes/types";
+import { modeHasLoadout } from "../../../core/modes/registry";
 import { rangVoor, samenvatting } from "../modus";
 import {
   asset, catalogusIndex, ChampionIcon, FormDots, Panel, PositionIcon, POSITION_LABELS, RankPill,
@@ -81,11 +82,23 @@ export function ChampSelectView({
       <SplashBackdrop champion={mijnChampion} className="-inset-x-6 -top-6 bottom-auto h-[340px]" />
 
       <div className="relative flex items-start justify-between gap-4">
-        <AutoMasteries
-          enabled={snapshot.settings.autoMasteries}
-          status={snapshot.autoMasteryStatus}
-          championId={select.localChampionId}
-        />
+        {/* Only in a lobby whose mode has mastery pages, which is League
+            Classic. The 30-point tree was deleted in 2017, so in a modern
+            champion select this checkbox offers to keep a page in step with
+            your pick that the game no longer has -- and the setter behind it
+            writes in the loadout mode regardless, which would mean editing a
+            Classic page while you queue for something else. The empty span
+            holds the row's left end so the timer and the bans stay where
+            justify-between put them. */}
+        {modeHasLoadout(modus) ? (
+          <AutoMasteries
+            enabled={snapshot.settings.autoMasteries}
+            status={snapshot.autoMasteryStatus}
+            championId={select.localChampionId}
+          />
+        ) : (
+          <span />
+        )}
         <div className="flex items-center gap-3">
           <BanStrip
             label="Your bans"

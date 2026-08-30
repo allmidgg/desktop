@@ -64,6 +64,24 @@ export interface ModeDescriptor {
    * an undocumented endpoint what we are meant to fetch legally.
    */
   readonly crawl: boolean;
+  /**
+   * Whether this mode has the Season 3 loadout: a rune shop with marks, seals,
+   * glyphs and quintessences, and a 30-point offence/defence/utility mastery
+   * tree.
+   *
+   * True for lol:jade only. Riot deleted masteries in 2017 and replaced both
+   * systems with Runes Reforged, so in the modern game there is no such page to
+   * read and none to write. This is what the window's Runes and Masteries tabs
+   * hang off: those two screens draw these two systems and nothing else, so in a
+   * mode without them the honest answer is no tab at all, rather than a screen
+   * offering to write pages the client cannot hold.
+   *
+   * Its own field rather than `id === "lol:jade"` spelled out at each call site.
+   * Those comparisons are the ones that quietly become wrong when a mode is
+   * added, and they sit in the renderer where nobody reading this table would
+   * think to look for them.
+   */
+  readonly loadout: boolean;
 }
 
 /**

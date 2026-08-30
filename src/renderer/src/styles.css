@@ -1500,11 +1500,18 @@ button.tier-tegel,
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @utility snelnav {
-  /* Four equal quarters. The drawing divides the bar by width and not by
+  /* Equal cells, one per exit. The drawing divides the bar by width and not by
      content: the whitespace before each divider is uneven precisely because the
-     labels differ in length while the cells do not. */
+     labels differ in length while the cells do not.
+
+     The count comes from the items rather than being fixed at four, because the
+     bar no longer always has four: Runes and Masteries are League Classic only,
+     so outside it there are two. A hardcoded repeat(4, ...) would then draw two
+     buttons and two empty quarters -- half a bar, which is a change to the
+     drawing. This keeps the drawing and lets it fit what is in it. */
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
 }
 
 @utility snelnav-item {

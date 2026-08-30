@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { AppSnapshot, Settings, UploadStatus } from "../../shared/types";
 import type { CollectedMode } from "../../core/modes/registry";
-import { modeCollects, modeCrawls } from "../../core/modes/registry";
+import { modeCollects, modeCrawls, modeHasLoadout } from "../../core/modes/registry";
 import { ModusMerk } from "./modus";
 import { MerkGeslepen } from "./merk";
 import { LiveView } from "./views/LiveView";
@@ -16,13 +16,26 @@ import { Spinner } from "./ui";
 
 type Tab = "live" | "meta" | "profile" | "runes" | "masteries";
 
-const TABS: Array<{ id: Tab; label: string; icon: string }> = [
+/**
+ * The rail, and which modes each entry belongs to.
+ *
+ * `loadoutOnly` marks the two tabs that draw the Season 3 systems: rune pages
+ * made of marks, seals, glyphs and quintessences, and the 30-point mastery tree.
+ * Riot replaced both with Runes Reforged in 2017, so those screens describe
+ * League Classic and nothing else -- see `loadout` in core/modes/types.ts. They
+ * are left out of the rail in a mode that has no such pages rather than shown
+ * empty, because an empty Masteries screen still says the mode has masteries.
+ */
+const TABS: Array<{ id: Tab; label: string; icon: string; loadoutOnly?: boolean }> = [
   { id: "live", label: "Live", icon: "M12 2 3 7v10l9 5 9-5V7z" },
   { id: "meta", label: "Meta", icon: "M4 20V10m5 10V4m5 16v-7m5 7V7" },
   { id: "profile", label: "Profile", icon: "M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm-9 9a9 9 0 0 1 18 0Z" },
-  { id: "runes", label: "Runes", icon: "M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z" },
-  { id: "masteries", label: "Masteries", icon: "M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z" },
+  { id: "runes", label: "Runes", icon: "M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z", loadoutOnly: true },
+  { id: "masteries", label: "Masteries", icon: "M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z", loadoutOnly: true },
 ];
+
+/** Where a tab that stops existing sends you. Every mode has this one. */
+const THUISTAB: Tab = "live";
 
 /** Both windows load the same bundle; the hash decides which one this is. */
 const venster = window.location.hash.replace("#", "");
@@ -155,23 +168,56 @@ function MainWindow({ snapshot }: { snapshot: AppSnapshot | null }): JSX.Element
     if (inChampSelect) setTab("live");
   }, [inChampSelect]);
 
+  /**
+   * Whether the mode being browsed has runes and masteries at all.
+   *
+   * False while the mode is still null, which is the first frame or two before
+   * the saved setting arrives with the snapshot. Hiding the two tabs until we
+   * know is the right way round: a tab that appears costs the reader nothing,
+   * while one that vanishes takes the thing they were already aiming at.
+   */
+  const heeftLoadout = gekozenModus !== null && modeHasLoadout(gekozenModus);
+  const zichtbareTabs = TABS.filter((entry) => !entry.loadoutOnly || heeftLoadout);
+
+  /**
+   * The tab actually on screen, which is not always the one that was clicked.
+   *
+   * A tab can stop existing under the reader: switching to modern takes Runes
+   * and Masteries out of the rail, and `tab` would go on naming one of them --
+   * a rail highlighting nothing beside a page area rendering a screen that mode
+   * has no data for. Today the mode switch lives on the Meta tab, so in practice
+   * you are standing on Meta when it happens and never see it; this is here so
+   * that stays true when the switch moves, which is exactly the kind of change
+   * nobody would think to re-test this against.
+   *
+   * Resolved during render and not only in the effect below, because effects run
+   * after paint: leaning on the effect alone would let that one bad frame show.
+   */
+  const zichtbaarTab = zichtbareTabs.some((entry) => entry.id === tab) ? tab : THUISTAB;
+
+  // And then written back, so the rail's own state matches what it is drawing
+  // rather than remembering a tab that is no longer on offer.
+  useEffect(() => {
+    if (zichtbaarTab !== tab) setTab(zichtbaarTab);
+  }, [zichtbaarTab, tab]);
+
   return (
     <div className="app-backdrop relative flex h-full flex-col">
       <TitleBar snapshot={snapshot} />
       <div className="relative flex min-h-0 flex-1">
-        <Sidebar tab={tab} onSelect={setTab} hasChampSelect={inChampSelect} />
+        <Sidebar tab={zichtbaarTab} tabs={zichtbareTabs} onSelect={setTab} hasChampSelect={inChampSelect} />
         <main className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
           {/* De key is het hele punt: wisselt hij, dan hangt React de oude
               boom af en zet een nieuwe neer, en dan speelt de animatie opnieuw
               af. Zonder key blijft het dezelfde node en gebeurt er niets. */}
-          <div key={tab} className="tabwissel">
-          {!snapshot || !gekozenModus ? null : tab === "live" ? (
+          <div key={zichtbaarTab} className="tabwissel">
+          {!snapshot || !gekozenModus ? null : zichtbaarTab === "live" ? (
             <LiveView snapshot={snapshot} modus={gekozenModus} onNavigate={setTab} />
-          ) : tab === "meta" ? (
+          ) : zichtbaarTab === "meta" ? (
             <MetaView snapshot={snapshot} modus={gekozenModus} onKiesModus={kiesModus} />
-          ) : tab === "profile" ? (
+          ) : zichtbaarTab === "profile" ? (
             <ProfileView snapshot={snapshot} modus={gekozenModus} />
-          ) : tab === "runes" ? (
+          ) : zichtbaarTab === "runes" ? (
             <RunesView snapshot={snapshot} />
           ) : (
             <MasteriesView snapshot={snapshot} />
@@ -619,10 +665,17 @@ function WindowButton({
 
 function Sidebar({
   tab,
+  tabs,
   onSelect,
   hasChampSelect,
 }: {
   tab: Tab;
+  /**
+   * The entries to draw, already filtered for the mode being browsed. Handed in
+   * rather than read from TABS here, so there is exactly one place that decides
+   * which tabs exist and the rail cannot offer one the shell will not render.
+   */
+  tabs: typeof TABS;
   onSelect: (tab: Tab) => void;
   hasChampSelect: boolean;
 }): JSX.Element {
@@ -638,7 +691,7 @@ function Sidebar({
       {/* The mark used to sit here and now stands in the title bar, on this
           rail's own centre line, so that emblem and wordmark form one lockup
           instead of the mark hanging under its own name. */}
-      {TABS.map((entry) => {
+      {tabs.map((entry) => {
         const active = tab === entry.id;
         return (
           <button

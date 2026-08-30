@@ -19,7 +19,7 @@ import {
   asset, catalogusIndex, ChampionIcon, EmptyState, FormDots, ItemRow, Panel, RankPill,
   SectionTitle, SkillGrid, SpellPair, SplashBackdrop, Winrate, WinrateRing,
 } from "../ui";
-import { COLLECTED_MODES, describeMode, modeLabel } from "../../../core/modes/registry";
+import { COLLECTED_MODES, describeMode, modeHasLoadout, modeLabel } from "../../../core/modes/registry";
 import type { CollectedMode } from "../../../core/modes/registry";
 import type { ModeId } from "../../../core/modes/types";
 import { ModusLeeg, rangVoor, samenvatting } from "../modus";
@@ -253,7 +253,7 @@ function LiveInhoud({
             )}
           </div>
 
-          <Snelnav onNavigate={onNavigate} />
+          <Snelnav modus={modus} onNavigate={onNavigate} />
         </div>
 
         <div className="space-y-5">
@@ -273,7 +273,7 @@ function LiveInhoud({
 }
 
 /**
- * De vier uitgangen van het live-scherm.
+ * De uitgangen van het live-scherm: vier in League Classic, twee daarbuiten.
  *
  * Three of them go exactly where the left rail goes, which looks like a
  * duplicate and is not one. The rail is permanent chrome and permanent chrome
@@ -293,7 +293,19 @@ function LiveInhoud({
  * glyphs at 22px in a 24 grid, so they stay crisp at any scale and cost nothing
  * to load.
  */
-const SNELNAV: Array<{ doel: SnelnavDoel; titel: string; onder: string; pad: string[] }> = [
+const SNELNAV: Array<{
+  doel: SnelnavDoel;
+  titel: string;
+  onder: string;
+  pad: string[];
+  /**
+   * Only offered in a mode that has the Season 3 loadout, exactly like the rail
+   * entry it shadows. The rail hides Runes and Masteries outside League Classic;
+   * a second door to the same two screens sitting open under the match list
+   * would walk you into a tab that no longer exists.
+   */
+  alleenLoadout?: boolean;
+}> = [
   {
     doel: "profile",
     titel: "Profile",
@@ -304,6 +316,7 @@ const SNELNAV: Array<{ doel: SnelnavDoel; titel: string; onder: string; pad: str
     doel: "runes",
     titel: "Runes",
     onder: "Build your runes",
+    alleenLoadout: true,
     pad: [
       "M12 7.6 16.4 12 12 16.4 7.6 12Z",
       "M12 2.4 13.8 4.2 12 6 10.2 4.2Z",
@@ -316,6 +329,7 @@ const SNELNAV: Array<{ doel: SnelnavDoel; titel: string; onder: string; pad: str
     doel: "masteries",
     titel: "Masteries",
     onder: "Mastery pages",
+    alleenLoadout: true,
     pad: [
       "M12 3 14.4 6 12 9 9.6 6Z",
       "M12 9v3",
@@ -336,10 +350,17 @@ const SNELNAV: Array<{ doel: SnelnavDoel; titel: string; onder: string; pad: str
   },
 ];
 
-function Snelnav({ onNavigate }: { onNavigate: (tab: SnelnavDoel) => void }): JSX.Element {
+function Snelnav({
+  modus,
+  onNavigate,
+}: {
+  modus: CollectedMode;
+  onNavigate: (tab: SnelnavDoel) => void;
+}): JSX.Element {
+  const zichtbaar = SNELNAV.filter((entry) => !entry.alleenLoadout || modeHasLoadout(modus));
   return (
     <Panel className="snelnav">
-      {SNELNAV.map((entry) => (
+      {zichtbaar.map((entry) => (
         <button
           key={entry.doel}
           type="button"

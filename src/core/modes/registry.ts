@@ -11,8 +11,11 @@
 import { UNKNOWN_MODE, type KnownModeId, type ModeDescriptor, type ModeId, type QueueKind } from "./types";
 
 export const MODES: readonly ModeDescriptor[] = [
-  { id: "lol:sr", label: "League of Legends", shortLabel: "LoL", collect: true, crawl: false },
-  { id: "lol:jade", label: "League Classic", shortLabel: "Classic", collect: true, crawl: true },
+  // loadout: false. The modern game lost masteries in 2017 and its runes are
+  // Runes Reforged, which is a different system with different data -- not a
+  // sparser version of the one the Runes screen draws.
+  { id: "lol:sr", label: "League of Legends", shortLabel: "LoL", collect: true, crawl: false, loadout: false },
+  { id: "lol:jade", label: "League Classic", shortLabel: "Classic", collect: true, crawl: true, loadout: true },
   {
     // Jade content on the Howling Abyss, and the single clearest reason this
     // module models more than a Classic/modern flag. Game 7953675289 is real:
@@ -29,6 +32,10 @@ export const MODES: readonly ModeDescriptor[] = [
     shortLabel: "Mayhem",
     collect: false,
     crawl: false,
+    // Jade champions and Jade items, so the loadout systems do exist here. The
+    // screens still never see it: this mode is not collected, is never the
+    // browse mode, and therefore never reaches the tab strip.
+    loadout: true,
   },
 ];
 
@@ -85,6 +92,19 @@ export const modeCollects = (id: ModeId): id is CollectedMode =>
  * two ends: what we may fetch, and what we may therefore promise.
  */
 export const modeCrawls = (id: ModeId): boolean => describeMode(id)?.crawl ?? false;
+
+/**
+ * Whether this mode has rune pages and mastery trees to show at all.
+ *
+ * The one place the Runes and Masteries tabs ask that question, so the rail, the
+ * quick-nav under the match list and anything added later cannot end up
+ * disagreeing about which modes those screens apply to.
+ *
+ * False for the unknown mode, which is the safe way round: it hides two screens
+ * we cannot promise anything about instead of opening them onto a mode we could
+ * not name.
+ */
+export const modeHasLoadout = (id: ModeId): boolean => describeMode(id)?.loadout ?? false;
 
 export interface QueueRow {
   readonly mode: KnownModeId;
